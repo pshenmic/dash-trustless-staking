@@ -1,20 +1,14 @@
-import { Command } from 'commander'
+import dotenv from 'dotenv'; dotenv.config();
 
-const program = new Command();
+import { program } from 'commander';
+import CreatePool from './commands/createPool.js';
+import TopUpIdentity from "./commands/topUpIdentity.js";
 
 program
-  .name('string-util')
-  .description('CLI to some JavaScript string utilities')
-  .version('0.8.0');
+  .version('1.0.0')
+  .description('Commander App');
 
-program.command('split')
-  .description('Split a string into substrings and display as an array')
-  .argument('<string>', 'string to split')
-  .option('--first', 'display just the first substring')
-  .option('-s, --separator <char>', 'separator character', ',')
-  .action((str, options) => {
-    const limit = options.first ? 1 : undefined;
-    console.log(str.split(options.separator, limit));
-  });
+program.addCommand(new CreatePool('createPool'));
+program.addCommand(new TopUpIdentity('topUpIdentity'));
 
-program.parse();
+program.parse(process.argv);
