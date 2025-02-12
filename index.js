@@ -2,8 +2,8 @@ import dotenv from 'dotenv'; dotenv.config();
 import fs from "fs";
 
 import { program } from 'commander';
-import CreatePoolCommand from './commands/createPoolCommand.js';
-import TopUpIdentityCommand from "./commands/topUpIdentityCommand.js";
+import CreatePoolCommand from './commands/CreatePoolCommand.js';
+import TopUpIdentityCommand from "./commands/TopUpIdentityCommand.js";
 import initSdk from "./initSdk.js";
 
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf-8'));

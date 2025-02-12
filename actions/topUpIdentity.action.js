@@ -1,4 +1,4 @@
-import config from "../storage/config.js";
+import config from "../config.js";
 import logger from "../logger.js";
 
 const topUpIdentityAction = (sdk) => {
