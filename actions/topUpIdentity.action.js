@@ -1,4 +1,5 @@
 import config from "../storage/config.js";
+import logger from "../logger.js";
 
 const topUpIdentityActionFactory = (initClient) => {
   const client = initClient();
@@ -17,15 +18,15 @@ const topUpIdentityActionFactory = (initClient) => {
       const client = initClient();
       const { platform } = client;
 
-      console.log("Make TopUp Identity balance");
+      logger.log("Make TopUp Identity balance");
 
       await platform.identities.topUp(identity, amount);
 
-      console.log(`Success!`);
+      logger.log(`Success!`);
 
       return true;
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       return false;
     } finally {
       client.disconnect();

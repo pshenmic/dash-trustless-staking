@@ -1,5 +1,6 @@
 import initClient from "../initClient.js";
 import config from "../storage/config.js";
+import logger from "../logger.js";
 
 export async function pushDocument(documentName, documentData) {
 
@@ -28,10 +29,10 @@ export async function pushDocument(documentName, documentData) {
     delete: [],
   };
 
-  console.log("Broadcasting Document");
+  logger.log("Broadcasting Document");
   await client.platform.documents.broadcast(documentBatch, identity);
 
-  console.log("Done", "\n", `Document at: ${document.getId()}`);
+  logger.log("Done", "\n", `Document at: ${document.getId()}`);
 
   return document;
 

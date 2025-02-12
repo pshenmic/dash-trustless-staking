@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import logger from "../logger.js";
 
 class CommandWithTrace extends Command {
   constructor(name) {
@@ -7,9 +8,9 @@ class CommandWithTrace extends Command {
   }
 
   inspectCommand() {
-    console.log(`Called '${this.name()}' with options: %o`, this.opts());
+    logger.log(`Called '${this.name()}' with options: %o`, this.opts());
     if (this.args && this.args.length > 0) {
-      console.log(`Args: ${this.args.join(', ')}`);
+      logger.log(`Args: ${this.args.join(', ')}`);
     }
   }
 

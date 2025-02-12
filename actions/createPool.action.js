@@ -1,15 +1,16 @@
 import {pushDocument} from "../utils/pushDocument.util.js";
+import logger from "../logger.js";
 
 function createPoolAction(name, description, type,) {
 
   const status = "INACTIVE"
 
   if (!['MASTERNODE', 'EVONODE'].includes(type)) {
-    console.error("Invalid pool type. Valid types are 'MASTERNODE' or 'EVONODE'.");
+    logger.error("Invalid pool type. Valid types are 'MASTERNODE' or 'EVONODE'.");
     return;
   }
 
-  console.log(`Creating pool:
+  logger.log(`Creating pool:
     Name: ${name}
     Description: ${description}
     Type: ${type}
