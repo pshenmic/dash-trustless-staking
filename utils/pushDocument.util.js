@@ -1,5 +1,5 @@
-import {getIdentity} from "./getIdentity.util.js";
 import initClient from "../initClient.js";
+import config from "../storage/config.js";
 
 export async function pushDocument(documentName, documentData) {
 
@@ -14,7 +14,7 @@ export async function pushDocument(documentName, documentData) {
   const client = initClient();
   const { platform } = client;
 
-  const identity = await platform.identities.get(getIdentity());
+  const identity = await platform.identities.get(config.identity);
 
   const document = await client.platform.documents.create(
     `TrustlessPoolStaking.${documentName}`,
