@@ -1,34 +1,43 @@
-import {pushDocument} from "../utils/pushDocument.util.js";
 import logger from "../logger.js";
+import Pool from "../models/Pool.js";
+import {pushDocument} from "../utils.js";
+import poolStatusEnum from "../models/enums/poolStatusEnum.js";
+import poolTypeEnum from "../models/enums/poolTypeEnum.js";
 
-function createPoolAction(name, description, type,) {
+const createPoolAction = (sdk) => {
+  return async (name, description, type) => {
+    let result = false;
+    try {
+      const status = poolStatusEnum.INACTIVE;
 
-  const status = "INACTIVE"
+      if (!Object.values(poolTypeEnum).includes(type)) {
+        throw new Error(
+          "Invalid pool type. Valid types are",
+          Object.values(poolTypeEnum).join(", ")
+        );
+      }
 
-  if (!['MASTERNODE', 'EVONODE'].includes(type)) {
-    logger.error("Invalid pool type. Valid types are 'MASTERNODE' or 'EVONODE'.");
-    return;
-  }
+      const pool = new Pool(name, description, type, status);
 
-  logger.log(`Creating pool:
-    Name: ${name}
-    Description: ${description}
-    Type: ${type}
-    Status: ${status}
-  `);
+      logger.log(`Creating pool:
+        Name: ${pool.name}
+        Description: ${pool.description}
+        Type: ${pool.type}
+        Status: ${pool.status}
+      `);
 
-  createPool(name, description, type, status);
-}
+      const docName = 'pools';
 
-async function createPool(name, description, type, status) {
-  const docName = 'pools';
-  const docData = {
-    name,
-    description,
-    type,
-    status,
-  }
-  await pushDocument(docName, docData);
-}
+      await pushDocument(sdk, docName, pool);
+
+      result = true;
+    } catch (e) {
+      logger.error(e);
+    } finally {
+      sdk.disconnect();
+    }
+    return result;
+  };
+};
 
 export default createPoolAction;

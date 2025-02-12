@@ -17,15 +17,8 @@ class SimpleLogger {
 
   _output(level, args) {
     const timestamp = new Date().toISOString();
-    let output = `[${timestamp}] [${level.toUpperCase()}]:`;
-    args.forEach(arg => {
-      if (typeof arg === 'object') {
-        output += ` ${JSON.stringify(arg)}`;
-      } else {
-        output += ` ${arg}`;
-      }
-    });
-    console.log(output);
+    let prefix = `[${timestamp}] [${level.toUpperCase()}]:`;
+    console.log(prefix, ...args);
   }
 }
 

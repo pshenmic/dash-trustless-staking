@@ -15,11 +15,17 @@ class CommandWithTrace extends Command {
   }
 
   action(fn) {
-    return super.action((...args) => {
+    return super.action(async (...args) => {
       if (this.opts().trace) {
         this.inspectCommand();
       }
-      fn(...args);
+
+      try {
+        await fn(...args);
+      } catch (error) {
+        logger.error(`Error during command execution: ${error}`);
+        throw error;
+      }
     });
   }
 }

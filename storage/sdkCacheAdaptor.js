@@ -12,6 +12,6 @@ if (!fs.existsSync(baseDir)) {
   fs.mkdirSync(baseDir, { recursive: true });
 }
 
-const cacheAdaptor = new SimpleStorage(cachePath);
+const sdkCacheAdaptor = new SimpleStorage(cachePath);
 
-export default cacheAdaptor;
+export default sdkCacheAdaptor;

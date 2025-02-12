@@ -1,11 +1,9 @@
 import config from "../storage/config.js";
 import logger from "../logger.js";
 
-const topUpIdentityActionFactory = (initClient) => {
-  const client = initClient();
-
+const topUpIdentityAction = (sdk) => {
   return async (amount) => {
-
+    let result = false;
     try {
       amount = parseInt(amount) || 0;
 
@@ -15,8 +13,7 @@ const topUpIdentityActionFactory = (initClient) => {
 
       const identity = config.identity;
 
-      const client = initClient();
-      const { platform } = client;
+      const { platform } = sdk;
 
       logger.log("Make TopUp Identity balance");
 
@@ -24,15 +21,14 @@ const topUpIdentityActionFactory = (initClient) => {
 
       logger.log(`Success!`);
 
-      return true;
+      result = true;
     } catch (e) {
       logger.error(e);
-      return false;
     } finally {
-      client.disconnect();
+      sdk.disconnect();
     }
-
+    return result;
   }
 }
 
-export default topUpIdentityActionFactory;
+export default topUpIdentityAction;
