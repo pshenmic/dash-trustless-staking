@@ -3,8 +3,8 @@ import createPoolAction from '../actions/createPoolAction.js'
 import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
 
 class CreatePoolCommand extends BaseCommand {
-  constructor(name, sdk) {
-    super(name);
+  constructor(sdk) {
+    super("createPool");
     this.description("Create Pool")
       .argument('<name>', 'The name of the pool')
       .argument('<description>', 'The description of the pool')

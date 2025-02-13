@@ -14,8 +14,8 @@ program
 
 const sdk = initSdk()
 
-const createPoolCommand = new CreatePoolCommand('createPool', sdk)
-const topUpIdentityCommand = new TopUpIdentityCommand('topUpIdentity', sdk)
+const createPoolCommand = new CreatePoolCommand(sdk)
+const topUpIdentityCommand = new TopUpIdentityCommand(sdk)
 
 program.addCommand(createPoolCommand);
 program.addCommand(topUpIdentityCommand);
