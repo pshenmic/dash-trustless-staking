@@ -1,7 +1,7 @@
 // Enum for Pool type
-const TypeEnum = {
+const MasternodeTypeEnum = {
   MASTERNODE: "MASTERNODE",
   EVONODE: "EVONODE"
 };
 
-export default TypeEnum;
+export default MasternodeTypeEnum;

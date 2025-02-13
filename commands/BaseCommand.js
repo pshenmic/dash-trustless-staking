@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import logger from "../logger.js";
 
-class CommandWithTrace extends Command {
+class BaseCommand extends Command {
   constructor(name) {
     super(name);
     this.option('-t, --trace', 'Display extra information when running the command');
@@ -30,4 +30,4 @@ class CommandWithTrace extends Command {
   }
 }
 
-export default CommandWithTrace;
+export default BaseCommand;

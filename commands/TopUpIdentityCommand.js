@@ -1,7 +1,7 @@
-import CommandWithTrace from './CommandWithTrace.js';
+import BaseCommand from './BaseCommand.js';
 import topUpIdentityAction from "../actions/topUpIdentityAction.js";
 
-class TopUpIdentityCommand extends CommandWithTrace {
+class TopUpIdentityCommand extends BaseCommand {
   constructor(name, sdk) {
     super(name);
     this.description("Make TopUp Identity balance")

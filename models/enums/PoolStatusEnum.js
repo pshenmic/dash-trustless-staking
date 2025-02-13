@@ -1,8 +1,8 @@
 // Enum for Pool status
-const StatusEnum = {
+const PoolStatusEnum = {
   ACTIVE: "ACTIVE",
   INACTIVE: "INACTIVE",
   FILLED: "FILLED"
 };
 
-export default StatusEnum;
+export default PoolStatusEnum;

@@ -25,9 +25,9 @@ function initSdk() {
     }
   };
 
-  if (process.env.SKIP_SYNCHRONIZATION_BEFORE_HEIGHT) {
+  if (config.skipSynchronizationBeforeHeight) {
     options.wallet.unsafeOptions = {
-      skipSynchronizationBeforeHeight: Number(process.env.SKIP_SYNCHRONIZATION_BEFORE_HEIGHT),
+      skipSynchronizationBeforeHeight: config.skipSynchronizationBeforeHeight,
     };
   }
 

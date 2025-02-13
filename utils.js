@@ -17,16 +17,6 @@ import logger from "./logger.js";
  * @returns {Promise<Object>} The created document object, after it is broadcasted.
  */
 export async function pushDocument(sdk, documentName, documentData) {
-  if (!sdk) {
-    throw new Error("No sdk specified");
-  }
-  if (!documentName) {
-    throw new Error("No documentName specified");
-  }
-  if (!documentData) {
-    throw new Error("No documentData specified");
-  }
-
   const { platform } = sdk;
 
   const identity = await platform.identities.get(config.identity);

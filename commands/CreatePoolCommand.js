@@ -1,14 +1,14 @@
-import CommandWithTrace from './CommandWithTrace.js';
+import BaseCommand from './BaseCommand.js';
 import createPoolAction from '../actions/createPoolAction.js'
-import poolTypeEnum from "../models/enums/poolTypeEnum.js";
+import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
 
-class CreatePoolCommand extends CommandWithTrace {
+class CreatePoolCommand extends BaseCommand {
   constructor(name, sdk) {
     super(name);
     this.description("Create Pool")
       .argument('<name>', 'The name of the pool')
       .argument('<description>', 'The description of the pool')
-      .argument('<type>', `The type of the pool (${Object.values(poolTypeEnum).join(", ")})`)
+      .argument('<type>', `The type of the pool (${Object.values(MasternodeTypeEnum).join(", ")})`)
       .action(createPoolAction(sdk));
   }
 }
