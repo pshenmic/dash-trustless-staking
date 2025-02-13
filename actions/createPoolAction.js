@@ -3,7 +3,6 @@ import Pool from "../models/Pool.js";
 import {pushDocument} from "../utils.js";
 import PoolStatusEnum from "../models/enums/PoolStatusEnum.js";
 import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
-import config from "../config.js";
 
 const createPoolAction = (sdk) => {
   return async (name, description, type) => {
