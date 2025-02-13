@@ -1,34 +1,29 @@
 import config from "../config.js";
 import logger from "../logger.js";
+import initSdk from "../initSdk.js";
 
-const topUpIdentityAction = (sdk) => {
+const topUpIdentityAction = () => {
   return async (amount) => {
-    let result = false;
-    try {
-      amount = parseInt(amount) || 0;
+    const sdk = initSdk();
 
-      if (!amount || typeof amount !== 'number' || amount < 50000) {
-        logger.error('Amount credits for TopUp Identity balance must be specified and greater or equal than 50000');
-        return result;
-      }
+    amount = parseInt(amount) || 0;
 
-      const identity = config.identity;
-
-      const { platform } = sdk;
-
-      logger.log("Make TopUp Identity balance");
-
-      await platform.identities.topUp(identity, amount);
-
-      logger.log(`Success!`);
-
-      result = true;
-    } catch (e) {
-      logger.error(e);
-    } finally {
-      sdk.disconnect();
+    if (!amount || typeof amount !== 'number' || amount < 50000) {
+      // TODO: Make custom exception
+      throw new Error('Amount credits for TopUp Identity balance must be specified and greater or equal than 50000');
     }
-    return result;
+
+    const identity = config.identity;
+
+    const { platform } = sdk;
+
+    logger.log("Make TopUp Identity balance");
+
+    await platform.identities.topUp(identity, amount);
+
+    logger.log(`Success!`);
+
+    await sdk.disconnect();
   }
 }
 

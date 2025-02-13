@@ -1,5 +1,8 @@
-import { Command } from 'commander';
+import { program, Command } from 'commander';
 import logger from "../logger.js";
+import ErrorHandler from "../exceptions/ErrorHandler.js";
+
+const errorHandler = new ErrorHandler();
 
 class BaseCommand extends Command {
   constructor(name) {
@@ -23,8 +26,7 @@ class BaseCommand extends Command {
       try {
         await fn(...args);
       } catch (error) {
-        logger.error(`Error during command execution: ${error}`);
-        throw error;
+        errorHandler.handle(error);
       }
     });
   }
