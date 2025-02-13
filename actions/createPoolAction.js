@@ -11,10 +11,11 @@ const createPoolAction = (sdk) => {
       const status = poolStatusEnum.INACTIVE;
 
       if (!Object.values(poolTypeEnum).includes(type)) {
-        throw new Error(
+        logger.error(
           "Invalid pool type. Valid types are",
           Object.values(poolTypeEnum).join(", ")
         );
+        return result;
       }
 
       const pool = new Pool(name, description, type, status);
