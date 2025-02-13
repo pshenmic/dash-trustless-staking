@@ -1,5 +1,5 @@
-import CommandWithTrace from './commandWithTrace.class.js';
-import createPoolAction from '../actions/createPool.action.js'
+import CommandWithTrace from './CommandWithTrace.js';
+import createPoolAction from '../actions/createPoolAction.js'
 import poolTypeEnum from "../models/enums/poolTypeEnum.js";
 
 class CreatePoolCommand extends CommandWithTrace {

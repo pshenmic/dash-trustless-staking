@@ -1,5 +1,5 @@
-import CommandWithTrace from './commandWithTrace.class.js';
-import topUpIdentityAction from "../actions/topUpIdentity.action.js";
+import CommandWithTrace from './CommandWithTrace.js';
+import topUpIdentityAction from "../actions/topUpIdentityAction.js";
 
 class TopUpIdentityCommand extends CommandWithTrace {
   constructor(name, sdk) {

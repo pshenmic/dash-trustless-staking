@@ -8,7 +8,8 @@ const topUpIdentityAction = (sdk) => {
       amount = parseInt(amount) || 0;
 
       if (!amount || typeof amount !== 'number' || amount < 50000) {
-        throw new Error('Amount credits for TopUp Identity balance must be specified and greater or equal than 50000');
+        logger.error('Amount credits for TopUp Identity balance must be specified and greater or equal than 50000');
+        return result;
       }
 
       const identity = config.identity;
