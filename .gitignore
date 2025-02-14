@@ -62,7 +62,7 @@ build
 Thumbs.db
 
 # Environment variable files
-.env
+#.env
 .env.local
 .env.development
 .env.test

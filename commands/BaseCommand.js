@@ -1,6 +1,6 @@
 import { program, Command } from 'commander';
 import logger from "../logger.js";
-import ErrorHandler from "../exceptions/ErrorHandler.js";
+import ErrorHandler from "../errors/ErrorHandler.js";
 
 const errorHandler = new ErrorHandler();
 

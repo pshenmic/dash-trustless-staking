@@ -4,6 +4,7 @@ import {pushDocument} from "../utils.js";
 import PoolStatusEnum from "../models/enums/PoolStatusEnum.js";
 import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
 import initSdk from "../initSdk.js";
+import InvalidPoolTypeError from "../errors/InvalidPoolTypeError.js";
 
 const createPoolAction = () => {
   return async (name, description, type) => {
@@ -12,11 +13,7 @@ const createPoolAction = () => {
     const status = PoolStatusEnum.INACTIVE;
 
     if (!Object.values(MasternodeTypeEnum).includes(type)) {
-      // TODO: Make custom exception
-      throw new Error(
-        "Invalid pool type. Valid types are",
-        Object.values(MasternodeTypeEnum).join(", ")
-      );
+      throw new InvalidPoolTypeError();
     }
 
     const pool = new Pool(name, description, type, status);
