@@ -1,7 +1,9 @@
-import {Client} from "dash";
+import Dash from "dash";
 import config from "./config.js";
 import logger from "./logger.js";
 import {APP_NAME} from "./constants.js";
+
+const Client = Dash.Client;
 
 /**
  * Pushes a new document to the platform and broadcasts it.
