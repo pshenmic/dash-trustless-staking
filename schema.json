@@ -1,5 +1,5 @@
 {
-  "pools": {
+  "pool": {
     "type": "object",
     "properties": {
       "name": {
@@ -44,50 +44,13 @@
     ],
     "additionalProperties": false
   },
-  "transactions": {
+  "utxo": {
     "type": "object",
     "properties": {
       "poolId": {
         "position": 0,
         "type": "array",
         "description": "The id of the pool",
-        "byteArray": true,
-        "minItems": 32,
-        "maxItems": 32
-      },
-      "hash": {
-        "position": 1,
-        "type": "string",
-        "description": "The hash of the transaction",
-        "maxLength": 1024
-      },
-      "type": {
-        "position": 2,
-        "type": "string",
-        "description": "The type of the transaction",
-        "enum": [
-          "DEPOSIT",
-          "WITHDRAWAL",
-          "PROTOXT"
-        ]
-      }
-    },
-    "required": [
-      "poolId",
-      "hash",
-      "type",
-      "$createdAt",
-      "$updatedAt"
-    ],
-    "additionalProperties": false
-  },
-  "utxos": {
-    "type": "object",
-    "properties": {
-      "transactionId": {
-        "position": 0,
-        "type": "array",
-        "description": "The id of the transaction",
         "byteArray": true,
         "minItems": 32,
         "maxItems": 32
@@ -107,31 +70,6 @@
     "required": [
       "hash",
       "index",
-      "$createdAt",
-      "$updatedAt"
-    ],
-    "additionalProperties": false
-  },
-  "signatures": {
-    "type": "object",
-    "properties": {
-      "utxoId": {
-        "position": 0,
-        "type": "array",
-        "description": "The id of the utxo",
-        "byteArray": true,
-        "minItems": 32,
-        "maxItems": 32
-      },
-      "signature": {
-        "position": 1,
-        "type": "string",
-        "description": "The signature of the utxo"
-      }
-    },
-    "required": [
-      "utxoId",
-      "signature",
       "$createdAt",
       "$updatedAt"
     ],

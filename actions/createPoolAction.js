@@ -25,7 +25,7 @@ const createPoolAction = () => {
       Status: ${pool.status}
     `);
 
-    const docName = 'pools';
+    const docName = 'pool';
 
     await pushDocument(sdk, docName, pool);
 

@@ -8,7 +8,9 @@ const getPoolByIdAction = () => {
   return async (poolId) => {
     const sdk = initSdk();
 
-    const poolDocument = (await getDocumentById(sdk, 'pools', poolId))[0];
+    const docName = 'pool';
+
+    const poolDocument = (await getDocumentById(sdk, docName, poolId))[0];
 
     if (!poolDocument) {
       throw new PoolNotFoundError(poolId);
