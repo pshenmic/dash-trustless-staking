@@ -1,5 +1,6 @@
 import PoolStatusEnum from "./enums/PoolStatusEnum.js";
 import MasternodeTypeEnum from "./enums/MasternodeTypeEnum.js";
+import logger from "../logger.js";
 
 /**
  * Class representing a Pool.
@@ -22,6 +23,18 @@ class Pool {
     this.status = status;
     this.createdAt = createdAt ?? null;
     this.updatedAt = updatedAt ?? null;
+  }
+
+  static fromAppData(appData) {
+    appData = appData.toJSON();
+    return new Pool(
+      appData.name,
+      appData.description,
+      appData.type,
+      appData.status,
+      appData['$createdAt'],
+      appData['$updatedAt'],
+    )
   }
 }
 
