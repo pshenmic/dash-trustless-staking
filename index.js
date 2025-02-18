@@ -2,8 +2,8 @@ import dotenv from 'dotenv'; dotenv.config();
 import fs from "fs";
 
 import { program } from 'commander';
-import CreatePoolCommand from './commands/CreatePoolCommand.js';
-import TopUpIdentityCommand from "./commands/TopUpIdentityCommand.js";
+import PoolCommand from "./commands/pool/PoolCommand.js";
+import IdentityCommand from "./commands/identity/IdentityCommand.js";
 
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
 
@@ -11,10 +11,10 @@ program
   .version(packageJson.version)
   .description(packageJson.description);
 
-const createPoolCommand = new CreatePoolCommand()
-const topUpIdentityCommand = new TopUpIdentityCommand()
+const poolCommands = new PoolCommand()
+const identityCommands = new IdentityCommand()
 
-program.addCommand(createPoolCommand);
-program.addCommand(topUpIdentityCommand);
+program.addCommand(poolCommands);
+program.addCommand(identityCommands);
 
 program.parse(process.argv);
