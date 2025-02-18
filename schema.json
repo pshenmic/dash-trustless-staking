@@ -1,0 +1,140 @@
+{
+  "pools": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "position": 0,
+        "type": "string",
+        "description": "The name of the pool",
+        "maxLength": 255
+      },
+      "description": {
+        "position": 1,
+        "type": "string",
+        "description": "The description of the pool",
+        "maxLength": 255
+      },
+      "type": {
+        "position": 2,
+        "type": "string",
+        "description": "The type node of the pool",
+        "enum": [
+          "MASTERNODE",
+          "EVONODE"
+        ]
+      },
+      "status": {
+        "position": 3,
+        "type": "string",
+        "description": "The status of the pool",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE",
+          "FILLED"
+        ]
+      }
+    },
+    "required": [
+      "name",
+      "description",
+      "type",
+      "status",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "additionalProperties": false
+  },
+  "transactions": {
+    "type": "object",
+    "properties": {
+      "poolId": {
+        "position": 0,
+        "type": "array",
+        "description": "The id of the pool",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "hash": {
+        "position": 1,
+        "type": "string",
+        "description": "The hash of the transaction",
+        "maxLength": 1024
+      },
+      "type": {
+        "position": 2,
+        "type": "string",
+        "description": "The type of the transaction",
+        "enum": [
+          "DEPOSIT",
+          "WITHDRAWAL",
+          "PROTOXT"
+        ]
+      }
+    },
+    "required": [
+      "poolId",
+      "hash",
+      "type",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "additionalProperties": false
+  },
+  "utxos": {
+    "type": "object",
+    "properties": {
+      "transactionId": {
+        "position": 0,
+        "type": "array",
+        "description": "The id of the transaction",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "hash": {
+        "position": 1,
+        "type": "string",
+        "description": "The hash of the utxo",
+        "maxLength": 255
+      },
+      "index": {
+        "position": 2,
+        "type": "integer",
+        "description": "The index of the utxo"
+      }
+    },
+    "required": [
+      "hash",
+      "index",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "additionalProperties": false
+  },
+  "signatures": {
+    "type": "object",
+    "properties": {
+      "utxoId": {
+        "position": 0,
+        "type": "array",
+        "description": "The id of the utxo",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "signature": {
+        "position": 1,
+        "type": "string",
+        "description": "The signature of the utxo"
+      }
+    },
+    "required": [
+      "utxoId",
+      "signature",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "additionalProperties": false
+  }
+}
