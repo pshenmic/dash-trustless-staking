@@ -55,13 +55,13 @@
         "minItems": 32,
         "maxItems": 32
       },
-      "hash": {
+      "txHash": {
         "position": 1,
         "type": "string",
         "description": "The hash of the utxo",
         "maxLength": 255
       },
-      "index": {
+      "vout": {
         "position": 2,
         "type": "integer",
         "description": "The index of the utxo"
