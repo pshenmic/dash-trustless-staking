@@ -43,27 +43,3 @@ export async function pushDocument(sdk, documentName, documentData) {
 
   return document;
 }
-
-/**
- * Retrieves a document from the Dash platform by its ID.
- *
- * This function fetches a document from the Dash platform using the provided SDK instance,
- * document name, and document ID. It validates the parameters and queries the platform for
- * the document with the given ID. If any required parameter is missing, an error is thrown.
- *
- * @param {Client} sdk - The SDK instance used for interacting with the Dash platform.
- * @param {string} documentName - The name of the document type to be fetched.
- * @param {string} documentId - The unique identifier of the document to be retrieved.
- *
- * @throws {Error} If any of the required parameters (sdk, documentName, or documentId) are not provided.
- *
- * @returns {Promise<Object>} A promise that resolves to the document object retrieved from the platform.
- */
-export async function getDocumentById(sdk,documentName, documentId) {
-  const { platform } = sdk;
-
-  return platform.documents.get(
-    `${APP_NAME}.${documentName}`,
-    {where: [['$id', '==', documentId]] },
-  );
-}

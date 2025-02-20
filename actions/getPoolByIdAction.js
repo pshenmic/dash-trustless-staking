@@ -1,22 +1,19 @@
 import logger from "../logger.js";
-import Pool from "../models/Pool.js";
 import initSdk from "../initSdk.js";
-import {getDocumentById} from "../utils.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
+import PoolRepository from "../repositories/PoolRepository.js";
 
 const getPoolByIdAction = () => {
   return async (poolId) => {
     const sdk = initSdk();
 
-    const docName = 'pool';
+    const poolRepository = new PoolRepository(sdk);
 
-    const [poolDocument] = await getDocumentById(sdk, docName, poolId);
+    const pool = await poolRepository.getPoolById(poolId);
 
-    if (!poolDocument) {
+    if (!pool) {
       throw new PoolNotFoundError(poolId);
     }
-
-    const pool = Pool.fromDocument(poolDocument);
 
     logger.info(`Fetched pool document:\n${JSON.stringify(pool, null, 2)}`);
 
