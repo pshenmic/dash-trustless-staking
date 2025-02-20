@@ -9,7 +9,7 @@ const getPoolByIdAction = () => {
 
     const poolRepository = new PoolRepository(sdk);
 
-    const pool = await poolRepository.getPoolById(poolId);
+    const pool = await poolRepository.getById(poolId);
 
     if (!pool) {
       throw new PoolNotFoundError(poolId);

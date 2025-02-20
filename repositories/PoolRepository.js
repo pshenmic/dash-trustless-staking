@@ -20,7 +20,7 @@ class PoolRepository {
    * @param {string} id - The unique identifier of the Pool to be retrieved.
    * @returns {Promise<Pool>}
    */
-  async getPoolById(id){
+  async getById(id){
     const { platform } = this.sdk;
 
     const [poolDocument] = await platform.documents.get(
