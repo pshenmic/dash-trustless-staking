@@ -25,7 +25,7 @@ class Pool {
     this.updatedAt = updatedAt ?? null;
   }
 
-  static fromAppData(appData) {
+  static fromDocument(appData) {
     appData = appData.toJSON();
     return new Pool(
       appData.name,

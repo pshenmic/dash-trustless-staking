@@ -10,13 +10,13 @@ const getPoolByIdAction = () => {
 
     const docName = 'pool';
 
-    const poolDocument = (await getDocumentById(sdk, docName, poolId))[0];
+    const [poolDocument] = await getDocumentById(sdk, docName, poolId);
 
     if (!poolDocument) {
       throw new PoolNotFoundError(poolId);
     }
 
-    const pool = Pool.fromAppData(poolDocument);
+    const pool = Pool.fromDocument(poolDocument);
 
     logger.info(`Fetched pool document:\n${JSON.stringify(pool, null, 2)}`);
 
