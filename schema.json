@@ -1,0 +1,78 @@
+{
+  "pool": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "position": 0,
+        "type": "string",
+        "description": "The name of the pool",
+        "maxLength": 255
+      },
+      "description": {
+        "position": 1,
+        "type": "string",
+        "description": "The description of the pool",
+        "maxLength": 255
+      },
+      "type": {
+        "position": 2,
+        "type": "string",
+        "description": "The type node of the pool",
+        "enum": [
+          "MASTERNODE",
+          "EVONODE"
+        ]
+      },
+      "status": {
+        "position": 3,
+        "type": "string",
+        "description": "The status of the pool",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE",
+          "FILLED"
+        ]
+      }
+    },
+    "required": [
+      "name",
+      "description",
+      "type",
+      "status",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "additionalProperties": false
+  },
+  "utxo": {
+    "type": "object",
+    "properties": {
+      "poolId": {
+        "position": 0,
+        "type": "array",
+        "description": "The id of the pool",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "txHash": {
+        "position": 1,
+        "type": "string",
+        "description": "The hash of the utxo",
+        "maxLength": 255
+      },
+      "vout": {
+        "position": 2,
+        "type": "integer",
+        "description": "The index of the utxo"
+      }
+    },
+    "required": [
+      "hash",
+      "index",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "additionalProperties": false
+  }
+}

@@ -1,33 +1,25 @@
-import logger from "../logger.js";
 import Pool from "../models/Pool.js";
-import {pushDocument} from "../utils.js";
 import PoolStatusEnum from "../models/enums/PoolStatusEnum.js";
 import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
 import initSdk from "../initSdk.js";
 import InvalidPoolTypeError from "../errors/InvalidPoolTypeError.js";
+import PoolRepository from "../repositories/PoolRepository.js";
 
 const createPoolAction = () => {
   return async (name, description, type) => {
     const sdk = initSdk();
 
+    const poolRepository = new PoolRepository(sdk);
+
     const status = PoolStatusEnum.INACTIVE;
 
-    if (!Object.values(MasternodeTypeEnum).includes(type)) {
+    if (!(type in MasternodeTypeEnum)) {
       throw new InvalidPoolTypeError();
     }
 
     const pool = new Pool(name, description, type, status);
 
-    logger.info(`Creating pool:
-      Name: ${pool.name}
-      Description: ${pool.description}
-      Type: ${pool.type}
-      Status: ${pool.status}
-    `);
-
-    const docName = 'pools';
-
-    await pushDocument(sdk, docName, pool);
+    await poolRepository.create(pool);
 
     await sdk.disconnect();
   };
