@@ -68,8 +68,8 @@
       }
     },
     "required": [
-      "hash",
-      "index",
+      "txHash",
+      "vout",
       "$createdAt",
       "$updatedAt"
     ],
