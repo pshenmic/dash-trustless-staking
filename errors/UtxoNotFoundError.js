@@ -1,14 +1,8 @@
-class PoolNotFoundError extends Error {
-  /**
-   * @param {string} poolId
-   */
-  constructor(poolId = undefined) {
-    const message = poolId
-      ? `Pool with ID ${poolId} not found`
-      : 'Pool not found'
-    super(message);
-    this.name = 'PoolNotFoundError';
+class UtxoNotFoundError extends Error {
+  constructor() {
+    super('Utxo not found');
+    this.name = 'UtxoNotFoundError';
   }
 }
 
-export default PoolNotFoundError;
+export default UtxoNotFoundError;

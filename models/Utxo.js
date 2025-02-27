@@ -1,0 +1,34 @@
+/**
+ * Class representing a UTXO (Unspent Transaction Output).
+ */
+class Utxo {
+  /**
+   * Creates an instance of Utxo.
+   *
+   * @param {string} poolId - The ID of the pool where the UTXO is associated.
+   * @param {string} txHash - The unique hash of the UTXO.
+   * @param {number} vout - The vout of the UTXO.
+   * @param {string=} createdAt - The creation date.
+   * @param {string=} updatedAt - The last updated date.
+   */
+  constructor(poolId, txHash, vout, createdAt = null, updatedAt = null) {
+    this.poolId = poolId;
+    this.txHash = txHash;
+    this.vout = vout;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+  }
+
+  static fromDocument(appData) {
+    appData = appData.toJSON();
+    return new Utxo(
+      appData.poolId,
+      appData.txid,
+      appData.vout,
+      appData['$createdAt'],
+      appData['$updatedAt'],
+    )
+  }
+}
+
+export default Utxo;
