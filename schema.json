@@ -73,6 +73,9 @@
       "$createdAt",
       "$updatedAt"
     ],
+    "indices":  [
+      {"properties":  ["poolId"]}
+    ],
     "additionalProperties": false
   }
 }

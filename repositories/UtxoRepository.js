@@ -37,6 +37,25 @@ class UtxoRepository {
   }
 
   /**
+   * @param {string} poolId
+   * @returns {Promise<[Utxo]>}
+   */
+  async getUtxosByPoolId(poolId){
+    const { platform } = this.sdk;
+
+    const utxoDocuments = await platform.documents.get(
+      `${APP_NAME}.${this.#docName}`,
+      {where: [['poolId', '==', bs58.decode(poolId)]] },
+    )
+
+    if (!utxoDocuments.length) {
+      return null;
+    }
+
+    return utxoDocuments.map(utxo => Utxo.fromDocument(utxo));
+  }
+
+  /**
    * @param {Utxo} utxo
    * @returns {Promise<Utxo>}
    */
