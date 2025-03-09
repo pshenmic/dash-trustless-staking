@@ -1,5 +1,5 @@
-import UtxoNotFoundError from "./errors/UtxoNotFoundError.js";
-import Utxo from "./models/Utxo.js";
+import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
+import Utxo from "../models/Utxo.js";
 
 /**
  * @param {[string]} addresses

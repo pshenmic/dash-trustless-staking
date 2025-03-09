@@ -1,5 +1,5 @@
 import Transaction from "@dashevo/dashcore-lib/lib/transaction/transaction.js"
-import getUTXOsByAddress from "./getUTXOsByAddress.js";
+import getUTXOsByAddress from "./externalApis/getUTXOsByAddress.js";
 
 async function retrieveUtxo(sdk, txHash, vout) {
   const network = sdk.options.network;
