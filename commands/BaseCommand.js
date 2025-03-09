@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import logger from "../logger.js";
 import errorHandler from "../errorHandler.js";
+import initSdk from "../initSdk.js";
 
 class BaseCommand extends Command {
   constructor(name) {
@@ -17,15 +18,22 @@ class BaseCommand extends Command {
 
   action(fn) {
     return super.action(async (...args) => {
+      const sdk = await initSdk();
       if (this.opts().trace) {
         this.inspectCommand();
       }
 
       try {
-        await fn(...args);
+        // await fn(...args);
+        console.log("test")
       } catch (error) {
         errorHandler(error);
+      } finally {
+        await sdk.disconnect();
+        await sdk.disconnect();
+        console.log('Finished action');
       }
+      // await sdk.disconnect();
     });
   }
 }
