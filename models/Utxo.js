@@ -5,11 +5,11 @@ class Utxo {
   /**
    * Creates an instance of Utxo.
    *
-   * @param {string} poolId - The ID of the pool where the UTXO is associated.
+   * @param {string|null} poolId - The ID of the pool where the UTXO is associated.
    * @param {string} txHash - The unique hash of the UTXO.
    * @param {number} vout - The vout of the UTXO.
    * @param {number} satoshis - Amount satoshis of the UTXO.
-   * @param {string} ownerId - Owner identity
+   * @param {string=} ownerId - Owner identity
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The last updated date.
    */
@@ -36,6 +36,15 @@ class Utxo {
       appData['$ownerId'],
       appData['$createdAt'],
       appData['$updatedAt'],
+    )
+  }
+
+  static fromTrpcResponse(data) {
+    return new Utxo(
+      null,
+      data.txid,
+      data.outputIndex,
+      data.satoshis
     )
   }
 }
