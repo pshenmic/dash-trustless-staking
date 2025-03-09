@@ -47,7 +47,7 @@ async function getUTXOsByAddress(addresses) {
   }
 
   // Return the UTXOs array
-  return data.result.map((utxo) => Utxo.fromTrpcResponse(utxo));
+  return data.result.map((utxo) => Utxo.fromObject(utxo));
 }
 
 export default getUTXOsByAddress;

@@ -23,7 +23,7 @@ class Utxo {
     this.updatedAt = updatedAt;
   }
 
-  static fromDocument(appData) {
+  static fromObject(appData) {
     if (appData.toJSON) {
       appData = appData.toJSON();
     }
@@ -36,15 +36,6 @@ class Utxo {
       appData['$ownerId'],
       appData['$createdAt'],
       appData['$updatedAt'],
-    )
-  }
-
-  static fromTrpcResponse(data) {
-    return new Utxo(
-      null,
-      data.txid,
-      data.outputIndex,
-      data.satoshis
     )
   }
 }

@@ -18,21 +18,14 @@ class UtxoRepository {
   }
 
   /**
-   * @returns {Promise<[Utxo]>}
-   */
-  async get(){
-    const account = await this.sdk.wallet.getAccount();
-    const utxosDocument = account.getUTXOS();
-    return utxosDocument.map(utxo => Utxo.fromDocument(utxo));
-  }
-
-  /**
    * @param {string} hash
    * @param {number|string} vout
    * @returns {Promise<Utxo>}
    */
   async getByHashAndVout(hash, vout){
-    const utxos = await this.get();
+    const account = await this.sdk.wallet.getAccount();
+    const utxosDocument = account.getUTXOS();
+    const utxos = utxosDocument.map(utxo => Utxo.fromObject(utxo));
     return utxos.find(utxo => utxo.txHash === hash && utxo.vout === parseInt(vout));
   }
 
@@ -52,7 +45,7 @@ class UtxoRepository {
       return null;
     }
 
-    return utxoDocuments.map(utxo => Utxo.fromDocument(utxo));
+    return utxoDocuments.map(utxo => Utxo.fromObject(utxo));
   }
 
   /**
@@ -87,7 +80,7 @@ class UtxoRepository {
     await platform.documents.broadcast(documentBatch, identity);
     logger.log("Done..",`UTXO Document at: ${utxoDocument.getId()}`);
 
-    return Utxo.fromDocument(utxoDocument);
+    return Utxo.fromObject(utxoDocument);
   }
 }
 
