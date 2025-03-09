@@ -10,7 +10,7 @@ async function getUTXOsByAddress(addresses) {
   const baseUrl = "https://trpc.digitalcash.dev/";
 
   // Basic authentication: replace "user:pass" with your actual credentials
-  const basicAuth = btoa("user:pass");
+  const basicAuth = Buffer.from("user:pass").toString("base64");
 
   // Prepare the request payload
   const payload = JSON.stringify({
