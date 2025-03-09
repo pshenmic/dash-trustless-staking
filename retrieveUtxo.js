@@ -1,9 +1,6 @@
 import Transaction from "@dashevo/dashcore-lib/lib/transaction/transaction.js"
 import getUTXOsByAddress from "./getUTXOsByAddress.js";
 
-// const txHash = 'c36fee02bc4f3d9b0b450ff6eddf5ebfba43158d241b6c7bc4aa709c70d5f364'
-
-
 async function retrieveUtxo(sdk, txHash, vout) {
   const network = sdk.options.network;
 
@@ -16,7 +13,6 @@ async function retrieveUtxo(sdk, txHash, vout) {
     tx = new Transaction(rawTransaction.toString('hex'));
   } catch {
     await sdk.disconnect();
-    console.log(false);
     return null;
   }
 
@@ -32,11 +28,5 @@ async function retrieveUtxo(sdk, txHash, vout) {
 
   return utxo
 }
-
-// const sdk = initSdk();
-// const txHash = 'c36fee02bc4f3d9b0b450ff6eddf5ebfba43158d241b6c7bc4aa709c70d5f364'
-// const vout = 1
-//
-// retrieveUtxo(sdk, txHash, vout)
 
 export default retrieveUtxo;
