@@ -22,7 +22,7 @@ const getPoolByIdAction = () => {
 
     const pooInfo = await getPoolInfo(sdk, poolId);
 
-    logger.info('Pool Info:\n', pooInfo)
+    logger.info(`Pool Info:\n${JSON.stringify(pooInfo, null, 2)}`);
 
     await sdk.disconnect();
 
@@ -35,15 +35,20 @@ const getPoolInfo = async (sdk, poolId) => {
 
   const utxos = await utxoRepository.getUtxosByPoolId(poolId);
 
-  const poolUtxos = []
-  for (const utxo of utxos) {
-    const poolUtxo = await retrieveUtxo(sdk, utxo.txHash, utxo.vout);
-    if (poolUtxo) {
-      // TODO validation poolUtxo
-      poolUtxo.ownerId = utxo.ownerId;
-      poolUtxos.push(poolUtxo);
-    }
-  }
+  // Retrieve all UTXOs in parallel using map + Promise.all
+  const rawPoolUtxos = await Promise.all(
+    utxos.map(async (utxo) => {
+      const poolUtxo = await retrieveUtxo(sdk, utxo.txHash, utxo.vout);
+      if (!poolUtxo) {
+        return null; // Skip if retrieveUtxo returned nothing
+      }
+      // TODO: validation of poolUtxo
+      return { ...poolUtxo, ownerId: utxo.ownerId };
+    })
+  );
+
+  // Filter out null entries
+  const poolUtxos = rawPoolUtxos.filter(Boolean);
 
   const totalMembers = poolUtxos.length;
   const balance = poolUtxos.reduce((totalBalance, poolUtxo) => totalBalance+=poolUtxo.satoshis, 0)
