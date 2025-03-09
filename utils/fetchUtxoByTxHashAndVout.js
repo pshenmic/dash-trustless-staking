@@ -1,7 +1,7 @@
 import Transaction from "@dashevo/dashcore-lib/lib/transaction/transaction.js"
-import getUTXOsByAddress from "./externalApis/getUTXOsByAddress.js";
+import getUTXOsByAddress from "../externalApis/getUTXOsByAddress.js";
 
-async function retrieveUtxo(sdk, txHash, vout) {
+async function fetchUtxoByTxHashAndVout(sdk, txHash, vout) {
   const network = sdk.options.network;
 
   const dapiClient = sdk.getDAPIClient();
@@ -29,4 +29,4 @@ async function retrieveUtxo(sdk, txHash, vout) {
   return utxo
 }
 
-export default retrieveUtxo;
+export default fetchUtxoByTxHashAndVout;

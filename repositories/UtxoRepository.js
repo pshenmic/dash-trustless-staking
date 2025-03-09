@@ -33,7 +33,7 @@ class UtxoRepository {
    * @param {string} poolId
    * @returns {Promise<[Utxo]>}
    */
-  async getUtxosByPoolId(poolId){
+  async getByPoolId(poolId){
     const { platform } = this.sdk;
 
     const utxoDocuments = await platform.documents.get(
