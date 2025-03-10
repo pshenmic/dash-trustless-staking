@@ -1,5 +1,4 @@
 import logger from "../logger.js";
-import initSdk from "../initSdk.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 import UtxoRepository from "../repositories/UtxoRepository.js";
@@ -10,10 +9,11 @@ import Dash from 'dash';
 const Client = Dash.Client;
 
 /**
- * @returns {function(Client,string): Promise<Pool>}
+ * @param {Client} sdk
+ * @returns {function(string): Promise<Pool>}
  */
-const getPoolByIdAction = () => {
-  return async (sdk, poolId) => {
+const getPoolByIdAction = (sdk) => {
+  return async (poolId) => {
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
 

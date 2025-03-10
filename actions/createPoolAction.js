@@ -8,10 +8,11 @@ import Dash from 'dash'
 const Client = Dash.Client;
 
 /**
- * @returns {(function(Client, string, string, MasternodeTypeEnum): Promise<void>)|*}
+ * @param {Client} sdk
+ * @returns {(function(string, string, MasternodeTypeEnum): Promise<void>)|*}
  */
 const createPoolAction = (sdk) => {
-  return async (sdk, name, description, type) => {
+  return async (name, description, type) => {
     const poolRepository = new PoolRepository(sdk);
 
     const status = PoolStatusEnum.INACTIVE;

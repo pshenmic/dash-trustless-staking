@@ -8,10 +8,11 @@ import Dash from 'dash';
 const Client = Dash.Client;
 
 /**
- * @returns {(function(Client, string, string, number): Promise<void>)|*}
+ * @param {Client} sdk
+ * @returns {(function(string, string, number): Promise<void>)|*}
  */
-const joinPoolAction = () => {
-  return async (sdk, poolId, utxoHash, utxoIndex) => {
+const joinPoolAction = (sdk) => {
+  return async (poolId, utxoHash, utxoIndex) => {
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
 

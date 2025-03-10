@@ -8,7 +8,7 @@ class JoinPoolCommand extends BaseCommand {
       .argument('<poolId>', 'ID of the pool')
       .argument('<utxoHash>', 'The hash of the utxo')
       .argument('<utxoIndex>', 'The index of the utxo')
-      .action(joinPoolAction());
+      .action(joinPoolAction);
   }
 }
 

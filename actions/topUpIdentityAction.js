@@ -6,10 +6,11 @@ import Dash from 'dash';
 const Client = Dash.Client;
 
 /**
- * @returns {(function(Client, number): Promise<void>)|*}
+ * @param {Client} sdk
+ * @returns {(function(number): Promise<void>)|*}
  */
-const topUpIdentityAction = () => {
-  return async (sdk, amount) => {
+const topUpIdentityAction = (sdk) => {
+  return async (amount) => {
     amount = parseInt(amount) || 0;
 
     if (!amount || typeof amount !== 'number' || amount < 50000) {

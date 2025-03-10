@@ -6,7 +6,7 @@ class GetPoolCommand extends BaseCommand {
     super("get");
     this.description("Get Pool by ID")
       .argument('<poolId>', 'The ID of the pool')
-      .action(getPoolByIdAction());
+      .action(getPoolByIdAction);
   }
 }
 

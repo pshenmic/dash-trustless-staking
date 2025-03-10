@@ -1,7 +1,10 @@
 import { Command } from 'commander';
 import logger from "../logger.js";
 import errorHandler from "../errorHandler.js";
-import initSdk from "../initSdk.js";
+import initSdk from "../utils/initSdk.js";
+
+import Dash from 'dash';
+const Client = Dash.Client;
 
 class BaseCommand extends Command {
   constructor(name) {
@@ -16,15 +19,22 @@ class BaseCommand extends Command {
     }
   }
 
-  action(fn) {
+  /**
+   * @param {function(Client)} action
+   * @returns {Command}
+   */
+  action(action) {
     return super.action(async (...args) => {
-      const sdk = await initSdk();
       if (this.opts().trace) {
         this.inspectCommand();
       }
 
+      const sdk = initSdk();
+
+      const fn = action(sdk);
+
       try {
-        await fn(sdk, ...args);
+        await fn(...args);
       } catch (error) {
         errorHandler(error);
       } finally {
