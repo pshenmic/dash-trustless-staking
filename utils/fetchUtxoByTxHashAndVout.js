@@ -6,15 +6,9 @@ async function fetchUtxoByTxHashAndVout(sdk, txHash, vout) {
 
   const dapiClient = sdk.getDAPIClient();
 
-  let tx;
+  const {transaction: rawTransaction} = await dapiClient.core.getTransaction(txHash);
 
-  try {
-    const {transaction: rawTransaction} = await dapiClient.core.getTransaction(txHash);
-    tx = new Transaction(rawTransaction.toString('hex'));
-  } catch {
-    await sdk.disconnect();
-    return null;
-  }
+  const tx = new Transaction(rawTransaction.toString('hex'));
 
   const address = tx.outputs[vout].script.toAddress(network).toString();
 
