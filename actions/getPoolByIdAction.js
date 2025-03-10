@@ -5,9 +5,6 @@ import UtxoRepository from "../repositories/UtxoRepository.js";
 import fetchUtxoByTxHashAndVout from "../utils/fetchUtxoByTxHashAndVout.js";
 import PoolMember from "../models/PoolMember.js";
 
-import Dash from 'dash';
-const Client = Dash.Client;
-
 /**
  * @param {Client} sdk
  * @returns {function(string): Promise<Pool>}

@@ -4,9 +4,6 @@ import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
 import InvalidPoolTypeError from "../errors/InvalidPoolTypeError.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 
-import Dash from 'dash'
-const Client = Dash.Client;
-
 /**
  * @param {Client} sdk
  * @returns {(function(string, string, MasternodeTypeEnum): Promise<void>)|*}

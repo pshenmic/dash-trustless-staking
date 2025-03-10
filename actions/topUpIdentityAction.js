@@ -2,9 +2,6 @@ import config from "../config.js";
 import logger from "../logger.js";
 import InvalidTopUpAmountError from "../errors/InvalidTopUpAmountError.js";
 
-import Dash from 'dash';
-const Client = Dash.Client;
-
 /**
  * @param {Client} sdk
  * @returns {(function(number): Promise<void>)|*}

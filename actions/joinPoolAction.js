@@ -4,9 +4,6 @@ import UtxoRepository from "../repositories/UtxoRepository.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import Utxo from "../models/Utxo.js";
 
-import Dash from 'dash';
-const Client = Dash.Client;
-
 /**
  * @param {Client} sdk
  * @returns {(function(string, string, number): Promise<void>)|*}

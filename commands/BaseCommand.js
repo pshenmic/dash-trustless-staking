@@ -3,9 +3,6 @@ import logger from "../logger.js";
 import errorHandler from "../errorHandler.js";
 import initSdk from "../utils/initSdk.js";
 
-import Dash from 'dash';
-const Client = Dash.Client;
-
 class BaseCommand extends Command {
   constructor(name) {
     super(name);
