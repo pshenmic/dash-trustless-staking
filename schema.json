@@ -68,10 +68,13 @@
       }
     },
     "required": [
-      "hash",
-      "index",
+      "txHash",
+      "vout",
       "$createdAt",
       "$updatedAt"
+    ],
+    "indices":  [
+      {"properties":  ["poolId"]}
     ],
     "additionalProperties": false
   }

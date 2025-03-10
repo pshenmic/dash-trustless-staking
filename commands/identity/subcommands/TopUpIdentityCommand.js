@@ -6,7 +6,7 @@ class TopUpIdentityCommand extends BaseCommand {
     super('topup');
     this.description("Make TopUp Identity balance")
       .argument('<amount>', 'Amount credits for TopUp Identity balance')
-      .action(topUpIdentityAction());
+      .action(topUpIdentityAction);
   }
 }
 

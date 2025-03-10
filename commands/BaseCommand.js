@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import logger from "../logger.js";
 import errorHandler from "../errorHandler.js";
+import initSdk from "../utils/initSdk.js";
 
 class BaseCommand extends Command {
   constructor(name) {
@@ -15,16 +16,26 @@ class BaseCommand extends Command {
     }
   }
 
-  action(fn) {
+  /**
+   * @param {function(Client)} action
+   * @returns {Command}
+   */
+  action(action) {
     return super.action(async (...args) => {
       if (this.opts().trace) {
         this.inspectCommand();
       }
 
+      const sdk = initSdk();
+
+      const fn = action(sdk);
+
       try {
         await fn(...args);
       } catch (error) {
         errorHandler(error);
+      } finally {
+        await sdk.disconnect();
       }
     });
   }
