@@ -1,15 +1,17 @@
-import logger from "../logger.js";
-import initSdk from "../initSdk.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import UtxoRepository from "../repositories/UtxoRepository.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import Utxo from "../models/Utxo.js";
 
-const joinPoolAction = () => {
-  return async (poolId, utxoHash, utxoIndex) => {
-    const sdk = initSdk();
+import Dash from 'dash';
+const Client = Dash.Client;
 
+/**
+ * @returns {(function(Client, string, string, number): Promise<void>)|*}
+ */
+const joinPoolAction = () => {
+  return async (sdk, poolId, utxoHash, utxoIndex) => {
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
 
@@ -35,8 +37,6 @@ const joinPoolAction = () => {
 
     // Broadcast utxo document
     await utxoRepository.create(utxo);
-
-    await sdk.disconnect();
   }
 }
 

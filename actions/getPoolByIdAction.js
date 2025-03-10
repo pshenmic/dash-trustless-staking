@@ -6,10 +6,14 @@ import UtxoRepository from "../repositories/UtxoRepository.js";
 import fetchUtxoByTxHashAndVout from "../utils/fetchUtxoByTxHashAndVout.js";
 import PoolMember from "../models/PoolMember.js";
 
-const getPoolByIdAction = () => {
-  return async (poolId) => {
-    const sdk = initSdk();
+import Dash from 'dash';
+const Client = Dash.Client;
 
+/**
+ * @returns {function(Client,string): Promise<Pool>}
+ */
+const getPoolByIdAction = () => {
+  return async (sdk, poolId) => {
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
 
@@ -44,8 +48,6 @@ const getPoolByIdAction = () => {
 
     logger.info(`Fetched pool document:\n${JSON.stringify(pool, null, 2)}`);
     logger.info(`Pool Info:\n${JSON.stringify(pooInfo, null, 2)}`);
-
-    await sdk.disconnect();
 
     return pool;
   }

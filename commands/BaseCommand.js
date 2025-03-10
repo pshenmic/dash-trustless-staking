@@ -24,16 +24,12 @@ class BaseCommand extends Command {
       }
 
       try {
-        // await fn(...args);
-        console.log("test")
+        await fn(sdk, ...args);
       } catch (error) {
         errorHandler(error);
       } finally {
         await sdk.disconnect();
-        await sdk.disconnect();
-        console.log('Finished action');
       }
-      // await sdk.disconnect();
     });
   }
 }
