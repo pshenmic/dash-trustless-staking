@@ -1,14 +1,15 @@
-import logger from "../logger.js";
-import initSdk from "../initSdk.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import UtxoRepository from "../repositories/UtxoRepository.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
+import Utxo from "../models/Utxo.js";
 
-const joinPoolAction = () => {
+/**
+ * @param {Client} sdk
+ * @returns {(function(string, string, number): Promise<void>)|*}
+ */
+const joinPoolAction = (sdk) => {
   return async (poolId, utxoHash, utxoIndex) => {
-    const sdk = initSdk();
-
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
 
@@ -19,7 +20,12 @@ const joinPoolAction = () => {
     }
 
     // Check utxo available and utxo amount validation
-    const utxo = await utxoRepository.getByHashAndVout(utxoHash, utxoIndex);
+    const account = await this.sdk.wallet.getAccount();
+    const utxosDocument = account.getUTXOS();
+    const [utxo] = utxosDocument
+      .map(utxo => Utxo.fromObject(utxo))
+      .filter(utxo => utxo.vout === utxoIndex && utxo.txHash === utxoHash);
+
     if (!utxo) {
       throw new UtxoNotFoundError();
     }
@@ -29,8 +35,6 @@ const joinPoolAction = () => {
 
     // Broadcast utxo document
     await utxoRepository.create(utxo);
-
-    await sdk.disconnect();
   }
 }
 

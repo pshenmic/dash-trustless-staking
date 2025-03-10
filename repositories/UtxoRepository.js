@@ -18,18 +18,6 @@ class UtxoRepository {
   }
 
   /**
-   * @param {string} hash
-   * @param {number|string} vout
-   * @returns {Promise<Utxo>}
-   */
-  async getByHashAndVout(hash, vout){
-    const account = await this.sdk.wallet.getAccount();
-    const utxosDocument = account.getUTXOS();
-    const utxos = utxosDocument.map(utxo => Utxo.fromObject(utxo));
-    return utxos.find(utxo => utxo.txHash === hash && utxo.vout === parseInt(vout));
-  }
-
-  /**
    * @param {string} poolId
    * @returns {Promise<[Utxo]>}
    */

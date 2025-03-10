@@ -1,15 +1,16 @@
 import logger from "../logger.js";
-import initSdk from "../initSdk.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 import UtxoRepository from "../repositories/UtxoRepository.js";
 import fetchUtxoByTxHashAndVout from "../utils/fetchUtxoByTxHashAndVout.js";
 import PoolMember from "../models/PoolMember.js";
 
-const getPoolByIdAction = () => {
+/**
+ * @param {Client} sdk
+ * @returns {function(string): Promise<Pool>}
+ */
+const getPoolByIdAction = (sdk) => {
   return async (poolId) => {
-    const sdk = initSdk();
-
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
 
@@ -44,8 +45,6 @@ const getPoolByIdAction = () => {
 
     logger.info(`Fetched pool document:\n${JSON.stringify(pool, null, 2)}`);
     logger.info(`Pool Info:\n${JSON.stringify(pooInfo, null, 2)}`);
-
-    await sdk.disconnect();
 
     return pool;
   }

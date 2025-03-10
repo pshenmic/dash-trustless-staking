@@ -1,8 +1,8 @@
 import Dash from 'dash';
 
-import sdkCacheAdaptor from "./sdkCacheAdaptor.js";
-import config from "./config.js";
-import logger from "./logger.js";
+import sdkCacheAdaptor from "../sdkCacheAdaptor.js";
+import config from "../config.js";
+import logger from "../logger.js";
 
 function initSdk() {
 
