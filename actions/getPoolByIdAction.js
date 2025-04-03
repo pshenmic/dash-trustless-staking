@@ -23,16 +23,20 @@ const getPoolByIdAction = (sdk) => {
     const utxos = await utxoRepository.getByPoolId(poolId);
 
     // Retrieve all UTXOs in parallel using map + Promise.all
-    const rawPoolUtxos = await Promise.all(
-      utxos.map(async (utxo) => {
-        const poolUtxo = await fetchUtxoByTxHashAndVout(sdk, utxo.txHash, utxo.vout);
-        if (!poolUtxo) {
-          return null; // Skip if retrieveUtxo returned nothing
-        }
-        // TODO: validation of poolUtxo
-        return { ...poolUtxo, ownerId: utxo.ownerId };
-      })
-    );
+    // If utxos is not defined or is empty, return an empty array to avoid errors
+    const rawPoolUtxos = Array.isArray(utxos) && utxos.length > 0
+      ? await Promise.all(
+        utxos.map(async (utxo) => {
+          // Retrieve UTXO for each element
+          const poolUtxo = await fetchUtxoByTxHashAndVout(sdk, utxo.txHash, utxo.vout);
+          if (!poolUtxo) {
+            return null; // Skip if fetchUtxo returns nothing
+          }
+          // TODO: validate poolUtxo
+          return { ...poolUtxo, ownerId: utxo.ownerId };
+        })
+      )
+      : [];
 
     // Filter out null entries
     const poolUtxos = rawPoolUtxos.filter(Boolean);
