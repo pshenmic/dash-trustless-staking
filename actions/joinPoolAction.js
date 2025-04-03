@@ -20,7 +20,7 @@ const joinPoolAction = (sdk) => {
     }
 
     // Check utxo available and utxo amount validation
-    const account = await this.sdk.wallet.getAccount();
+    const account = await sdk.wallet.getAccount();
     const utxosDocument = account.getUTXOS();
     const [utxo] = utxosDocument
       .map(utxo => Utxo.fromObject(utxo))
