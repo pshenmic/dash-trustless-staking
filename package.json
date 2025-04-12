@@ -1,18 +1,34 @@
 {
-  "name": "cli",
+  "name": "dash-trustless-staking",
   "version": "1.0.0",
+  "description": "Decentralized trustless shared masternode solution based on the Dash Platform.",
   "main": "index.js",
+  "bin": {
+    "dash-trustless-staking": "./index.js"
+  },
+  "type": "module",
   "scripts": {
     "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "type": "module",
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pshenmic/dash-trustless-staking.git"
+  },
+  "keywords": [
+    "dash",
+    "staking",
+    "masternode",
+    "trustless",
+    "decentralized"
+  ],
+  "author": "pshenmic and LexxXell",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "commander": "^13.0.0",
-    "dash": "^4.8.0",
-    "dotenv": "^16.4.7"
+  "bugs": {
+    "url": "https://github.com/pshenmic/dash-trustless-staking/issues"
+  },
+  "homepage": "https://github.com/pshenmic/dash-trustless-staking#readme",
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
