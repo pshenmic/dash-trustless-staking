@@ -24,7 +24,13 @@
     "decentralized"
   ],
   "author": "pshenmic",
-  "contributors": ["LexxXell"],
+  "contributors": [
+    {
+      "name": "LexxXell",
+      "email": "lexxxell007@gmail.com",
+      "url": "https://github.com/lexxxell"
+    }
+  ],
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/pshenmic/dash-trustless-staking/issues"
