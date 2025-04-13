@@ -9,7 +9,8 @@
   "type": "module",
   "scripts": {
     "dev": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "echo \"Warn: no lint specified\" && exit 0",
+    "test": "echo \"Warn: no test specified\" && exit 0"
   },
   "repository": {
     "type": "git",
@@ -22,7 +23,14 @@
     "trustless",
     "decentralized"
   ],
-  "author": "pshenmic and LexxXell",
+  "author": "pshenmic",
+  "contributors": [
+    {
+      "name": "LexxXell",
+      "email": "lexxxell007@gmail.com",
+      "url": "https://github.com/lexxxell"
+    }
+  ],
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/pshenmic/dash-trustless-staking/issues"
