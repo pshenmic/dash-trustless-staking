@@ -69,6 +69,46 @@ class PoolRepository {
 
     return Pool.fromDocument(poolDocument);
   }
+
+  /**
+   * Lists Pools with pagination support.
+   *
+   * @param {string|null} startAt - The ID of the last document from the previous page (for pagination).
+   * @param {number} limit - The number of pools to retrieve per page.
+   * @returns {Promise<{pools: Pool[], nextStartAt: string|null}>}
+   */
+  async list(startAt = null, limit = 10) {
+    const { platform } = this.sdk;
+
+    const query = {
+      startAt: startAt,
+      limit: limit,
+    };
+
+    try {
+      const response = await platform.documents.query(
+        `${APP_NAME}.${this.#docName}`,
+        query
+      );
+
+      const pools = response.objects.map((doc) => Pool.fromDocument(doc));
+
+      let nextStartAt = null;
+
+      if (pools.length > 0) {
+        const lastPool = pools[pools.length - 1];
+        nextStartAt = lastPool.id; // The ID of the last pool to use in the next request
+      }
+
+      return {
+        pools: pools,
+        nextStartAt: nextStartAt,
+      };
+    } catch (error) {
+      logger.error('Error fetching pools with pagination:', error);
+      throw new Error('Failed to fetch pools with pagination');
+    }
+  }
 }
 
 export default PoolRepository;
