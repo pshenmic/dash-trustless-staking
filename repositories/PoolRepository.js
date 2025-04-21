@@ -54,7 +54,7 @@ class PoolRepository {
     const poolDocument = await platform.documents.create(
       `${APP_NAME}.${this.#docName}`,
       identity,
-      {...pool, createdAt: undefined, updatedAt: undefined},
+      {...pool, createdAt: undefined, updatedAt: undefined, id: undefined},
     )
 
     const documentBatch = {
@@ -97,7 +97,7 @@ class PoolRepository {
 
       // Determine nextStartAt by taking the ID of the last document
       let nextStartAt = null;
-      if (documents.length > 0) {
+      if (documents.length > 0 && documents.length === limit) {
         nextStartAt = documents[documents.length - 1].getId();
       }
 
