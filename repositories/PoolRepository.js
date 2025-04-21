@@ -73,42 +73,41 @@ class PoolRepository {
   /**
    * Lists Pools with pagination support.
    *
-   * @param {string|null} startAt - The ID of the last document from the previous page (for pagination).
-   * @param {number} limit - The number of pools to retrieve per page.
-   * @returns {Promise<{pools: Pool[], nextStartAt: string|null}>}
+   * @param {Buffer|string|null} startAt - The Buffer or ID of the last document from the previous page.
+   * @param {number} limit - Number of pools to fetch per page.
+   * @returns {Promise<{ pools: Pool[], nextStartAt: string|null }>}
    */
   async list(startAt = null, limit = 10) {
     const { platform } = this.sdk;
 
+    // Build the query object
     const query = {
-      startAt: startAt,
-      limit: limit,
+      limit,
+      ...(startAt && { startAt }),
     };
 
     try {
-      const response = await platform.documents.query(
+      const documents = await platform.documents.get(
         `${APP_NAME}.${this.#docName}`,
-        query
+        query,
       );
 
-      const pools = response.objects.map((doc) => Pool.fromDocument(doc));
+      // Map raw documents to Pool instances
+      const pools = documents.map((doc) => Pool.fromDocument(doc));
 
+      // Determine nextStartAt by taking the ID of the last document
       let nextStartAt = null;
-
-      if (pools.length > 0) {
-        const lastPool = pools[pools.length - 1];
-        nextStartAt = lastPool.id; // The ID of the last pool to use in the next request
+      if (documents.length > 0) {
+        nextStartAt = documents[documents.length - 1].getId();
       }
 
-      return {
-        pools: pools,
-        nextStartAt: nextStartAt,
-      };
+      return { pools, nextStartAt };
     } catch (error) {
-      logger.error('Error fetching pools with pagination:', error);
-      throw new Error('Failed to fetch pools with pagination');
+      logger.error("Error fetching pools with pagination:", error);
+      throw new Error("Failed to fetch pools with pagination");
     }
   }
+
 }
 
 export default PoolRepository;
