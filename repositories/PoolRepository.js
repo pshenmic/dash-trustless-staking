@@ -86,26 +86,21 @@ class PoolRepository {
       ...(startAt && { startAt }),
     };
 
-    try {
-      const documents = await platform.documents.get(
-        `${APP_NAME}.${this.#docName}`,
-        query,
-      );
+    const documents = await platform.documents.get(
+      `${APP_NAME}.${this.#docName}`,
+      query,
+    );
 
-      // Map raw documents to Pool instances
-      const pools = documents.map((doc) => Pool.fromDocument(doc));
+    // Map raw documents to Pool instances
+    const pools = documents.map((doc) => Pool.fromDocument(doc));
 
-      // Determine nextStartAt by taking the ID of the last document
-      let nextStartAt = null;
-      if (documents.length > 0 && documents.length === limit) {
-        nextStartAt = documents[documents.length - 1].getId();
-      }
-
-      return { pools, nextStartAt };
-    } catch (error) {
-      logger.error("Error fetching pools with pagination:", error);
-      throw new Error("Failed to fetch pools with pagination");
+    // Determine nextStartAt by taking the ID of the last document
+    let nextStartAt = null;
+    if (documents.length > 0 && documents.length === limit) {
+      nextStartAt = documents[documents.length - 1].getId();
     }
+
+    return { pools, nextStartAt };
   }
 
 }
