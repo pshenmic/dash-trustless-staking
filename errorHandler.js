@@ -3,6 +3,7 @@ import InvalidPoolTypeError from "./errors/InvalidPoolTypeError.js";
 import InvalidTopUpAmountError from "./errors/InvalidTopUpAmountError.js";
 import PoolNotFoundError from "./errors/PoolNotFoundError.js";
 import UtxoNotFoundError from "./errors/UtxoNotFoundError.js";
+import userNotInPoolError from "./errors/UserNotInPoolError.js";
 
 /**
  * @param {Error} error
@@ -15,6 +16,8 @@ function errorHandler(error) {
   } else if (error instanceof PoolNotFoundError) {
     program.error(error.message);
   } else if (error instanceof UtxoNotFoundError) {
+    program.error(error.message);
+  } else if (error instanceof userNotInPoolError) {
     program.error(error.message);
   } else {
     throw error;
