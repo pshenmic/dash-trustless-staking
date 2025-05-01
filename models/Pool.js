@@ -9,6 +9,7 @@ class Pool {
   /**
    * Creates an instance of Pool.
    *
+   * @param {string | null} id - The id of the pool.
    * @param {string} name - The name of the pool.
    * @param {string} description - The description of the pool.
    * @param {MasternodeTypeEnum} type - The type of the pool ("MASTERNODE" or "EVONODE").
@@ -16,7 +17,8 @@ class Pool {
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The update date.
    */
-  constructor(name, description, type, status, createdAt = undefined, updatedAt = undefined) {
+  constructor(id = null, name, description, type, status, createdAt = undefined, updatedAt = undefined) {
+    this.id = id;
     this.name = name;
     this.description = description;
     this.type = type;
@@ -28,6 +30,7 @@ class Pool {
   static fromDocument(appData) {
     appData = appData.toJSON();
     return new Pool(
+      appData['$id'],
       appData.name,
       appData.description,
       appData.type,

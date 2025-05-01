@@ -38,5 +38,10 @@
   "homepage": "https://github.com/pshenmic/dash-trustless-staking#readme",
   "engines": {
     "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "dash": "^4.8.0",
+    "dotenv": "^16.4.7"
   }
 }
