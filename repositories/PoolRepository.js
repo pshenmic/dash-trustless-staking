@@ -54,7 +54,7 @@ class PoolRepository {
     const poolDocument = await platform.documents.create(
       `${APP_NAME}.${this.#docName}`,
       identity,
-      {...pool, createdAt: undefined, updatedAt: undefined},
+      {...pool, createdAt: undefined, updatedAt: undefined, id: undefined},
     )
 
     const documentBatch = {
@@ -69,6 +69,40 @@ class PoolRepository {
 
     return Pool.fromDocument(poolDocument);
   }
+
+  /**
+   * Lists Pools with pagination support.
+   *
+   * @param {Buffer|string|null} startAt - The Buffer or ID of the last document from the previous page.
+   * @param {number} limit - Number of pools to fetch per page.
+   * @returns {Promise<{ pools: Pool[], nextStartAt: string|null }>}
+   */
+  async list(startAt = null, limit = 10) {
+    const { platform } = this.sdk;
+
+    // Build the query object
+    const query = {
+      limit,
+      ...(startAt && { startAt }),
+    };
+
+    const documents = await platform.documents.get(
+      `${APP_NAME}.${this.#docName}`,
+      query,
+    );
+
+    // Map raw documents to Pool instances
+    const pools = documents.map((doc) => Pool.fromDocument(doc));
+
+    // Determine nextStartAt by taking the ID of the last document
+    let nextStartAt = null;
+    if (documents.length > 0 && documents.length === limit) {
+      nextStartAt = documents[documents.length - 1].getId();
+    }
+
+    return { pools, nextStartAt };
+  }
+
 }
 
 export default PoolRepository;
