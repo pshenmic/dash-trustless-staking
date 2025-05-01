@@ -1,0 +1,39 @@
+/**
+ * Class representing an action proposal.
+ */
+class ActionProposal {
+  /**
+   * @param {Uint8Array|Buffer} poolId - Byte-array ID of the pool.
+   * @param {string} transactionHex - Unsigned multisig transaction in hex.
+   * @param {string} description - Human-readable explanation of the proposal.
+   * @param {string=} createdAt - ISO timestamp when the proposal was created.
+   * @param {string=} updatedAt - ISO timestamp when the proposal was last updated.
+   */
+  constructor(poolId, transactionHex, description, createdAt = undefined, updatedAt = undefined) {
+    this.poolId = poolId;
+    this.transactionHex = transactionHex;
+    this.description = description;
+    this.createdAt = createdAt ?? null;
+    this.updatedAt = updatedAt ?? null;
+  }
+
+  /**
+   * Create an ActionProposal instance from a Dash Document.
+   *
+   * @param {Document} doc - Document returned by the Dash SDK.
+   * @returns {ActionProposal}
+   */
+  static fromDocument(doc) {
+    const data = doc.toJSON();
+
+    return new ActionProposal(
+      data.poolId,
+      data.transactionHex,
+      data.description,
+      data["$createdAt"],
+      data["$updatedAt"],
+    );
+  }
+}
+
+export default ActionProposal;

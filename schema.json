@@ -67,14 +67,32 @@
         "description": "The index of the utxo"
       }
     },
-    "required": [
-      "txHash",
-      "vout",
-      "$createdAt",
-      "$updatedAt"
-    ],
-    "indices":  [
-      {"properties":  ["poolId"]}
+    "required": ["txHash", "vout", "$createdAt", "$updatedAt"],
+    "indices": [{ "name": "poolIdIndex", "properties": [{"poolId": "asc"}] }],
+    "additionalProperties": false
+  },
+  "message": {
+    "type": "object",
+    "properties": {
+      "channel": {
+        "position": 0,
+        "type": "string",
+        "description": "Channel ID: 'global' or poolId",
+        "maxLength": 63
+      },
+      "text": {
+        "position": 1,
+        "type": "string",
+        "description": "Chat message text",
+        "maxLength": 1000
+      }
+    },
+    "required": ["channel", "text", "$createdAt", "$updatedAt"],
+    "indices": [
+      {
+        "name": "message_channel_createdAt",
+        "properties": [{ "channel": "asc" }, { "$createdAt": "asc" }]
+      }
     ],
     "additionalProperties": false
   }
