@@ -2,6 +2,7 @@ import logger from "../logger.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 import UtxoRepository from "../repositories/UtxoRepository.js";
+import MessageRepository from "../repositories/MessageRepository.js";
 import fetchUtxoByTxHashAndVout from "../utils/fetchUtxoByTxHashAndVout.js";
 import PoolMember from "../models/PoolMember.js";
 
@@ -13,6 +14,7 @@ const getPoolByIdAction = (sdk) => {
   return async (poolId) => {
     const poolRepository = new PoolRepository(sdk);
     const utxoRepository = new UtxoRepository(sdk);
+    const messageRepository = new MessageRepository(sdk);
 
     const pool = await poolRepository.getById(poolId);
 
@@ -49,6 +51,12 @@ const getPoolByIdAction = (sdk) => {
 
     logger.info(`Fetched pool document:\n${JSON.stringify(pool, null, 2)}`);
     logger.info(`Pool Info:\n${JSON.stringify(pooInfo, null, 2)}`);
+
+    const messages = await messageRepository.get(poolId);
+    logger.info(
+      `Chat messages for pool ${poolId}:\n` +
+      JSON.stringify(messages, null, 2)
+    );
 
     return pool;
   }
