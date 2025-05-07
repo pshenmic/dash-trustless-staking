@@ -54,7 +54,7 @@ class PoolRepository {
     const poolDocument = await platform.documents.create(
       `${APP_NAME}.${this.#docName}`,
       identity,
-      {...pool, createdAt: undefined, updatedAt: undefined, id: undefined},
+      {...pool, createdAt: undefined, updatedAt: undefined, id: undefined, ownerId: undefined},
     )
 
     const documentBatch = {
