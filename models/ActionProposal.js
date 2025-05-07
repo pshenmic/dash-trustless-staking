@@ -3,7 +3,8 @@
  */
 class ActionProposal {
   /**
-   * @param {Uint8Array|Buffer} poolId - Byte-array ID of the pool.
+   * Creates an instance of ActionProposal.
+   * @param {string} poolId - Base58-encoded ID of the pool.
    * @param {string} transactionHex - Unsigned multisig transaction in hex.
    * @param {string} description - Human-readable explanation of the proposal.
    * @param {string=} createdAt - ISO timestamp when the proposal was created.
@@ -18,9 +19,9 @@ class ActionProposal {
   }
 
   /**
-   * Create an ActionProposal instance from a Dash Document.
+   * Instantiate an ActionProposal from a Dash Document.
    *
-   * @param {Document} doc - Document returned by the Dash SDK.
+   * @param {Document} doc - Document returned by Dash SDK.
    * @returns {ActionProposal}
    */
   static fromDocument(doc) {

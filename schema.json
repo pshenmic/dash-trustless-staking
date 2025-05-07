@@ -121,5 +121,76 @@
       }
     ],
     "additionalProperties": false
+  },
+  "action_proposal": {
+    "type": "object",
+    "properties": {
+      "poolId": {
+        "position": 0,
+        "type": "string",
+        "description": "Base58-encoded Pool ID",
+        "maxLength": 63
+      },
+      "transactionHex": {
+        "position": 1,
+        "type": "string",
+        "description": "Unsigned multisig transaction in hex"
+      },
+      "description": {
+        "position": 2,
+        "type": "string",
+        "maxLength": 1000,
+        "description": "Human-readable explanation of the proposal"
+      }
+    },
+    "required": [
+      "poolId",
+      "transactionHex",
+      "description",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "indices": [
+      {
+        "name": "idx_actionProposal_pool",
+        "properties": [
+          { "poolId": "asc" }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+
+  "action_proposal_signature": {
+    "type": "object",
+    "properties": {
+      "proposalId": {
+        "position": 0,
+        "type": "string",
+        "description": "Base58-encoded ID of the action_proposal document",
+        "maxLength": 63
+      },
+      "signature": {
+        "position": 1,
+        "type": "string",
+        "maxLength": 2048,
+        "description": "Member's signature over the proposal transaction"
+      }
+    },
+    "required": [
+      "proposalId",
+      "signature",
+      "$createdAt",
+      "$updatedAt"
+    ],
+    "indices": [
+      {
+        "name": "idx_signature_proposal",
+        "properties": [
+          { "proposalId": "asc" }
+        ]
+      }
+    ],
+    "additionalProperties": false
   }
 }
