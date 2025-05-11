@@ -18,7 +18,7 @@ class Pool {
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The update date.
    */
-  constructor(name, description, type, status, id = null, ownerId = null, createdAt = undefined, updatedAt = undefined) {
+  constructor(id = null, name, description, type, status, ownerId = null, createdAt = undefined, updatedAt = undefined) {
     this.id = id;
     this.ownerId = ownerId;
     this.name = name;
@@ -32,11 +32,11 @@ class Pool {
   static fromDocument(appData) {
     appData = appData.toJSON();
     return new Pool(
+      appData['$id'],
       appData.name,
       appData.description,
       appData.type,
       appData.status,
-      appData['$id'],
       appData['$ownerId'],
       appData['$createdAt'],
       appData['$updatedAt'],
