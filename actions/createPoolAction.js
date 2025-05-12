@@ -18,7 +18,7 @@ const createPoolAction = (sdk) => {
       throw new InvalidPoolTypeError();
     }
 
-    const pool = new Pool(name, description, type, status);
+    const pool = new Pool(null, name, description, type, status);
 
     await poolRepository.create(pool);
   };

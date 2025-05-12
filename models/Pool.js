@@ -10,6 +10,7 @@ class Pool {
    * Creates an instance of Pool.
    *
    * @param {string | null} id - The id of the pool.
+   * @param {string | null} ownerId - The id owner of the pool.
    * @param {string} name - The name of the pool.
    * @param {string} description - The description of the pool.
    * @param {MasternodeTypeEnum} type - The type of the pool ("MASTERNODE" or "EVONODE").
@@ -17,8 +18,9 @@ class Pool {
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The update date.
    */
-  constructor(id = null, name, description, type, status, createdAt = undefined, updatedAt = undefined) {
+  constructor(id = null, name, description, type, status, ownerId = null, createdAt = undefined, updatedAt = undefined) {
     this.id = id;
+    this.ownerId = ownerId;
     this.name = name;
     this.description = description;
     this.type = type;
@@ -35,6 +37,7 @@ class Pool {
       appData.description,
       appData.type,
       appData.status,
+      appData['$ownerId'],
       appData['$createdAt'],
       appData['$updatedAt'],
     )
