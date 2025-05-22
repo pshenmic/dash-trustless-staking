@@ -160,7 +160,6 @@
     ],
     "additionalProperties": false
   },
-
   "action_proposal_signature": {
     "type": "object",
     "properties": {
