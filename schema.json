@@ -65,11 +65,18 @@
         "position": 2,
         "type": "integer",
         "description": "The index of the utxo"
+      },
+      "publicKey": {
+        "position": 3,
+        "type": "string",
+        "description": "Hex-encoded public key of the UTXO owner",
+        "maxLength": 66
       }
     },
     "required": [
       "txHash",
       "vout",
+      "publicKey",
       "$createdAt",
       "$updatedAt"
     ],
