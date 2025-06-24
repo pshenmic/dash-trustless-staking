@@ -20,7 +20,7 @@ class ActionProposalSignatureRepository {
    * @param {string} proposalId
    * @returns {Promise<ActionProposalSignature[]>}
    */
-  async getByProposalId(proposalId) {
+  async getAllByProposalId(proposalId) {
     const { platform } = this.sdk;
     const docs = await platform.documents.get(
       `${APP_NAME}.${this.#docName}`,

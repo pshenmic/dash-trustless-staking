@@ -1,14 +1,14 @@
 import Dash from "dash";
 import bs58 from "bs58";
-import Utxo from "../models/Utxo.js";
+import Collateral from "../models/Collateral.js";
 import config from "../config.js";
 import {APP_NAME} from "../constants.js";
 import logger from "../logger.js";
 
 const Client = Dash.Client;
 
-class UtxoRepository {
-  #docName = "utxo";
+class CollateralRepository {
+  #docName = "collateral";
 
   /**
    * @param {Client} sdk - The SDK instance used for interacting with the Dash platform.
@@ -19,35 +19,35 @@ class UtxoRepository {
 
   /**
    * @param {string} poolId
-   * @returns {Promise<[Utxo]>}
+   * @returns {Promise<[Collateral]>}
    */
   async getByPoolId(poolId){
     const { platform } = this.sdk;
 
-    const utxoDocuments = await platform.documents.get(
+    const collateralDocuments = await platform.documents.get(
       `${APP_NAME}.${this.#docName}`,
       {where: [['poolId', '==', bs58.decode(poolId)]] },
     )
 
-    if (!utxoDocuments.length) {
+    if (!collateralDocuments.length) {
       return null;
     }
 
-    return utxoDocuments.map(utxo => Utxo.fromObject(utxo));
+    return collateralDocuments.map(collateral => Collateral.fromObject(collateral));
   }
 
   /**
-   * @param {Utxo} utxo
-   * @returns {Promise<Utxo>}
+   * @param {Collateral} collateral
+   * @returns {Promise<Collateral>}
    */
-  async create(utxo){
+  async create(collateral){
     const { platform } = this.sdk;
 
     const identity = await platform.identities.get(config.identity);
 
     const utxoDocData = {
-      ...utxo,
-      poolId: bs58.decode(utxo.poolId),
+      ...collateral,
+      poolId: bs58.decode(collateral.poolId),
       createdAt: undefined,
       updatedAt: undefined,
     }
@@ -68,8 +68,8 @@ class UtxoRepository {
     await platform.documents.broadcast(documentBatch, identity);
     logger.log("Done..",`UTXO Document at: ${utxoDocument.getId()}`);
 
-    return Utxo.fromObject(utxoDocument);
+    return Collateral.fromObject(utxoDocument);
   }
 }
 
-export default UtxoRepository;
+export default CollateralRepository;

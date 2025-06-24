@@ -1,7 +1,7 @@
 /**
- * Class representing a UTXO (Unspent Transaction Output).
+ * Class representing Pool join record.
  */
-class Utxo {
+class Collateral {
   /**
    * Creates an instance of Utxo.
    *
@@ -30,7 +30,7 @@ class Utxo {
       appData = appData.toJSON();
     }
 
-    return new Utxo(
+    return new Collateral(
       appData.poolId,
       appData.txid ?? appData.txHash,
       appData.vout ?? appData.outputIndex,
@@ -43,4 +43,4 @@ class Utxo {
   }
 }
 
-export default Utxo;
+export default Collateral;

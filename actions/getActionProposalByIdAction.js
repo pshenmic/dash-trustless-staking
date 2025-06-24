@@ -19,7 +19,7 @@ const getActionProposalByIdAction = (sdk) => {
     }
 
     // 2. Fetch all signatures for this proposal
-    const signatures = await signatureRepo.getByProposalId(proposalId);
+    const signatures = await signatureRepo.getAllByProposalId(proposalId);
 
     // 3. Log the proposal and its signatures
     logger.info(

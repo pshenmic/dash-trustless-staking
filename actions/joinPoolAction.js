@@ -1,8 +1,8 @@
 import PoolRepository from "../repositories/PoolRepository.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
-import UtxoRepository from "../repositories/UtxoRepository.js";
+import CollateralRepository from "../repositories/CollateralRepository.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
-import Utxo from "../models/Utxo.js";
+import Collateral from "../models/Collateral.js";
 
 /**
  * @param {Client} sdk
@@ -11,7 +11,7 @@ import Utxo from "../models/Utxo.js";
 const joinPoolAction = (sdk) => {
   return async (poolId, utxoHash, utxoIndex) => {
     const poolRepository = new PoolRepository(sdk);
-    const utxoRepository = new UtxoRepository(sdk);
+    const collateralRepository = new CollateralRepository(sdk);
 
     // Check pool available and get pool
     const pool = await poolRepository.getById(poolId);
@@ -32,14 +32,14 @@ const joinPoolAction = (sdk) => {
 
     const [privateKey] = account.getPrivateKeys([utxoDoc.address.toString()]);
 
-    const utxo = Utxo.fromObject(utxoDoc)
+    const collateral = Collateral.fromObject(utxoDoc)
 
-    utxo.publicKey = privateKey.publicKey.toString();
+    collateral.publicKey = privateKey.publicKey.toString();
 
-    utxo.poolId = poolId;
+    collateral.poolId = poolId;
 
     // Broadcast utxo document
-    await utxoRepository.create(utxo);
+    await collateralRepository.create(collateral);
   }
 }
 

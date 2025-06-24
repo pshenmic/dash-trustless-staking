@@ -1,9 +1,9 @@
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
-import Utxo from "../models/Utxo.js";
+import Collateral from "../models/Collateral.js";
 
 /**
  * @param {[string]} addresses
- * @returns {Promise<[Utxo]>}
+ * @returns {Promise<[Collateral]>}
  */
 async function getUTXOsByAddress(addresses) {
   // Base URL for the indexer API
@@ -46,8 +46,8 @@ async function getUTXOsByAddress(addresses) {
     throw new UtxoNotFoundError();
   }
 
-  // Return the UTXOs array
-  return data.result.map((utxo) => Utxo.fromObject(utxo));
+  // Return the Collateral`s array
+  return data.result.map((utxo) => Collateral.fromObject(utxo));
 }
 
 export default getUTXOsByAddress;

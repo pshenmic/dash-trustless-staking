@@ -16,7 +16,7 @@ const getActionProposalSignatureByProposalIdAction = (sdk) => {
     }
 
     const sigRepo = new ActionProposalSignatureRepository(sdk);
-    const signatures = await sigRepo.getByProposalId(proposalId);
+    const signatures = await sigRepo.getAllByProposalId(proposalId);
 
     logger.info(
       `Fetched ${signatures.length} signature(s) for proposal ${proposalId}:\n` +
