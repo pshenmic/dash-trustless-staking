@@ -69,3 +69,4 @@ Thumbs.db
 .env.production
 
 storage.json
+/test.js
