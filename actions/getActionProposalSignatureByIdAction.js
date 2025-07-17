@@ -3,7 +3,7 @@ import ActionProposalSignatureNotFoundError from "../errors/ActionProposalSignat
 import ActionProposalSignatureRepository from "../repositories/ActionProposalSignatureRepository.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string): Promise<ActionProposalSignature>}
  */
 const getActionProposalSignatureByIdAction = (sdk) => {

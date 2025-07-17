@@ -5,9 +5,10 @@ import InvalidPoolTypeError from "../errors/InvalidPoolTypeError.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {(function(string, string, MasternodeTypeEnum): Promise<void>)|*}
  */
+//TODO: Add bls set or generate
 const createPoolAction = (sdk) => {
   return async (name, description, type) => {
     const poolRepository = new PoolRepository(sdk);
@@ -18,7 +19,7 @@ const createPoolAction = (sdk) => {
       throw new InvalidPoolTypeError();
     }
 
-    const pool = new Pool(null, name, description, type, status);
+    const pool = new Pool(null, name, description, type, status, null);
 
     await poolRepository.create(pool);
   };

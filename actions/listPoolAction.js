@@ -3,7 +3,7 @@ import logger from "../logger.js";
 import PoolRepository from "../repositories/PoolRepository.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string, string?): Promise<void>}
  */
 const listPoolAction = (sdk) => {
@@ -43,9 +43,13 @@ const listPoolAction = (sdk) => {
 
         // Display pools
         pools.forEach((pool, idx) => {
+          const ts = Number(pool.createdAt);
+          const createdAtIso = Number.isFinite(ts)
+              ? new Date(ts).toISOString()
+              : "N/A";
           logger.log(
             `${idx + 1}. ID: ${pool.id}, Name: ${pool.name}, Type: ${pool.type}, Status: ${pool.status}, CreatedAt: ${new Date(
-              pool.createdAt
+                createdAtIso
             ).toISOString()}`
           );
         });

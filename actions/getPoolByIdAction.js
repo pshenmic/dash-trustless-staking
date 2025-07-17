@@ -7,7 +7,7 @@ import fetchUtxoByTxHashAndVout from "../utils/fetchUtxoByTxHashAndVout.js";
 import PoolMember from "../models/PoolMember.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string): Promise<Pool>}
  */
 const getPoolByIdAction = (sdk) => {

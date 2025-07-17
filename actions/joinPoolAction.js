@@ -5,7 +5,7 @@ import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import Collateral from "../models/Collateral.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {(function(string, string, number): Promise<void>)|*}
  */
 const joinPoolAction = (sdk) => {
@@ -32,7 +32,7 @@ const joinPoolAction = (sdk) => {
 
     const [privateKey] = account.getPrivateKeys([utxoDoc.address.toString()]);
 
-    const collateral = Collateral.fromObject(utxoDoc)
+    const collateral = Collateral.fromDocument(utxoDoc)
 
     collateral.publicKey = privateKey.publicKey.toString();
 

@@ -1,37 +1,33 @@
-import Dash from 'dash';
+import { DashPlatformSDK } from 'dash-platform-sdk';
+import config from '../config.js';
+import logger from '../logger.js';
 
-import sdkCacheAdaptor from "../sdkCacheAdaptor.js";
-import config from "../config.js";
-import logger from "../logger.js";
+/**
+ * Initialize and return a Dash Platform SDK instance.
+ *
+ * @returns {DashPlatformSDK}
+ */
+export default function initSdk() {
+  const network = config.network || 'testnet';
+  logger.log(`⚙️  Using Dash Platform SDK on network: ${network}`);
 
-function initSdk() {
-
-  const network = process.env.NETWORK || 'testnet'
-
-  logger.log("Used network:", network);
-
-  const mnemonic = config.mnemonic;
-
-  const options = {
+  // Create a new DashPlatformSDK instance
+  const sdk = new DashPlatformSDK({
     network,
-    wallet: {
-      mnemonic,
-      adapter: sdkCacheAdaptor,
-    },
-    apps: {
-      TrustlessPooledStaking: {
-        contractId: process.env.CONTRACT_ID,
-      }
-    }
-  };
+  });
 
-  if (config.skipSynchronizationBeforeHeight) {
-    options.wallet.unsafeOptions = {
-      skipSynchronizationBeforeHeight: config.skipSynchronizationBeforeHeight,
-    };
+  if (!config.contractId) {
+    throw new Error("Missing SDK.contractId – set CONTRACT_ID in your env or config");
   }
 
-  return new Dash.Client(options);
-}
+  logger.log(`📄 Loaded Data Contract ID: ${config.contractId}`);
 
-export default initSdk;
+  if (!config.identity) {
+    throw new Error("Missing SDK.ownerId – set IDENTITY in your env or config");
+  }
+
+  sdk.ownerId = config.identity;
+  logger.log(`👤 Using Identity ID: ${sdk.ownerId}`);
+
+  return sdk;
+}

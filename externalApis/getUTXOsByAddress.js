@@ -47,7 +47,7 @@ async function getUTXOsByAddress(addresses) {
   }
 
   // Return the Collateral`s array
-  return data.result.map((utxo) => Collateral.fromObject(utxo));
+  return data.result.map((utxo) => Collateral.fromDocument(utxo));
 }
 
 export default getUTXOsByAddress;

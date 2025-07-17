@@ -1,9 +1,10 @@
 import dotenv from 'dotenv'; dotenv.config();
 
 const config = {
+  network: process.env.NETWORK || "testnet",
   identity: process.env.IDENTITY,
   mnemonic: process.env.MNEMONIC,
-  skipSynchronizationBeforeHeight: Number(process.env.SKIP_SYNCHRONIZATION_BEFORE_HEIGHT) || 1100100,
+  contractId: process.env.CONTRACT_ID,
 }
 
 export default config;

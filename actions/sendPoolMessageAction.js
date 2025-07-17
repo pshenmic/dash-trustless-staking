@@ -4,7 +4,7 @@ import PoolRepository from "../repositories/PoolRepository.js";
 import MessageRepository from "../repositories/MessageRepository.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string, string): Promise<Message>}
  */
 const sendPoolMessageAction = (sdk) => {

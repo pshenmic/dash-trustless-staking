@@ -5,7 +5,7 @@ import PoolRepository from "../repositories/PoolRepository.js";
 import ActionProposalRepository from "../repositories/ActionProposalRepository.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string): Promise<ActionProposal[]>}
  */
 const getActionProposalByPoolIdAction = (sdk) => {
