@@ -29,8 +29,8 @@ class ActionProposal {
       appData.id.base58(),
       appData.properties.transactionHex,
       appData.properties.description,
-      appData.createdAt.toString(),
-      appData.updatedAt.toString(),
+      appData.createdAt?.toString() ?? String(Date.now()),
+      appData.createdAt?.toString() ?? String(Date.now()),
     );
   }
 }

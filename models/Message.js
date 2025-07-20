@@ -27,8 +27,8 @@ class Message {
     return new Message(
       doc.properties.channel,
       doc.properties.text,
-      doc.createdAt.toString(),
-      doc.updatedAt.toString(),
+      doc.createdAt?.toString() ?? String(Date.now()),
+      doc.createdAt?.toString() ?? String(Date.now()),
     );
   }
 }
