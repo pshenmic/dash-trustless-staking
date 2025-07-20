@@ -28,8 +28,8 @@ class ActionProposalSignature {
       data.properties.proposalId,
       data.properties.signature,
       appData.ownerId.base58(),
-      appData.createdAt.toString(),
-      appData.updatedAt.toString(),
+      appData.createdAt?.toString() ?? String(Date.now()),
+      appData.createdAt?.toString() ?? String(Date.now()),
     );
   }
 }

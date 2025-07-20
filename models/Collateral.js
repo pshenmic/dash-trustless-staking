@@ -33,8 +33,8 @@ class Collateral {
       appData.satoshis ?? appData.properties.satoshis,
       appData['$ownerId'] ?? appData.ownerId.base58(),
       (appData.publicKey ?? appData.properties.publicKey) || '',
-      appData['$createdAt'] ?? appData.createdAt.toString(),
-      appData['$updatedAt'] ?? appData.updatedAt.toString(),
+      appData['$createdAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
+      appData['$updatedAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
     )
   }
 }

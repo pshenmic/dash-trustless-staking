@@ -8,10 +8,12 @@ import config from "../config.js";
  */
 
 export default async function signStateTransition(stateTransition, sdk) {
-    const wallet = await sdk.keyPair.mnemonicToWallet(config.mnemonic);
-
-    const privateKeyWASM = PrivateKeyWASM.fromBytes(wallet.privateKey, config.network)
+    const wallet = await sdk.keyPair.mnemonicToWallet(config.mnemonic, undefined, true, { versions: config.network })
 
     // TODO
-    stateTransition.sign(privateKeyWASM, (await sdk.identities.getIdentityPublicKeys(config.identity))[1])
+    const key = await sdk.keyPair.walletToIdentityKey(wallet, 0, 1)
+
+    const privateKeyWASM = PrivateKeyWASM.fromBytes(key.privateKey, config.network)
+    const identityPublicKeys = await sdk.identities.getIdentityPublicKeys(config.identity)
+    stateTransition.sign(privateKeyWASM, identityPublicKeys[1])
 }

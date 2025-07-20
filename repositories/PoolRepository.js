@@ -78,9 +78,9 @@ class PoolRepository {
 
     await this.sdk.stateTransitions.broadcast(stateTransition);
 
-    logger.info(`🆕 Pool document broadcasted, id=${poolDoc.id}`);
+    logger.info(`🆕 Pool document broadcasted at ${poolDoc.id.base58()}`);
 
-    // return Pool.fromDocument(poolDocument);
+    return Pool.fromDocument(poolDoc);
   }
 
   /**
