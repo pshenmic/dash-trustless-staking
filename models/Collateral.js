@@ -10,17 +10,34 @@ class Collateral {
    * @param {number} vout - The vout of the UTXO.
    * @param {number} satoshis - Amount satoshis of the UTXO.
    * @param {string=} ownerId - Owner identity
-   * @param {string=} publicKey - Owner publicKey
+   * @param {string=} collateralPublicKey - collateral publicKey
+   * @param {string=} ownerPublicKey - owner publicKey
+   * @param {string=} voterPublicKey - voter publicKey
+   * @param {string=} payOutPublicKey - payOut publicKey
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The last updated date.
    */
-  constructor(poolId, txHash, vout,satoshis, ownerId, publicKey, createdAt = null, updatedAt = null) {
+  constructor(
+      poolId,
+      txHash,
+      vout,
+      satoshis,
+      ownerId,
+      collateralPublicKey,
+      ownerPublicKey,
+      voterPublicKey,
+      payOutPublicKey,
+      createdAt = null,
+      updatedAt = null) {
     this.poolId = poolId;
     this.txHash = txHash;
     this.vout = vout;
     this.satoshis = satoshis;
     this.ownerId = ownerId;
-    this.publicKey = publicKey;
+    this.collateralPublicKey = collateralPublicKey;
+    this.ownerPublicKey = ownerPublicKey;
+    this.voterPublicKey = voterPublicKey;
+    this.payOutPublicKey = payOutPublicKey;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -32,7 +49,10 @@ class Collateral {
       appData.outputIndex ?? appData.properties.vout,
       appData.satoshis ?? appData.properties.satoshis,
       appData['$ownerId'] ?? appData.ownerId.base58(),
-      (appData.publicKey ?? appData.properties.publicKey) || '',
+      (appData.collateralPublicKey ?? appData.properties.collateralPublicKey) || '',
+      (appData.ownerPublicKey ?? appData.properties.ownerPublicKey) || '',
+      (appData.voterPublicKey ?? appData.properties.voterPublicKey) || '',
+      (appData.payOutPublicKey ?? appData.properties.payOutPublicKey) || '',
       appData['$createdAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
       appData['$updatedAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
     )

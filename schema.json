@@ -32,6 +32,12 @@
           "INACTIVE",
           "FILLED"
         ]
+      },
+      "bls_public_key": {
+        "position": 4,
+        "type": "string",
+        "description": "The bls_public_key of the pool",
+        "maxLength": 255
       }
     },
     "required": [
@@ -39,6 +45,7 @@
       "description",
       "type",
       "status",
+      "bls_public_key",
       "$createdAt",
       "$updatedAt"
     ],
@@ -66,17 +73,38 @@
         "type": "integer",
         "description": "The index of the utxo"
       },
-      "publicKey": {
+      "collateralPublicKey": {
         "position": 3,
         "type": "string",
-        "description": "Hex-encoded public key of the UTXO owner",
+        "description": "Hex-encoded collateral public key for multisig address",
+        "maxLength": 66
+      },
+      "ownerPublicKey": {
+        "position": 4,
+        "type": "string",
+        "description": "Hex-encoded owner public key for multisig address",
+        "maxLength": 66
+      },
+      "voterPublicKey": {
+        "position": 5,
+        "type": "string",
+        "description": "Hex-encoded voter public key for multisig address",
+        "maxLength": 66
+      },
+      "payOutPublicKey": {
+        "position": 6,
+        "type": "string",
+        "description": "Hex-encoded payOut public key for multisig address",
         "maxLength": 66
       }
     },
     "required": [
       "txHash",
       "vout",
-      "publicKey",
+      "collateralPublicKey",
+      "ownerPublicKey",
+      "voterPublicKey",
+      "payOutPublicKey",
       "$createdAt",
       "$updatedAt"
     ],

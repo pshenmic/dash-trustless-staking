@@ -142,6 +142,24 @@
     bn.js "^4.6.4"
     buffer-reverse "^1.0.1"
 
+"@dashevo/dashcore-lib@^0.25.0":
+  version "0.25.0"
+  resolved "https://registry.yarnpkg.com/@dashevo/dashcore-lib/-/dashcore-lib-0.25.0.tgz#e2059782750ccd2402a2e1a313cc8192c8b12fe0"
+  integrity sha512-ijoXij5EESpFAjw5V45QqPsNREbO0V2wgx7KJnXQSKbX3FchmGwB9Ei7sMt9Yir4nE7tu2lScOKjuJwQqrCfng==
+  dependencies:
+    "@dashevo/bls" "~1.2.9"
+    "@dashevo/x11-hash-js" "^1.0.2"
+    "@types/node" "^12.12.47"
+    bloom-filter "^0.2.0"
+    bn.js "^4.12.0"
+    bs58 "=4.0.1"
+    elliptic "^6.5.4"
+    inherits "=2.0.1"
+    lodash "^4.17.20"
+    ripemd160 "^2.0.2"
+    tsd "^0.28.1"
+    unorm "^1.6.0"
+
 "@dashevo/dashcore-lib@~0.22.0":
   version "0.22.0"
   resolved "https://registry.yarnpkg.com/@dashevo/dashcore-lib/-/dashcore-lib-0.22.0.tgz#bf64a6c530bd83594972f9eff7d131b0bd820ced"
@@ -297,7 +315,7 @@
   dependencies:
     "@noble/hashes" "1.8.0"
 
-"@noble/hashes@1.8.0":
+"@noble/hashes@1.8.0", "@noble/hashes@^1.2.0":
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.8.0.tgz#cee43d801fcef9644b11b8194857695acd5f815a"
   integrity sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==
@@ -692,6 +710,13 @@ binascii@0.0.2:
   version "0.0.2"
   resolved "https://registry.yarnpkg.com/binascii/-/binascii-0.0.2.tgz#a7f8a8801dbccf8b1756b743daa0fee9e2d9e0ee"
   integrity sha512-rA2CrUl1+6yKrn+XgLs8Hdy18OER1UW146nM+ixzhQXDY+Bd3ySkyIJGwF2a4I45JwbvF1mDL/nWkqBwpOcdBA==
+
+bip39@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/bip39/-/bip39-3.1.0.tgz#c55a418deaf48826a6ceb34ac55b3ee1577e18a3"
+  integrity sha512-c9kiwdk45Do5GL0vJMe7tS95VjCii65mYAH7DfWl3uW8AVzXKQVUm64i3hzVybBDMp9r7j9iNxR85+ul8MdN/A==
+  dependencies:
+    "@noble/hashes" "^1.2.0"
 
 bloom-filter@^0.2.0:
   version "0.2.0"
