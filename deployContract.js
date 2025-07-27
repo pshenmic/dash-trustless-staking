@@ -22,7 +22,7 @@ export default async function deployContract() {
 
     const stateTransition = await sdk.dataContracts.createStateTransition(
         dataContract,
-        0, // Create
+        'create', // Create
         identityNonce,
     );
 

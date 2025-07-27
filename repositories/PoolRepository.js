@@ -70,7 +70,7 @@ class PoolRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         poolDoc,
-        0,
+        'create',
         identityContractNonce + 1n,
     );
 

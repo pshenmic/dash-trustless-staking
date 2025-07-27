@@ -6,6 +6,7 @@ class Collateral {
    * Creates an instance of Utxo.
    *
    * @param {string|null} poolId - The ID of the pool where the UTXO is associated.
+   * @param {string} address - The address of the UTXO.
    * @param {string} txHash - The unique hash of the UTXO.
    * @param {number} vout - The vout of the UTXO.
    * @param {number} satoshis - Amount satoshis of the UTXO.
@@ -19,6 +20,7 @@ class Collateral {
    */
   constructor(
       poolId,
+      address,
       txHash,
       vout,
       satoshis,
@@ -30,6 +32,7 @@ class Collateral {
       createdAt = null,
       updatedAt = null) {
     this.poolId = poolId;
+    this.address = address;
     this.txHash = txHash;
     this.vout = vout;
     this.satoshis = satoshis;
@@ -44,15 +47,16 @@ class Collateral {
 
   static fromDocument(appData) {
     return new Collateral(
-      appData.poolId ?? appData.properties.poolId,
+      appData.poolId ?? appData.properties?.poolId,
+      appData.address ?? appData.properties?.address,
       appData.txid ?? appData.properties.txHash,
       appData.outputIndex ?? appData.properties.vout,
       appData.satoshis ?? appData.properties.satoshis,
-      appData['$ownerId'] ?? appData.ownerId.base58(),
-      (appData.collateralPublicKey ?? appData.properties.collateralPublicKey) || '',
-      (appData.ownerPublicKey ?? appData.properties.ownerPublicKey) || '',
-      (appData.voterPublicKey ?? appData.properties.voterPublicKey) || '',
-      (appData.payOutPublicKey ?? appData.properties.payOutPublicKey) || '',
+      appData['$ownerId'] ?? appData.ownerId?.base58(),
+      (appData.collateralPublicKey ?? appData.properties?.collateralPublicKey) || '',
+      (appData.ownerPublicKey ?? appData.properties?.ownerPublicKey) || '',
+      (appData.voterPublicKey ?? appData.properties?.voterPublicKey) || '',
+      (appData.payOutPublicKey ?? appData.properties?.payOutPublicKey) || '',
       appData['$createdAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
       appData['$updatedAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
     )

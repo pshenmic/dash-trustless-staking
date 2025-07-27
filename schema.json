@@ -62,45 +62,59 @@
         "minItems": 32,
         "maxItems": 32
       },
-      "txHash": {
+      "address": {
         "position": 1,
+        "type": "string",
+        "description": "The address of the utxo",
+        "maxLength": 63
+      },
+      "txHash": {
+        "position": 2,
         "type": "string",
         "description": "The hash of the utxo",
         "maxLength": 255
       },
       "vout": {
-        "position": 2,
+        "position": 3,
         "type": "integer",
         "description": "The index of the utxo"
       },
+      "satoshis": {
+        "position": 4,
+        "type": "integer",
+        "description": "The satoshis of the utxo"
+      },
       "collateralPublicKey": {
-        "position": 3,
+        "position": 5,
         "type": "string",
         "description": "Hex-encoded collateral public key for multisig address",
         "maxLength": 66
       },
       "ownerPublicKey": {
-        "position": 4,
+        "position": 6,
         "type": "string",
         "description": "Hex-encoded owner public key for multisig address",
         "maxLength": 66
       },
       "voterPublicKey": {
-        "position": 5,
+        "position": 7,
         "type": "string",
         "description": "Hex-encoded voter public key for multisig address",
         "maxLength": 66
       },
       "payOutPublicKey": {
-        "position": 6,
+        "position": 8,
         "type": "string",
         "description": "Hex-encoded payOut public key for multisig address",
         "maxLength": 66
       }
     },
     "required": [
+      "poolId",
+      "address",
       "txHash",
       "vout",
+      "satoshis",
       "collateralPublicKey",
       "ownerPublicKey",
       "voterPublicKey",
@@ -114,6 +128,14 @@
         "properties": [
           {
             "poolId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "addressIndex",
+        "properties": [
+          {
+            "address": "asc"
           }
         ]
       }

@@ -106,7 +106,7 @@ class MessageRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         msgDoc,
-        0,
+        'create',
         identityContractNonce + 1n,
     );
 

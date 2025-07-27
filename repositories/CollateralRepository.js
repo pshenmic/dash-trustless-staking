@@ -16,6 +16,25 @@ class CollateralRepository {
   }
 
   /**
+   * @param {string} address
+   * @returns {Promise<Collateral[]>}
+   */
+  async getByAddress(address) {
+    const collateralDocuments = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["address", "==", address]],
+        null,
+    )
+
+    if (!collateralDocuments.length) {
+      return null;
+    }
+
+    return collateralDocuments.map(collateral => Collateral.fromDocument(collateral));
+  }
+
+  /**
    * @param {string} poolId
    * @returns {Promise<[Collateral]>}
    */
@@ -47,6 +66,10 @@ class CollateralRepository {
         config.contractId,
     );
 
+    delete (collateral.ownerId)
+    delete (collateral.createdAt)
+    delete (collateral.updatedAt)
+
     const utxoDoc = await this.sdk.documents.create(
         config.contractId,
         this.#docName,
@@ -60,19 +83,17 @@ class CollateralRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         utxoDoc,
-        0, // Create
+        'create', // Create
         identityContractNonce + 1n,
     );
 
     await signStateTransition(stateTransition, this.sdk);
 
-    await this.sdk.stateTransitions.broadcast(stateTransition);
-
     logger.log("Broadcasting collateral UTXO Document");
     await this.sdk.stateTransitions.broadcast(stateTransition);
-    logger.log("Done..",`Collateral UTXO Document at: ${utxoDocument.getId()}`);
+    logger.log("Done..",`Collateral UTXO Document at: ${utxoDoc.id.base58()}`);
 
-    return Collateral.fromDocument(utxoDocument);
+    return Collateral.fromDocument(utxoDoc);
   }
 }
 
