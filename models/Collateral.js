@@ -9,6 +9,7 @@ class Collateral {
    * @param {string} address - The address of the UTXO.
    * @param {string} txHash - The unique hash of the UTXO.
    * @param {number} vout - The vout of the UTXO.
+   * @param {string} script - The script of the UTXO.
    * @param {number} satoshis - Amount satoshis of the UTXO.
    * @param {string=} ownerId - Owner identity
    * @param {string=} collateralPublicKey - collateral publicKey
@@ -23,6 +24,7 @@ class Collateral {
       address,
       txHash,
       vout,
+      script,
       satoshis,
       ownerId,
       collateralPublicKey,
@@ -35,6 +37,7 @@ class Collateral {
     this.address = address;
     this.txHash = txHash;
     this.vout = vout;
+    this.script = script;
     this.satoshis = satoshis;
     this.ownerId = ownerId;
     this.collateralPublicKey = collateralPublicKey;
@@ -51,6 +54,7 @@ class Collateral {
       appData.address ?? appData.properties?.address,
       appData.txid ?? appData.properties.txHash,
       appData.outputIndex ?? appData.properties.vout,
+      appData.script ?? appData.properties.script,
       appData.satoshis ?? appData.properties.satoshis,
       appData['$ownerId'] ?? appData.ownerId?.base58(),
       (appData.collateralPublicKey ?? appData.properties?.collateralPublicKey) || '',

@@ -5,6 +5,7 @@ import PoolNotFoundError from "./errors/PoolNotFoundError.js";
 import UtxoNotFoundError from "./errors/UtxoNotFoundError.js";
 import userNotInPoolError from "./errors/UserNotInPoolError.js";
 import CollateralUtxoAlreadyExist from "./errors/CollateralUtxoAlreadyExist.js";
+import InsufficientCollateralError from "./errors/InsufficientCollateralError.js";
 
 /**
  * @param {Error} error
@@ -21,6 +22,8 @@ function errorHandler(error) {
   } else if (error instanceof userNotInPoolError) {
     program.error(error.message);
   } else if (error instanceof CollateralUtxoAlreadyExist) {
+    program.error(error.message);
+  } else if (error instanceof InsufficientCollateralError) {
     program.error(error.message);
   } else {
     throw error;

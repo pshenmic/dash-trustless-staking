@@ -79,31 +79,37 @@
         "type": "integer",
         "description": "The index of the utxo"
       },
-      "satoshis": {
+      "script": {
         "position": 4,
+        "type": "string",
+        "description": "The script of the utxo",
+        "maxLength": 255
+      },
+      "satoshis": {
+        "position": 5,
         "type": "integer",
         "description": "The satoshis of the utxo"
       },
       "collateralPublicKey": {
-        "position": 5,
+        "position": 6,
         "type": "string",
         "description": "Hex-encoded collateral public key for multisig address",
         "maxLength": 66
       },
       "ownerPublicKey": {
-        "position": 6,
+        "position": 7,
         "type": "string",
         "description": "Hex-encoded owner public key for multisig address",
         "maxLength": 66
       },
       "voterPublicKey": {
-        "position": 7,
+        "position": 8,
         "type": "string",
         "description": "Hex-encoded voter public key for multisig address",
         "maxLength": 66
       },
       "payOutPublicKey": {
-        "position": 8,
+        "position": 9,
         "type": "string",
         "description": "Hex-encoded payOut public key for multisig address",
         "maxLength": 66
@@ -114,6 +120,7 @@
       "address",
       "txHash",
       "vout",
+      "script",
       "satoshis",
       "collateralPublicKey",
       "ownerPublicKey",

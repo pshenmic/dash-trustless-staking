@@ -48,6 +48,7 @@ const joinPoolAction = (sdk) => {
       address: utxoAddress,
       txid: utxoHash,
       outputIndex: parseInt(utxoIndex),
+      script: utxo.script,
       satoshis: utxo.satoshis,
       undefined,
       collateralPublicKey,
