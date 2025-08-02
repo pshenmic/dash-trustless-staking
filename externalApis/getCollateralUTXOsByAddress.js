@@ -3,16 +3,9 @@ import Collateral from "../models/Collateral.js";
 
 /**
  * @param {[string]} addresses
- * @returns {Promise<Array<{
- *   address: string,
- *   txid: string,
- *   outputIndex: number,
- *   script: string,
- *   satoshis: number,
- *   height: number
- * }>>}
+ * @returns {Promise<[Collateral]>}
  */
-async function getUTXOsByAddress(addresses) {
+async function getCollateralUTXOsByAddress(addresses) {
   // Base URL for the indexer API
   const baseUrl = "https://trpc.digitalcash.dev/";
 
@@ -54,7 +47,7 @@ async function getUTXOsByAddress(addresses) {
   }
 
   // Return the Collateral`s array
-  return data.result;
+  return data.result.map((utxo) => Collateral.fromDocument(utxo));
 }
 
-export default getUTXOsByAddress;
+export default getCollateralUTXOsByAddress;
