@@ -1,3 +1,5 @@
+import config from "../config.js";
+
 /**
  * Error thrown when the provided collateral is less than required.
  */
@@ -12,9 +14,9 @@ class InsufficientCollateralError extends Error {
         typeof requiredCollateral === 'number' &&
         typeof currentCollateral === 'number'
     ) {
-      message = `Insufficient collateral: required ${requiredCollateral}, but got ${currentCollateral}`;
+      message = `Insufficient collateral: required ${requiredCollateral + config.fee}, but got ${currentCollateral}`;
     } else if (typeof requiredCollateral === 'number') {
-      message = `Insufficient collateral: required ${requiredCollateral}`;
+      message = `Insufficient collateral: required ${requiredCollateral + config.fee}`;
     } else {
       message = 'Insufficient collateral amount';
     }
@@ -22,7 +24,7 @@ class InsufficientCollateralError extends Error {
     super(message);
     this.name = 'InsufficientCollateralError';
 
-    this.requiredCollateral = requiredCollateral;
+    this.requiredCollateral = requiredCollateral + config.fee;
     this.currentCollateral = currentCollateral;
   }
 }

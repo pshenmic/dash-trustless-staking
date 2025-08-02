@@ -3,7 +3,7 @@ import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import CollateralRepository from "../repositories/CollateralRepository.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import Collateral from "../models/Collateral.js";
-import getUTXOsByAddress from "../externalApis/getUTXOsByAddress.js";
+import getCollateralUTXOsByAddress from "../externalApis/getCollateralUTXOsByAddress.js";
 import CollateralUtxoAlreadyExist from "../errors/CollateralUtxoAlreadyExist.js";
 
 /**
@@ -32,7 +32,7 @@ const joinPoolAction = (sdk) => {
 
     // TODO UTXO amount validation
 
-    const [utxo] = await getUTXOsByAddress([utxoAddress]);
+    const [utxo] = await getCollateralUTXOsByAddress([utxoAddress]);
     if (!utxo) {
       throw new UtxoNotFoundError();
     }
