@@ -9,12 +9,14 @@ import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import UserNotInPoolError from "../errors/UserNotInPoolError.js";
 import ActionProposalNotFoundError from "../errors/ActionProposalNotFoundError.js";
+import {createProRegTx} from "../utils/createProRegTx.js";
+import ActionProposalSignatureRepository from "../repositories/ActionProposalSignatureRepository.js";
 
 const {PrivateKey, Address, Script, Transaction} = dashcore;
 
 const signActionProposalAction = (sdk) => {
   return async (proposalId) => {
-    const actionProposalSignatureRepository = new ActionProposalRepository(sdk);
+    const actionProposalSignatureRepository = new ActionProposalSignatureRepository(sdk);
     const actionProposalRepository = new ActionProposalRepository(sdk);
     const poolRepository = new PoolRepository(sdk);
     const collateralRepository = new CollateralRepository(sdk);
@@ -42,7 +44,11 @@ const signActionProposalAction = (sdk) => {
 
     logger.info(`Signing ActionProposal: ${proposalId}`);
 
-    const tx = new Transaction(actionProposal.transactionHex)
+    const tx = await createProRegTx(collateralUTXOs, pool.blsPublicKey, pool.type);
+
+    if (tx.toString() !== actionProposal.transactionHex) {
+      throw new Error('Transaction Error. The transaction in actionProposal and the newly generated one do not match.');
+    }
 
     const wallet = await sdk.keyPair.mnemonicToWallet(config.mnemonic);
 
@@ -51,9 +57,11 @@ const signActionProposalAction = (sdk) => {
       config.network
     );
 
-    const [signature] = tx.getSignatures(privateKey)
+    const [sig] = tx
+        .getSignatures(privateKey)
+        .map((sig) => sig.signature.toDER().toString("hex"));
 
-    logger.info(signature.toString());
+    await actionProposalSignatureRepository.create(proposalId, sig)
   };
 };
 
