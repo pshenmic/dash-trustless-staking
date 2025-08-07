@@ -1,5 +1,4 @@
 import bs58 from "bs58";
-import dashcore from "@dashevo/dashcore-lib";
 import logger from "../logger.js";
 import config from "../config.js";
 import ActionProposalRepository from "../repositories/ActionProposalRepository.js";
@@ -12,9 +11,11 @@ import ActionProposalNotFoundError from "../errors/ActionProposalNotFoundError.j
 import {createProRegTx} from "../utils/createProRegTx.js";
 import ActionProposalSignatureRepository from "../repositories/ActionProposalSignatureRepository.js";
 
-const {PrivateKey, Address, Script, Transaction} = dashcore;
+import PublicKey from "@dashevo/dashcore-lib/lib/publickey.js";
+import TransactionSignature from "@dashevo/dashcore-lib/lib/transaction/signature.js";
 
-const signActionProposalAction = (sdk) => {
+
+const signTxAction = (sdk) => {
   return async (proposalId) => {
     const actionProposalSignatureRepository = new ActionProposalSignatureRepository(sdk);
     const actionProposalRepository = new ActionProposalRepository(sdk);
@@ -36,11 +37,15 @@ const signActionProposalAction = (sdk) => {
       throw new UtxoNotFoundError();
     }
 
+    const actionProposalSignatures = await actionProposalSignatureRepository.getAllByProposalId(proposalId);
+
     const identity = await sdk.identities.getIdentityByIdentifier(config.identity);
     const isMember = collateralUTXOs.some((doc) => doc.ownerId === identity.id.base58());
     if (!isMember) {
       throw new UserNotInPoolError(actionProposal.poolId);
     }
+
+    // TODO Check that there are enough signatures. actionProposalSignatures >= collateralUTXOs * multisigThreshold
 
     logger.info(`Signing ActionProposal: ${proposalId}`);
 
@@ -50,19 +55,33 @@ const signActionProposalAction = (sdk) => {
       throw new Error('Transaction Error. The transaction in actionProposal and the newly generated one do not match.');
     }
 
-    const wallet = await sdk.keyPair.mnemonicToWallet(config.mnemonic);
-    // TODO get privateKey
-    const privateKey = new PrivateKey(
-      "e8d594cb3cd2df1b23237ed771d968b7d30bb436b8ac1bc45b8496512984924e",
-      config.network
-    );
+    const latestSignatures = [...actionProposalSignatures.reduce((map, sig) => {
+      const existing = map.get(sig.ownerId);
+      if (!existing || Number(sig.createdAt) > Number(existing.createdAt)) {
+        map.set(sig.ownerId, sig);
+      }
+      return map;
+    }, new Map()).values()];
 
-    const [sig] = tx
-        .getSignatures(privateKey)
-        .map((sig) => sig.signature.toDER().toString("hex"));
+    latestSignatures.forEach((signature, index) => {
+      const utxo = collateralUTXOs.find(collateralUTXO => collateralUTXO.ownerId === signature.ownerId);
+      if (!utxo) {
+        throw new UtxoNotFoundError();
+      }
+      const publicKey = new PublicKey(utxo.collateralPublicKey, {network: config.network});
+      const txSig = TransactionSignature.fromObject({
+        publicKey,
+        prevTxId: utxo.txHash,
+        outputIndex: utxo.vout,
+        inputIndex: index,
+        signature: signature.signature,
+        sigtype: 1,
+      })
+      tx.applySignature(txSig);
+    })
 
-    await actionProposalSignatureRepository.create(proposalId, sig)
+    console.log(tx.toString('hex'));
   };
 };
 
-export default signActionProposalAction;
+export default signTxAction;
