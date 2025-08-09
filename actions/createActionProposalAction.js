@@ -21,8 +21,8 @@ const createActionProposalAction = (sdk) => {
 
     // 2. Ensure caller is the pool owner
     const identity = await sdk.platform.identities.get(config.identity);
-    const callerId = identity.getId().toString();
-    if (callerId !== pool.ownerId) {
+    const ownerId = identity.getId().toString();
+    if (ownerId !== pool.ownerId) {
       throw new OnlyPoolOwnerError(poolId);
     }
 
