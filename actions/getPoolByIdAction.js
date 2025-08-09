@@ -1,7 +1,7 @@
 import logger from "../logger.js";
 import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import PoolRepository from "../repositories/PoolRepository.js";
-import UtxoRepository from "../repositories/UtxoRepository.js";
+import CollateralRepository from "../repositories/CollateralRepository.js";
 import MessageRepository from "../repositories/MessageRepository.js";
 import fetchUtxoByTxHashAndVout from "../utils/fetchUtxoByTxHashAndVout.js";
 import PoolMember from "../models/PoolMember.js";
@@ -13,7 +13,7 @@ import PoolMember from "../models/PoolMember.js";
 const getPoolByIdAction = (sdk) => {
   return async (poolId) => {
     const poolRepository = new PoolRepository(sdk);
-    const utxoRepository = new UtxoRepository(sdk);
+    const collateralRepository = new CollateralRepository(sdk);
     const messageRepository = new MessageRepository(sdk);
 
     const pool = await poolRepository.getById(poolId);
@@ -22,7 +22,7 @@ const getPoolByIdAction = (sdk) => {
       throw new PoolNotFoundError(poolId);
     }
 
-    const utxos = await utxoRepository.getByPoolId(poolId);
+    const utxos = await collateralRepository.getByPoolId(poolId);
 
     // Retrieve all UTXOs in parallel using map + Promise.all
     // If utxos is not defined or is empty, return an empty array to avoid errors

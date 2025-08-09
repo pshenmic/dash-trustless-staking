@@ -1,7 +1,7 @@
 /**
- * Class representing a UTXO (Unspent Transaction Output).
+ * Class representing Pool join record.
  */
-class Utxo {
+class Collateral {
   /**
    * Creates an instance of Utxo.
    *
@@ -10,15 +10,17 @@ class Utxo {
    * @param {number} vout - The vout of the UTXO.
    * @param {number} satoshis - Amount satoshis of the UTXO.
    * @param {string=} ownerId - Owner identity
+   * @param {string=} publicKey - Owner publicKey
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The last updated date.
    */
-  constructor(poolId, txHash, vout,satoshis, ownerId, createdAt = null, updatedAt = null) {
+  constructor(poolId, txHash, vout,satoshis, ownerId, publicKey, createdAt = null, updatedAt = null) {
     this.poolId = poolId;
     this.txHash = txHash;
     this.vout = vout;
     this.satoshis = satoshis;
     this.ownerId = ownerId;
+    this.publicKey = publicKey;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -28,16 +30,17 @@ class Utxo {
       appData = appData.toJSON();
     }
 
-    return new Utxo(
+    return new Collateral(
       appData.poolId,
       appData.txid ?? appData.txHash,
       appData.vout ?? appData.outputIndex,
       appData.satoshis,
       appData['$ownerId'],
+      appData.publicKey || '',
       appData['$createdAt'],
       appData['$updatedAt'],
     )
   }
 }
 
-export default Utxo;
+export default Collateral;

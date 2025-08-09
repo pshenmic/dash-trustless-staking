@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "commander": "^13.0.0",
-    "dash": "^4.8.0",
+    "dash": "5.0.0-rc.15",
     "dotenv": "^16.4.7"
   }
 }
