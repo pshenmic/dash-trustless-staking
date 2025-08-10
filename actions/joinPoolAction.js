@@ -30,9 +30,10 @@ const joinPoolAction = (sdk) => {
       throw new PoolNotFoundError(poolId);
     }
 
-    // TODO UTXO amount validation
 
+    // TODO UTXO amount validation
     const [utxo] = await getCollateralUTXOsByAddress([utxoAddress]);
+
     if (!utxo) {
       throw new UtxoNotFoundError();
     }
