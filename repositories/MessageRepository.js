@@ -1,5 +1,4 @@
 import bs58 from "bs58";
-import { APP_NAME } from "../constants.js";
 import Message from "../models/Message.js";
 import logger from "../logger.js";
 import config from "../config.js";
@@ -106,7 +105,7 @@ class MessageRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         msgDoc,
-        0,
+        'create',
         identityContractNonce + 1n,
     );
 

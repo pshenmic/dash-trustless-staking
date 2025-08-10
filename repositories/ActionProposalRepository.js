@@ -81,7 +81,7 @@ class ActionProposalRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         proposalDoc,
-        0,
+        'create',
         identityContractNonce + 1n,
     );
 

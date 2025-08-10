@@ -72,7 +72,7 @@ class ActionProposalSignatureRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         sigDoc,
-        0, // Create
+        'create', // Create
         identityContractNonce + 1n,
     );
 

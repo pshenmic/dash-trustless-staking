@@ -22,17 +22,17 @@ const joinPoolAction = (sdk) => {
     // Check utxo available and utxo amount validation
     const account = await sdk.wallet.getAccount();
     const utxosDocument = account.getUTXOS();
-    const [utxoDoc] = utxosDocument
+    const [utxo] = utxosDocument
       .filter(utxo => utxo.outputIndex === parseInt(utxoIndex) && utxo.txId === utxoHash);
 
-    if (!utxoDoc) {
+    if (!utxo) {
       throw new UtxoNotFoundError();
     }
     // TODO amount validation
 
-    const [privateKey] = account.getPrivateKeys([utxoDoc.address.toString()]);
+    const [privateKey] = account.getPrivateKeys([utxo.address.toString()]);
 
-    const collateral = Collateral.fromDocument(utxoDoc)
+    const collateral = Collateral.fromDocument(utxo)
 
     collateral.publicKey = privateKey.publicKey.toString();
 

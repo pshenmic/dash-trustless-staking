@@ -1,7 +1,6 @@
 import bs58 from "bs58";
 import Collateral from "../models/Collateral.js";
 import config from "../config.js";
-import {APP_NAME} from "../constants.js";
 import logger from "../logger.js";
 import signStateTransition from "../utils/signStateTransition.js";
 
@@ -60,7 +59,7 @@ class CollateralRepository {
 
     const stateTransition = await this.sdk.documents.createStateTransition(
         utxoDoc,
-        0, // Create
+        'create', // Create
         identityContractNonce + 1n,
     );
 

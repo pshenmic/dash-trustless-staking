@@ -11,9 +11,9 @@ export default async function signStateTransition(stateTransition, sdk) {
     const wallet = await sdk.keyPair.mnemonicToWallet(config.mnemonic, undefined, true, { versions: config.network })
 
     // TODO
-    const key = await sdk.keyPair.walletToIdentityKey(wallet, 0, 1)
+    const key = await sdk.keyPair.walletToIdentityKey(wallet, config.identityIndex, config.identityKeyIndex);
 
     const privateKeyWASM = PrivateKeyWASM.fromBytes(key.privateKey, config.network)
     const identityPublicKeys = await sdk.identities.getIdentityPublicKeys(config.identity)
-    stateTransition.sign(privateKeyWASM, identityPublicKeys[1])
+    stateTransition.sign(privateKeyWASM, identityPublicKeys[config.identityKeyIndex])
 }
