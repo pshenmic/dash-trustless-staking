@@ -1,9 +1,4 @@
-// import Dash from "dash";
-// import {APP_NAME} from "../constants.js";
 import Pool from "../models/Pool.js";
-// import PoolStatusEnum from "../models/enums/PoolStatusEnum.js";
-// import MasternodeTypeEnum from "../models/enums/MasternodeTypeEnum.js";
-// import InvalidPoolTypeError from "../errors/InvalidPoolTypeError.js";
 import logger from "../logger.js";
 import config from "../config.js";
 

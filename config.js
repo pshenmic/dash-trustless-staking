@@ -10,6 +10,8 @@ const config = {
     "MASTERNODE": 1000e8,
     "EVONODE": 4000e8,
   }
+  identityIndex: 0,
+  identityKeyIndex: 1,
 }
 
 export default config;

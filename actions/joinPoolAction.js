@@ -31,8 +31,8 @@ const joinPoolAction = (sdk) => {
     }
 
     // TODO UTXO amount validation
-
     const [utxo] = await getCollateralUTXOsByAddress([utxoAddress]);
+
     if (!utxo) {
       throw new UtxoNotFoundError();
     }
