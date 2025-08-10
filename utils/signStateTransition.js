@@ -15,5 +15,5 @@ export default async function signStateTransition(stateTransition, sdk) {
 
     const privateKeyWASM = PrivateKeyWASM.fromBytes(key.privateKey, config.network)
     const identityPublicKeys = await sdk.identities.getIdentityPublicKeys(config.identity)
-    stateTransition.sign(privateKeyWASM, identityPublicKeys[1])
+    stateTransition.sign(privateKeyWASM, identityPublicKeys[config.identityKeyIndex])
 }
