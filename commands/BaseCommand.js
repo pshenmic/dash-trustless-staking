@@ -35,7 +35,9 @@ class BaseCommand extends Command {
       } catch (error) {
         errorHandler(error);
       } finally {
-        await sdk.disconnect();
+        if (sdk.disconnect) {
+          await sdk.disconnect();
+        }
       }
     });
   }

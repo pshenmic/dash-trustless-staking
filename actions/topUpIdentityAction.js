@@ -3,7 +3,7 @@ import logger from "../logger.js";
 import InvalidTopUpAmountError from "../errors/InvalidTopUpAmountError.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {(function(number): Promise<void>)|*}
  */
 const topUpIdentityAction = (sdk) => {

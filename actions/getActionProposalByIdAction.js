@@ -4,7 +4,7 @@ import ActionProposalRepository from "../repositories/ActionProposalRepository.j
 import ActionProposalSignatureRepository from "../repositories/ActionProposalSignatureRepository.js"; // см. ниже
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string): Promise<ActionProposal>}
  */
 const getActionProposalByIdAction = (sdk) => {

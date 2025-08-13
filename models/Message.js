@@ -20,17 +20,15 @@ class Message {
   /**
    * Create a Message instance from a Dash document.
    *
-   * @param {Document} doc - Document returned by Dash SDK.
+   * @param {DocumentWASM} doc - Document returned by Dash SDK.
    * @returns {Message}
    */
   static fromDocument(doc) {
-    const data = doc.toJSON();
-
     return new Message(
-      data.channel,
-      data.text,
-      data['$createdAt'],
-      data['$updatedAt'],
+      doc.properties.channel,
+      doc.properties.text,
+      doc.createdAt?.toString() ?? String(Date.now()),
+      doc.createdAt?.toString() ?? String(Date.now()),
     );
   }
 }

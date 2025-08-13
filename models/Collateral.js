@@ -25,20 +25,16 @@ class Collateral {
     this.updatedAt = updatedAt;
   }
 
-  static fromObject(appData) {
-    if (appData.toJSON) {
-      appData = appData.toJSON();
-    }
-
+  static fromDocument(appData) {
     return new Collateral(
-      appData.poolId,
-      appData.txid ?? appData.txHash,
-      appData.vout ?? appData.outputIndex,
-      appData.satoshis,
-      appData['$ownerId'],
-      appData.publicKey || '',
-      appData['$createdAt'],
-      appData['$updatedAt'],
+      appData.poolId ?? appData.properties.poolId,
+      appData.txid ?? appData.properties.txHash,
+      appData.outputIndex ?? appData.properties.vout,
+      appData.satoshis ?? appData.properties.satoshis,
+      appData['$ownerId'] ?? appData.ownerId.base58(),
+      (appData.publicKey ?? appData.properties.publicKey) || '',
+      appData['$createdAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
+      appData['$updatedAt'] ?? appData.createdAt?.toString() ?? String(Date.now()),
     )
   }
 }

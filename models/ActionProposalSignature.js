@@ -20,17 +20,16 @@ class ActionProposalSignature {
   /**
    * Instantiate from a Dash Document.
    *
-   * @param {Document} doc
+   * @param {DocumentWASM} doc
    * @returns {ActionProposalSignature}
    */
   static fromDocument(doc) {
-    const data = doc.toJSON();
     return new ActionProposalSignature(
-      data.proposalId,
-      data.signature,
-      doc.getOwnerId(),
-      data['$createdAt'],
-      data['$updatedAt'],
+      data.properties.proposalId,
+      data.properties.signature,
+      appData.ownerId.base58(),
+      appData.createdAt?.toString() ?? String(Date.now()),
+      appData.createdAt?.toString() ?? String(Date.now()),
     );
   }
 }
