@@ -1,53 +1,23 @@
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import Collateral from "../models/Collateral.js";
+import { getInsightUtxosByAddresses } from "../utils/insightUtxoClient.js";
 
 /**
- * @param {[string]} addresses
- * @returns {Promise<[Collateral]>}
+ * Возвращает массив Collateral для адресов через Insight.
+ * @param {string[]|string} addresses
+ * @returns {Promise<Collateral[]>}
  */
 async function getCollateralUTXOsByAddress(addresses) {
-  // Base URL for the indexer API
-  const baseUrl = "https://trpc.digitalcash.dev/";
+  const list = Array.isArray(addresses) ? addresses : [addresses];
 
-  // Basic authentication: replace "user:pass" with your actual credentials
-  const basicAuth = Buffer.from("user:pass").toString("base64");
+  // при необходимости можно прокинуть { baseUrl, paths, timeoutMs, noCache }
+  const utxos = await getInsightUtxosByAddresses(list);
 
-  // Prepare the request payload
-  const payload = JSON.stringify({
-    method: "getaddressutxos",
-    params: [
-      {
-        addresses: addresses
-      }
-    ]
-  });
-
-  // Execute the POST request to the indexer
-  const resp = await fetch(baseUrl, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${basicAuth}`,
-      "Content-Type": "application/json"
-    },
-    body: payload
-  });
-
-  // Parse JSON response
-  const data = await resp.json();
-
-  // Throw error if the indexer returns an error
-  if (data.error) {
-    let err = new Error(data.error.message);
-    Object.assign(err, data.error);
-    throw err;
-  }
-
-  if (!data.result.length) {
+  if (!utxos.length) {
     throw new UtxoNotFoundError();
   }
 
-  // Return the Collateral`s array
-  return data.result.map((utxo) => Collateral.fromDocument(utxo));
+  return utxos.map((u) => Collateral.fromDocument(u));
 }
 
 export default getCollateralUTXOsByAddress;
