@@ -26,8 +26,8 @@ class ActionProposal {
    */
   static fromDocument(appData) {
     return new ActionProposal(
-      appData.id.base58(),
-      appData.properties.transactionHex,
+      appData.properties.poolId,
+      appData.properties.unsignedTxHex,
       appData.properties.description,
       appData.createdAt?.toString() ?? String(Date.now()),
       appData.createdAt?.toString() ?? String(Date.now()),

@@ -43,7 +43,7 @@ class MessageRepository {
     const myId = identity.id;
 
     // Check if any UTXO document owner matches current identity
-    const isMember = collateralDocs.some((doc) => doc.getOwnerId().equals(myId));
+    const isMember = collateralDocs.some((doc) => doc.ownerId.base58() === myId.base58());
 
     if (!isMember) {
       throw new UserNotInPoolError(channel);
