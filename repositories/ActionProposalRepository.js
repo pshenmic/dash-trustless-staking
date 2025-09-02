@@ -60,11 +60,11 @@ class ActionProposalRepository {
    *
    * @param {object} proposalData - Data for the new proposal.
    * @param {string} proposalData.poolId - Base58-encoded Pool ID.
-   * @param {string} proposalData.transactionHex - Unsigned multisig transaction hex.
+   * @param {string} proposalData.unsignedTxHex - Unsigned multisig transaction hex.
    * @param {string} proposalData.description - Human-readable description.
    * @returns {Promise<ActionProposal>}
    */
-  async create({ poolId, transactionHex, description }) {
+  async create({ poolId, unsignedTxHex, description }) {
     logger.info(`Creating action proposal for pool ${poolId}`);
 
     const identityContractNonce = await this.sdk.identities.getIdentityContractNonce(
@@ -75,7 +75,7 @@ class ActionProposalRepository {
     const proposalDoc = await this.sdk.documents.create(
         config.contractId,
         this.#docName,
-        { poolId, transactionHex, description },
+        { poolId, unsignedTxHex, description },
         config.identity,
     );
 

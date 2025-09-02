@@ -47,12 +47,11 @@ class ActionProposalSignatureRepository {
   /**
    * Create a new signature for an action proposal.
    *
-   * @param {object} params
-   * @param {string} params.proposalId
-   * @param {string} params.signature
+   * @param {string} proposalId
+   * @param {string} signature
    * @returns {Promise<ActionProposalSignature>}
    */
-  async create({ proposalId, signature }) {
+  async create(proposalId, signature ) {
     logger.info(`Creating signature for proposal ${proposalId}`);
 
     const identityContractNonce = await this.sdk.identities.getIdentityContractNonce(

@@ -3,13 +3,24 @@ import PoolNotFoundError from "../errors/PoolNotFoundError.js";
 import CollateralRepository from "../repositories/CollateralRepository.js";
 import UtxoNotFoundError from "../errors/UtxoNotFoundError.js";
 import Collateral from "../models/Collateral.js";
+import getCollateralUTXOsByAddress from "../externalApis/getCollateralUTXOsByAddress.js";
+import CollateralUtxoAlreadyExist from "../errors/CollateralUtxoAlreadyExist.js";
 
 /**
  * @param {DashPlatformSDK} sdk
- * @returns {(function(string, string, number): Promise<void>)|*}
+ * @returns {(function(string, string, string, string, string, string, string, string): Promise<void>)|*}
  */
 const joinPoolAction = (sdk) => {
-  return async (poolId, utxoHash, utxoIndex) => {
+  return async (
+      poolId,
+      utxoAddress,
+      utxoHash,
+      utxoIndex,
+      collateralPublicKey,
+      ownerPublicKey,
+      voterPublicKey,
+      payOutPublicKey,
+      ) => {
     const poolRepository = new PoolRepository(sdk);
     const collateralRepository = new CollateralRepository(sdk);
 
@@ -19,26 +30,37 @@ const joinPoolAction = (sdk) => {
       throw new PoolNotFoundError(poolId);
     }
 
-    // Check utxo available and utxo amount validation
-    const account = await sdk.wallet.getAccount();
-    const utxosDocument = account.getUTXOS();
-    const [utxo] = utxosDocument
-      .filter(utxo => utxo.outputIndex === parseInt(utxoIndex) && utxo.txId === utxoHash);
+
+    // TODO UTXO amount validation
+    const [utxo] = await getCollateralUTXOsByAddress([utxoAddress]);
 
     if (!utxo) {
       throw new UtxoNotFoundError();
     }
-    // TODO amount validation
 
-    const [privateKey] = account.getPrivateKeys([utxo.address.toString()]);
+    // TODO Check for duplication Collateral
+    const availableCollateral = await collateralRepository.getByAddress(utxoAddress);
+    if (availableCollateral?.length) {
+      throw new CollateralUtxoAlreadyExist();
+    }
 
-    const collateral = Collateral.fromDocument(utxo)
+    const collateral = Collateral.fromDocument({
+      poolId,
+      address: utxoAddress,
+      txid: utxoHash,
+      outputIndex: parseInt(utxoIndex),
+      script: utxo.script,
+      satoshis: utxo.satoshis,
+      undefined,
+      collateralPublicKey,
+      ownerPublicKey,
+      voterPublicKey,
+      payOutPublicKey,
+      createdAt: undefined,
+      updatedAt: undefined,
+    })
 
-    collateral.publicKey = privateKey.publicKey.toString();
-
-    collateral.poolId = poolId;
-
-    // Broadcast utxo document
+    // Broadcast utxo collateral document
     await collateralRepository.create(collateral);
   }
 }

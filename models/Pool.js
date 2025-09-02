@@ -38,7 +38,7 @@ class Pool {
       appData.properties.description,
       appData.properties.type,
       appData.properties.status,
-      appData.properties.blsPublicKey,
+      appData.properties.bls_public_key,
       appData.ownerId.base58(),
       appData.createdAt?.toString() ?? String(Date.now()),
       appData.updatedAt?.toString() ?? String(Date.now()),
