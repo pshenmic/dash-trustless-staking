@@ -1,14 +1,13 @@
-import Dash from "dash";
-import { APP_NAME } from "../constants.js";
 import ActionProposalSignature from "../models/ActionProposalSignature.js";
 import config from "../config.js";
 import logger from "../logger.js";
+import signStateTransition from "../utils/signStateTransition.js";
 
 class ActionProposalSignatureRepository {
   #docName = "action_proposal_signature";
 
   /**
-   * @param {Client} sdk
+   * @param {DashPlatformSDK} sdk
    */
   constructor(sdk) {
     this.sdk = sdk;
@@ -21,11 +20,12 @@ class ActionProposalSignatureRepository {
    * @returns {Promise<ActionProposalSignature[]>}
    */
   async getAllByProposalId(proposalId) {
-    const { platform } = this.sdk;
-    const docs = await platform.documents.get(
-      `${APP_NAME}.${this.#docName}`,
-      { where: [["proposalId", "==", proposalId]] }
-    );
+    const docs = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["proposalId", "==", proposalId]],
+        null,
+    )
     return docs.map((doc) => ActionProposalSignature.fromDocument(doc));
   }
 
@@ -36,10 +36,10 @@ class ActionProposalSignatureRepository {
    * @returns {Promise<ActionProposalSignature|null>}
    */
   async getById(signatureId) {
-    const { platform } = this.sdk;
-    const [doc] = await platform.documents.get(
-      `${APP_NAME}.${this.#docName}`,
-      { where: [["$id", "==", signatureId]] }
+    const [doc] = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["$id", "==", signatureId]],
     );
     return doc ? ActionProposalSignature.fromDocument(doc) : null;
   }
@@ -47,28 +47,39 @@ class ActionProposalSignatureRepository {
   /**
    * Create a new signature for an action proposal.
    *
-   * @param {object} params
-   * @param {string} params.proposalId
-   * @param {string} params.signature
+   * @param {string} proposalId
+   * @param {string} signature
    * @returns {Promise<ActionProposalSignature>}
    */
-  async create({ proposalId, signature }) {
-    const { platform } = this.sdk;
-    const identity = await platform.identities.get(config.identity);
-
+  async create(proposalId, signature ) {
     logger.info(`Creating signature for proposal ${proposalId}`);
 
-    const sigDoc = await platform.documents.create(
-      `${APP_NAME}.${this.#docName}`,
-      identity,
-      { proposalId, signature }
+    const identityContractNonce = await this.sdk.identities.getIdentityContractNonce(
+        config.identity,
+        config.contractId,
     );
 
-    await platform.documents.broadcast(
-      { create: [sigDoc], replace: [], delete: [] },
-      identity,
+    const sigDoc = await this.sdk.documents.create(
+        config.contractId,
+        this.#docName,
+        {
+          proposalId,
+          signature,
+        },
+        config.identity,
     );
-    logger.log("Done..", `Signature Document at: ${sigDoc.getId()}`);
+
+    const stateTransition = await this.sdk.documents.createStateTransition(
+        sigDoc,
+        'create', // Create
+        identityContractNonce + 1n,
+    );
+
+    await signStateTransition(stateTransition, this.sdk);
+
+    await this.sdk.stateTransitions.broadcast(stateTransition);
+
+    logger.log("Done..", `Signature Document at: ${sigDoc.id.base58()}`);
 
     return ActionProposalSignature.fromDocument(sigDoc);
   }

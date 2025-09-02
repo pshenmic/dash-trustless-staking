@@ -15,31 +15,33 @@ class Pool {
    * @param {string} description - The description of the pool.
    * @param {MasternodeTypeEnum} type - The type of the pool ("MASTERNODE" or "EVONODE").
    * @param {PoolStatusEnum} status - The status of the pool ("ACTIVE", "INACTIVE", or "FILLED").
+   * @param {string | null} blsPublicKey - BLS Public Key
    * @param {string=} createdAt - The creation date.
    * @param {string=} updatedAt - The update date.
    */
-  constructor(id = null, name, description, type, status, ownerId = null, createdAt = undefined, updatedAt = undefined) {
+  constructor(id = null, name, description, type, status, blsPublicKey, ownerId = null, createdAt = undefined, updatedAt = undefined) {
     this.id = id;
     this.ownerId = ownerId;
     this.name = name;
     this.description = description;
     this.type = type;
     this.status = status;
+    this.blsPublicKey = blsPublicKey;
     this.createdAt = createdAt ?? null;
     this.updatedAt = updatedAt ?? null;
   }
 
   static fromDocument(appData) {
-    appData = appData.toJSON();
     return new Pool(
-      appData['$id'],
-      appData.name,
-      appData.description,
-      appData.type,
-      appData.status,
-      appData['$ownerId'],
-      appData['$createdAt'],
-      appData['$updatedAt'],
+      appData.id.base58(),
+      appData.properties.name,
+      appData.properties.description,
+      appData.properties.type,
+      appData.properties.status,
+      appData.properties.bls_public_key,
+      appData.ownerId.base58(),
+      appData.createdAt?.toString() ?? String(Date.now()),
+      appData.updatedAt?.toString() ?? String(Date.now()),
     )
   }
 }

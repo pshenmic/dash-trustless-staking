@@ -1,20 +1,36 @@
-import Dash from "dash";
 import bs58 from "bs58";
 import Collateral from "../models/Collateral.js";
 import config from "../config.js";
-import {APP_NAME} from "../constants.js";
 import logger from "../logger.js";
-
-const Client = Dash.Client;
+import signStateTransition from "../utils/signStateTransition.js";
 
 class CollateralRepository {
   #docName = "collateral";
 
   /**
-   * @param {Client} sdk - The SDK instance used for interacting with the Dash platform.
+   * @param {DashPlatformSDK} sdk - The SDK instance used for interacting with the Dash platform.
    */
   constructor(sdk) {
     this.sdk = sdk;
+  }
+
+  /**
+   * @param {string} address
+   * @returns {Promise<Collateral[]>}
+   */
+  async getByAddress(address) {
+    const collateralDocuments = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["address", "==", address]],
+        null,
+    )
+
+    if (!collateralDocuments.length) {
+      return null;
+    }
+
+    return collateralDocuments.map(collateral => Collateral.fromDocument(collateral));
   }
 
   /**
@@ -22,18 +38,18 @@ class CollateralRepository {
    * @returns {Promise<[Collateral]>}
    */
   async getByPoolId(poolId){
-    const { platform } = this.sdk;
-
-    const collateralDocuments = await platform.documents.get(
-      `${APP_NAME}.${this.#docName}`,
-      {where: [['poolId', '==', bs58.decode(poolId)]] },
+    const collateralDocuments = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["poolId", "==", poolId]],
+        null,
     )
 
     if (!collateralDocuments.length) {
       return null;
     }
 
-    return collateralDocuments.map(collateral => Collateral.fromObject(collateral));
+    return collateralDocuments.map(collateral => Collateral.fromDocument(collateral));
   }
 
   /**
@@ -41,34 +57,42 @@ class CollateralRepository {
    * @returns {Promise<Collateral>}
    */
   async create(collateral){
-    const { platform } = this.sdk;
+    logger.info(`Creating collateral UTXO for pool ${collateral.poolId}`);
 
-    const identity = await platform.identities.get(config.identity);
+    // 1. Получаем текущий nonce для нашей identity в контракте
+    const identityContractNonce = await this.sdk.identities.getIdentityContractNonce(
+        config.identity,
+        config.contractId,
+    );
 
-    const utxoDocData = {
-      ...collateral,
-      poolId: bs58.decode(collateral.poolId),
-      createdAt: undefined,
-      updatedAt: undefined,
-    }
+    delete (collateral.ownerId)
+    delete (collateral.createdAt)
+    delete (collateral.updatedAt)
 
-    const utxoDocument = await platform.documents.create(
-      `${APP_NAME}.${this.#docName}`,
-      identity,
-      utxoDocData,
-    )
+    const utxoDoc = await this.sdk.documents.create(
+        config.contractId,
+        this.#docName,
+        {
+          // остальные поля копируются, а poolId декодируется в Buffer
+          ...collateral,
+          poolId: bs58.decode(collateral.poolId),
+        },
+        config.identity,
+    );
 
-    const documentBatch = {
-      create: [utxoDocument],
-      replace: [],
-      delete: [],
-    };
+    const stateTransition = await this.sdk.documents.createStateTransition(
+        utxoDoc,
+        'create', // Create
+        identityContractNonce + 1n,
+    );
 
-    logger.log("Broadcasting UTXO Document");
-    await platform.documents.broadcast(documentBatch, identity);
-    logger.log("Done..",`UTXO Document at: ${utxoDocument.getId()}`);
+    await signStateTransition(stateTransition, this.sdk);
 
-    return Collateral.fromObject(utxoDocument);
+    logger.log("Broadcasting collateral UTXO Document");
+    await this.sdk.stateTransitions.broadcast(stateTransition);
+    logger.log("Done..",`Collateral UTXO Document at: ${utxoDoc.id.base58()}`);
+
+    return Collateral.fromDocument(utxoDoc);
   }
 }
 

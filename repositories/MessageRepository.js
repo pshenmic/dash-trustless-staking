@@ -1,18 +1,14 @@
-import Dash from "dash";
 import bs58 from "bs58";
-import { APP_NAME } from "../constants.js";
 import Message from "../models/Message.js";
 import logger from "../logger.js";
 import config from "../config.js";
 import UserNotInPoolError from "../errors/UserNotInPoolError.js";
 
-const Client = Dash.Client;
-
 class MessageRepository {
   #docName = 'message';
 
   /**
-   * @param {Client} sdk - SDK instance for Dash platform
+   * @param {DashPlatformSDK} sdk - SDK instance for Dash platform
    */
   constructor(sdk) {
     this.sdk = sdk;
@@ -30,23 +26,24 @@ class MessageRepository {
       return;
     }
 
-    const { platform } = this.sdk;
-
     // Decode poolId from Base58 to Buffer
     const poolIdBuffer = bs58.decode(channel);
 
     // Fetch UTXO documents for this pool
-    const utxoDocs = await platform.documents.get(
-      `${APP_NAME}.utxo`,
-      { where: [['poolId', '==', poolIdBuffer]] },
-    );
+    const collateralDocs = await this.sdk.documents.query(
+        config.contractId,
+        'collateral',
+        [['poolId', '==', poolIdBuffer]],
+        null,
+  )
+
 
     // Get the identity object for current user
-    const identity = await platform.identities.get(config.identity);
-    const myId = identity.getId();
+    const identity = await this.sdk.identities.getIdentityByIdentifier(config.identity);
+    const myId = identity.id;
 
     // Check if any UTXO document owner matches current identity
-    const isMember = utxoDocs.some((doc) => doc.getOwnerId().equals(myId));
+    const isMember = collateralDocs.some((doc) => doc.ownerId.base58() === myId.base58());
 
     if (!isMember) {
       throw new UserNotInPoolError(channel);
@@ -64,17 +61,14 @@ class MessageRepository {
     // Verify pool membership
     await this._ensureMembership(channel);
 
-    const { platform } = this.sdk;
-
     // Query last 10 messages, sorted by createdAt descending
-    const messageDocs = await platform.documents.get(
-      `${APP_NAME}.${this.#docName}`,
-      {
-        where: [['channel', '==', channel]],
-        orderBy: [['$createdAt', 'desc']],
-        limit: 10,
-      },
-    );
+    const messageDocs = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["channel", "==", channel]],
+        null,
+        10,
+    )
 
     // Reverse to chronological order (oldest → newest)
     const chronological = messageDocs.reverse();
@@ -97,26 +91,29 @@ class MessageRepository {
 
     logger.info(`Sending message to channel: ${channel}`);
 
-    const { platform } = this.sdk;
-    // Get identity for signing the document
-    const identity = await platform.identities.get(config.identity);
-
-    // Create the message document
-    const msgDoc = await platform.documents.create(
-      `${APP_NAME}.${this.#docName}`,
-      identity,
-      { channel, text },
+    const identityContractNonce = await this.sdk.identities.getIdentityContractNonce(
+        config.identity,
+        config.contractId,
     );
 
-    // Broadcast the new document
-    const batch = {
-      create: [msgDoc],
-      replace: [],
-      delete: [],
-    };
+    const msgDoc = await this.sdk.documents.create(
+        config.contractId,
+        this.#docName,
+        { channel, text },
+        config.identity,
+    );
+
+    const stateTransition = await this.sdk.documents.createStateTransition(
+        msgDoc,
+        'create',
+        identityContractNonce + 1n,
+    );
+
+    await signStateTransition(stateTransition, this.sdk);
+
     logger.log("Broadcasting Message Document");
-    await platform.documents.broadcast(batch, identity);
-    logger.log("Done..", `Message Document at: ${msgDoc.getId()}`);
+    await this.sdk.stateTransitions.broadcast(stateTransition);
+    logger.log("Done..", `Message Document at: ${msgDoc.id.base58()}`);
 
     return Message.fromDocument(msgDoc);
   }

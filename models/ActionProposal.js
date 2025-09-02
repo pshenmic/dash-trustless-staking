@@ -21,18 +21,16 @@ class ActionProposal {
   /**
    * Instantiate an ActionProposal from a Dash Document.
    *
-   * @param {Document} doc - Document returned by Dash SDK.
+   * @param {DocumentWASM} appData - Document returned by Dash SDK.
    * @returns {ActionProposal}
    */
-  static fromDocument(doc) {
-    const data = doc.toJSON();
-
+  static fromDocument(appData) {
     return new ActionProposal(
-      data.poolId,
-      data.transactionHex,
-      data.description,
-      data["$createdAt"],
-      data["$updatedAt"],
+      appData.properties.poolId,
+      appData.properties.unsignedTxHex,
+      appData.properties.description,
+      appData.createdAt?.toString() ?? String(Date.now()),
+      appData.createdAt?.toString() ?? String(Date.now()),
     );
   }
 }

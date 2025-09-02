@@ -1,8 +1,7 @@
-import Dash from "dash";
-import { APP_NAME } from "../constants.js";
 import ActionProposal from "../models/ActionProposal.js";
 import config from "../config.js";
 import logger from "../logger.js";
+import signStateTransition from "../utils/signStateTransition.js";
 
 /**
  * Repository for action_proposal documents.
@@ -11,7 +10,7 @@ class ActionProposalRepository {
   #docName = "action_proposal";
 
   /**
-   * @param {Client} sdk - Dash SDK Client instance.
+   * @param {DashPlatformSDK} sdk - Dash SDK Client instance.
    */
   constructor(sdk) {
     this.sdk = sdk;
@@ -24,12 +23,13 @@ class ActionProposalRepository {
    * @returns {Promise<ActionProposal|null>} ActionProposal instance or null if not found.
    */
   async getById(proposalId) {
-    const { platform } = this.sdk;
-
-    const [doc] = await platform.documents.get(
-      `${APP_NAME}.${this.#docName}`,
-      { where: [["$id", "==", proposalId]] },
-    );
+    const [doc] = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["$id", "==", proposalId]],
+        null,
+        1
+    )
 
     if (!doc) {
       return null;
@@ -45,14 +45,14 @@ class ActionProposalRepository {
    * @returns {Promise<ActionProposal[]>} Array of ActionProposal instances.
    */
   async getByPoolId(poolId) {
-    const { platform } = this.sdk;
+    const documents = await this.sdk.documents.query(
+        config.contractId,
+        this.#docName,
+        [["poolId", "==", poolId]],
+        null,
+    )
 
-    const docs = await platform.documents.get(
-      `${APP_NAME}.${this.#docName}`,
-      { where: [["poolId", "==", poolId]] },
-    );
-
-    return docs.map((doc) => ActionProposal.fromDocument(doc));
+    return documents.map((doc) => ActionProposal.fromDocument(doc));
   }
 
   /**
@@ -60,33 +60,36 @@ class ActionProposalRepository {
    *
    * @param {object} proposalData - Data for the new proposal.
    * @param {string} proposalData.poolId - Base58-encoded Pool ID.
-   * @param {string} proposalData.transactionHex - Unsigned multisig transaction hex.
+   * @param {string} proposalData.unsignedTxHex - Unsigned multisig transaction hex.
    * @param {string} proposalData.description - Human-readable description.
    * @returns {Promise<ActionProposal>}
    */
-  async create({ poolId, transactionHex, description }) {
-    const { platform } = this.sdk;
-
-    // Load identity that signs the document (pool owner)
-    const identity = await platform.identities.get(config.identity);
-
+  async create({ poolId, unsignedTxHex, description }) {
     logger.info(`Creating action proposal for pool ${poolId}`);
 
-    const proposalDoc = await platform.documents.create(
-      `${APP_NAME}.${this.#docName}`,
-      identity,
-      { poolId, transactionHex, description },
+    const identityContractNonce = await this.sdk.identities.getIdentityContractNonce(
+        config.identity,
+        config.contractId,
     );
 
-    const batch = {
-      create: [proposalDoc],
-      replace: [],
-      delete: [],
-    };
+    const proposalDoc = await this.sdk.documents.create(
+        config.contractId,
+        this.#docName,
+        { poolId, unsignedTxHex, description },
+        config.identity,
+    );
+
+    const stateTransition = await this.sdk.documents.createStateTransition(
+        proposalDoc,
+        'create',
+        identityContractNonce + 1n,
+    );
+
+    await signStateTransition(stateTransition, this.sdk);
 
     logger.log("Broadcasting ActionProposal document");
-    await platform.documents.broadcast(batch, identity);
-    logger.log("Done..", `ActionProposal Document at: ${proposalDoc.getId()}`);
+    await this.sdk.stateTransitions.broadcast(stateTransition);
+    logger.log("Done..", `ActionProposal Document at: ${proposalDoc.id.base58()}`);
 
     return ActionProposal.fromDocument(proposalDoc);
   }

@@ -6,7 +6,7 @@ import OnlyPoolOwnerError from "../errors/OnlyPoolOwnerError.js";
 import config from "../config.js";
 
 /**
- * @param {Client} sdk
+ * @param {DashPlatformSDK} sdk
  * @returns {function(string, string, string): Promise<ActionProposal>}
  */
 const createActionProposalAction = (sdk) => {

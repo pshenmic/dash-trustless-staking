@@ -9,6 +9,7 @@ class CreatePoolCommand extends BaseCommand {
       .argument('<name>', 'The name of the pool')
       .argument('<description>', 'The description of the pool')
       .argument('<type>', `The type of the pool (${Object.values(MasternodeTypeEnum).join(", ")})`)
+      .argument('[bls_public_key]', 'Optional BLS public key')
       .action(createPoolAction);
   }
 }
