@@ -48,8 +48,7 @@ export async function createProRegTx(collateralUTXOs, blsPublicKey, poolType) {
     const payload = Transaction.Payload.ProRegTxPayload.fromJSON({
         version: 2,
         collateralHash: '0'.repeat(64),
-        collateralIndex: 0,
-        // collateralIndex: -1,
+        collateralIndex: -1,
         service: '195.141.0.143:19999', // TODO: вынести в параметры
         keyIDOwner: multisig.owner.hashBuffer.toString("hex"),
         pubKeyOperator: blsPublicKey,

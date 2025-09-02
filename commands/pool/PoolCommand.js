@@ -8,6 +8,7 @@ import FinalizePoolCommand from "./subcommand/FinalizePoolCommand.js";
 import SignActionProposalCommand from "./subcommand/SignActionProposalCommand.js";
 import SignTxCommand from "./subcommand/SignTxCommand.js";
 
+
 const createPoolCommand = new CreatePoolCommand()
 const getPoolCommand = new GetPoolCommand()
 const joinPoolCommand = new JoinPoolCommand()
