@@ -64,6 +64,11 @@ true byte-for-byte, and to prove it against Core before spending testnet DASH.
 - The masternode list from DAPI is CBOR-encoded `protx diff` JSON, sent as a full diff on subscribe and as
   incremental diffs afterwards. It is a *chainlocked* view, so it can lag the tip.
 - `v2/package.json` currently has no SDK dependency; the app builds with Vite and runs in the browser.
+- The SDK work stays on a local branch and is **not** published to npm (decision of 2026-11-03), so
+  `v2/` consumes it through a `file:` dependency and only after the SDK's build has produced its root
+  `index.js` and type declarations. A stale or unbuilt SDK checkout is a build failure, not a runtime
+  surprise.
+- Core commands are run by hand by the user on their own v24 node; the code never invokes `protx`.
 
 ## Approaches
 
@@ -80,7 +85,8 @@ true byte-for-byte, and to prove it against Core before spending testnet DASH.
 ## What goes in `dash-core-sdk`
 
 Branch off `origin/master` (the local checkout is behind it with no local commits; npm has it as
-`1.1.5-dev.1`). New modules, both re-exported from `index.ts`:
+`1.1.5-dev.1`). The branch stays local — nothing is pushed or published. New modules, both re-exported
+from `index.ts`:
 
 `src/consent.ts`
 - `consentHash(tx: Transaction): string` — `CProRegTx::MakeSharedRegConsentHash`, DESIGN §7. Preconditions:
@@ -173,17 +179,19 @@ participant store a zero-penalty standby dissolution, which supersedes the "unne
 
 ## Verification plan
 
-**Stage 0 — digests against Core (regtest, no Platform, no testnet funds).**
+**Stage 0 — digests against Core.** The user runs these by hand on their v24 node and pastes the outputs;
+each becomes a fixture pinned in the SDK tests. The app never invokes `protx`, so the fixtures are the only
+link between the two implementations.
 1. Build a funding tx with two shares in the app code, run
-   `protx shared_register_prepare <fundingHex> '[...]' ...` on a v24 regtest node → Core returns `tx`,
-   `collateralIndex`, `consentHash`. Ours must equal all three; any difference is a field-order bug.
+   `protx shared_register_prepare <fundingHex> '[...]' ...` → Core returns `tx`, `collateralIndex`,
+   `consentHash`. Ours must equal all three; any difference is a field-order bug.
 2. `protx shared_sign <tx>` → signatures; our `verifyCompact` must accept them, and our re-insertion must
    reproduce Core's `shared_combine` output byte for byte.
 3. `signrawtransactionwithwallet` → our scriptSig verification must accept the funding signatures, and
    `sendrawtransaction` must be accepted; then `protx list` shows the pool as valid.
 4. `protx shared_dissolve_prepare` → our `dissolveSignHash` must equal Core's `signHash`; tampering with
    one output must reject the signature in `verifyDissolution`.
-This proves the consensus-critical half without 1000 tDASH.
+This proves the consensus-critical half before any testnet DASH is spent.
 
 **Stage 1 — live chain source (testnet, read-only).** Capture a real CBOR diff fixture, confirm the
 parser against it and against `protx list`, verify `getTransaction`/`getBestBlockHeight` on known values,
@@ -193,8 +201,10 @@ without `-deprecatedrpc=service`.
 **Stage 2 — app end to end (testnet).**
 - 2a: pool with no service address → registers and reports ERROR (by design); proves list merge, height
   gate and status derivation.
-- 2b: pool with a unique service address and a basic-scheme operator key → FORMED once mined, with the
-  address read from the list. PoSe penalties may later turn it ERROR; that is expected and observable.
+- 2b: pool with a unique service address, chosen in the create form, and a basic-scheme operator key →
+  FORMED once mined, with the address read from the list. A duplicate service address is rejected by
+  Core, not by the client, so the broadcast error is surfaced verbatim. PoSe penalties may later turn the
+  pool ERROR; that is expected and observable.
 - Then a unilateral dissolution, prepared in Core and verified by the app.
 
 **Stage 3 — regressions.** `npm run typecheck` in `v2/`, `npm test` and `npm run lint` in the SDK.
@@ -205,20 +215,23 @@ without `-deprecatedrpc=service`.
   encoded in the string. Mitigation: capture a real diff entry in Stage 1 and pin the comparison there.
 - **SDK bundling under Vite** (protobuf runtime, `typescript` listed as a runtime dependency).
   Mitigation: a one-line import smoke test before the integration work.
+- **Local `file:` dependency drift.** An unbuilt or stale SDK checkout breaks the app build in a way that
+  looks like a code error. Mitigation: the SDK build is the first step of the runbook, and the app's
+  dependency points at the branch's absolute path.
 - **Determinism regressions.** If the builder depends on anything outside the documents, every existing
   consent breaks. Mitigation: build twice from the same inputs and compare bytes.
 - **Dust constant.** A wrong threshold burns change or gets the broadcast rejected as non-standard.
   Mitigation: pin from `getnetworkinfo`, keep it in one constant.
-- **Testnet funds and an operator.** A registration needs 1000 tDASH and, for FORMED, a free unique
-  service address plus a real basic-scheme operator key. The machine has no `dashd` and no funded testnet
-  wallet today. Stage 0 avoids this; Stage 2 does not.
+- **Manual Core loop.** Every byte-for-byte check depends on the user running `protx` and pasting output,
+  so a mistyped argument looks like a code bug. Mitigation: the UI renders the exact command with the
+  app's values substituted, and Stage 0 fixtures are captured once and pinned.
 
 ## Decisions made here (check these)
 
 - SDK functions are standalone exports (`consentHash`, `dissolveSignHash`, `signCompact`,
   `recoverCompact`, `verifyCompact`), not methods on `Transaction` or payload classes.
-- The SDK version is published as a dev release (`1.1.5-dev.2`), not consumed through a `file:` link, so
-  the app's build matches what the wallet can later install.
+- The SDK work lives on a local branch and is consumed by `v2/` through a `file:` dependency with a build
+  step, not through an npm dev release.
 - The builder emits the funding tx and the full regtx; `fundingHex` is what the UI hands to Core.
 - `TxBuilder.verifyScriptSigs` / `extractScriptSigs` gain a `joinedHex` argument.
 - Prevout scripts for scriptSig verification come from `getTransaction`, never from `join` documents.
