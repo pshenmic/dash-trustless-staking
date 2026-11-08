@@ -1,148 +1,418 @@
 {
   "pool": {
     "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "Terms of one shared masternode, published by its creator. Immutable: to change terms, create a new pool.",
     "properties": {
       "name": {
-        "position": 0,
         "type": "string",
-        "description": "The name of the pool",
-        "maxLength": 255
+        "minLength": 1,
+        "maxLength": 63,
+        "position": 0,
+        "description": "Pool name"
       },
       "description": {
+        "type": "string",
+        "maxLength": 1000,
         "position": 1,
-        "type": "string",
-        "description": "The description of the pool",
-        "maxLength": 255
+        "description": "Free text from the creator"
       },
-      "type": {
+      "service": {
+        "type": "string",
+        "maxLength": 255,
         "position": 2,
-        "type": "string",
-        "description": "The type node of the pool",
-        "enum": [
-          "MASTERNODE",
-          "EVONODE"
-        ]
+        "description": "Optional Core P2P ip:port the masternode starts with. The operator can change it later with a ProUpServTx; without it the masternode registers PoSe-banned until one is set"
       },
-      "status": {
+      "location": {
+        "type": "string",
+        "enum": ["AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX", "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ", "BR", "BS", "BT", "BV", "BW", "BY", "BZ", "CA", "CC", "CD", "CF", "CG", "CH", "CI", "CK", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CW", "CX", "CY", "CZ", "DE", "DJ", "DK", "DM", "DO", "DZ", "EC", "EE", "EG", "EH", "ER", "ES", "ET", "FI", "FJ", "FK", "FM", "FO", "FR", "GA", "GB", "GD", "GE", "GF", "GG", "GH", "GI", "GL", "GM", "GN", "GP", "GQ", "GR", "GS", "GT", "GU", "GW", "GY", "HK", "HM", "HN", "HR", "HT", "HU", "ID", "IE", "IL", "IM", "IN", "IO", "IQ", "IR", "IS", "IT", "JE", "JM", "JO", "JP", "KE", "KG", "KH", "KI", "KM", "KN", "KP", "KR", "KW", "KY", "KZ", "LA", "LB", "LC", "LI", "LK", "LR", "LS", "LT", "LU", "LV", "LY", "MA", "MC", "MD", "ME", "MF", "MG", "MH", "MK", "ML", "MM", "MN", "MO", "MP", "MQ", "MR", "MS", "MT", "MU", "MV", "MW", "MX", "MY", "MZ", "NA", "NC", "NE", "NF", "NG", "NI", "NL", "NO", "NP", "NR", "NU", "NZ", "OM", "PA", "PE", "PF", "PG", "PH", "PK", "PL", "PM", "PN", "PR", "PS", "PT", "PW", "PY", "QA", "RE", "RO", "RS", "RU", "RW", "SA", "SB", "SC", "SD", "SE", "SG", "SH", "SI", "SJ", "SK", "SL", "SM", "SN", "SO", "SR", "SS", "ST", "SV", "SX", "SY", "SZ", "TC", "TD", "TF", "TG", "TH", "TJ", "TK", "TL", "TM", "TN", "TO", "TR", "TT", "TV", "TW", "TZ", "UA", "UG", "UM", "US", "UY", "UZ", "VA", "VC", "VE", "VG", "VI", "VN", "VU", "WF", "WS", "XA", "YE", "YT", "ZA", "ZM", "ZW"],
         "position": 3,
-        "type": "string",
-        "description": "The status of the pool",
-        "enum": [
-          "ACTIVE",
-          "INACTIVE",
-          "FILLED"
-        ]
+        "description": "Optional ISO 3166-1 alpha-2 country code of where the node runs. Absent means worldwide"
       },
-      "bls_public_key": {
+      "operatorPubKey": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 48,
+        "maxItems": 48,
         "position": 4,
-        "type": "string",
-        "description": "The bls_public_key of the pool",
-        "maxLength": 255
+        "description": "Operator BLS public key (basic scheme)"
+      },
+      "votingKeyId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 20,
+        "maxItems": 20,
+        "position": 5,
+        "description": "hash160 of the voting key"
+      },
+      "operatorReward": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 6,
+        "description": "Operator reward in basis points"
+      },
+      "earlyPeriodBlocks": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 420480,
+        "position": 7,
+        "description": "Blocks after registration during which a unilateral dissolution pays earlyPenalty"
+      },
+      "earlyPenalty": {
+        "type": "integer",
+        "minimum": 0,
+        "position": 8,
+        "description": "Early exit penalty in duffs; must be 0 when earlyPeriodBlocks is 0"
+      },
+      "fee": {
+        "type": "integer",
+        "minimum": 1,
+        "position": 9,
+        "description": "Registration transaction fee in duffs, split between members"
       }
     },
     "required": [
       "name",
       "description",
-      "type",
-      "status",
-      "bls_public_key",
-      "$createdAt",
-      "$updatedAt"
-    ],
-    "additionalProperties": false
-  },
-  "collateral": {
-    "type": "object",
-    "properties": {
-      "poolId": {
-        "position": 0,
-        "type": "array",
-        "description": "The id of the pool",
-        "byteArray": true,
-        "minItems": 32,
-        "maxItems": 32
-      },
-      "address": {
-        "position": 1,
-        "type": "string",
-        "description": "The address of the utxo",
-        "maxLength": 63
-      },
-      "txHash": {
-        "position": 2,
-        "type": "string",
-        "description": "The hash of the utxo",
-        "maxLength": 255
-      },
-      "vout": {
-        "position": 3,
-        "type": "integer",
-        "description": "The index of the utxo"
-      },
-      "script": {
-        "position": 4,
-        "type": "string",
-        "description": "The script of the utxo",
-        "maxLength": 255
-      },
-      "satoshis": {
-        "position": 5,
-        "type": "integer",
-        "description": "The satoshis of the utxo"
-      },
-      "collateralPublicKey": {
-        "position": 6,
-        "type": "string",
-        "description": "Hex-encoded collateral public key for multisig address",
-        "maxLength": 66
-      },
-      "ownerPublicKey": {
-        "position": 7,
-        "type": "string",
-        "description": "Hex-encoded owner public key for multisig address",
-        "maxLength": 66
-      },
-      "voterPublicKey": {
-        "position": 8,
-        "type": "string",
-        "description": "Hex-encoded voter public key for multisig address",
-        "maxLength": 66
-      },
-      "payOutPublicKey": {
-        "position": 9,
-        "type": "string",
-        "description": "Hex-encoded payOut public key for multisig address",
-        "maxLength": 66
-      }
-    },
-    "required": [
-      "poolId",
-      "address",
-      "txHash",
-      "vout",
-      "script",
-      "satoshis",
-      "collateralPublicKey",
-      "ownerPublicKey",
-      "voterPublicKey",
-      "payOutPublicKey",
-      "$createdAt",
-      "$updatedAt"
+      "operatorPubKey",
+      "votingKeyId",
+      "operatorReward",
+      "earlyPeriodBlocks",
+      "earlyPenalty",
+      "fee",
+      "$createdAt"
     ],
     "indices": [
       {
-        "name": "poolIdIndex",
+        "name": "ownerId",
         "properties": [
           {
-            "poolId": "asc"
+            "$ownerId": "asc"
           }
         ]
       },
       {
-        "name": "addressIndex",
+        "name": "createdAt",
         "properties": [
           {
-            "address": "asc"
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "operatorPubKey",
+        "properties": [
+          {
+            "operatorPubKey": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "join": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "A member's share in a pool. One per identity per pool; final once published.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "amount": {
+        "type": "integer",
+        "minimum": 10000000000,
+        "maximum": 100000000000,
+        "position": 1,
+        "description": "Share of the collateral in duffs, 100 to 1000 DASH"
+      },
+      "refundScript": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 64,
+        "position": 2,
+        "description": "Immutable refund scriptPubKey (P2PKH or P2SH)"
+      },
+      "rewardScript": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 64,
+        "position": 3,
+        "description": "Optional reward scriptPubKey; defaults to refundScript"
+      },
+      "ownerKeyId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 20,
+        "maxItems": 20,
+        "position": 4,
+        "description": "hash160 of the share owner key"
+      },
+      "inputs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 36,
+        "maxItems": 1152,
+        "position": 5,
+        "description": "Funding outpoints: txid (32 bytes, internal order) + vout (uint32 LE), concatenated. Up to 32 inputs; length must be a multiple of 36"
+      },
+      "changeScript": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 64,
+        "position": 6,
+        "description": "Change scriptPubKey"
+      },
+      "encryptionKeyId": {
+        "type": "integer",
+        "minimum": 0,
+        "position": 7,
+        "description": "Optional ID of the member's identity key the private chat key is encrypted to. Without it the member cannot read the pool's private chat"
+      }
+    },
+    "required": [
+      "poolId",
+      "amount",
+      "refundScript",
+      "ownerKeyId",
+      "inputs",
+      "changeScript",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolOwner",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ],
+        "unique": true
+      },
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "lock": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "The pool creator's final member selection. Clients count only the lock by the pool owner.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "joinIds": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 64,
+        "maxItems": 256,
+        "position": 1,
+        "description": "Join document IDs in share order, concatenated (2 to 8 x 32 bytes)"
+      }
+    },
+    "required": [
+      "poolId",
+      "joinIds",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolOwner",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ],
+        "unique": true
+      }
+    ],
+    "additionalProperties": false
+  },
+  "consent": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "A member's signature over the shared registration consent hash",
+    "properties": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Lock document ID"
+      },
+      "signature": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 65,
+        "maxItems": 65,
+        "position": 1,
+        "description": "65-byte compact recoverable signature by the share owner key"
+      }
+    },
+    "required": [
+      "lockId",
+      "signature",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "lockOwner",
+        "properties": [
+          {
+            "lockId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "funding": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "A member's signatures for their own funding inputs",
+    "properties": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Lock document ID"
+      },
+      "scriptSigs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 4096,
+        "position": 1,
+        "description": "Compact-size-prefixed scriptSigs, one per input of this member, in their input order"
+      }
+    },
+    "required": [
+      "lockId",
+      "scriptSigs",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "lockOwner",
+        "properties": [
+          {
+            "lockId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "feedback": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "A member's review of a pool. Clients count it only from members of a registered pool.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "rating": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5,
+        "position": 1,
+        "description": "1 to 5 stars"
+      },
+      "text": {
+        "type": "string",
+        "maxLength": 1000,
+        "position": 2,
+        "description": "Review text"
+      }
+    },
+    "required": [
+      "poolId",
+      "rating",
+      "text",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
           }
         ]
       }
@@ -151,29 +421,33 @@
   },
   "message": {
     "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "Public chat message. Public and permanent.",
     "properties": {
       "channel": {
-        "position": 0,
         "type": "string",
-        "description": "Channel ID: 'global' or poolId",
-        "maxLength": 63
+        "minLength": 1,
+        "maxLength": 63,
+        "position": 0,
+        "description": "'global' or a pool ID (base58)"
       },
       "text": {
-        "position": 1,
         "type": "string",
-        "description": "Chat message text",
-        "maxLength": 1000
+        "minLength": 1,
+        "maxLength": 1000,
+        "position": 1,
+        "description": "Message text"
       }
     },
     "required": [
       "channel",
       "text",
-      "$createdAt",
-      "$updatedAt"
+      "$createdAt"
     ],
     "indices": [
       {
-        "name": "message_channel_createdAt",
+        "name": "channelCreatedAt",
         "properties": [
           {
             "channel": "asc"
@@ -186,71 +460,89 @@
     ],
     "additionalProperties": false
   },
-  "action_proposal": {
+  "chatKey": {
     "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "The private chat's group key, wrapped once per participating member. Clients use the oldest one published by a selected member.",
     "properties": {
-      "poolId": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
         "position": 0,
-        "type": "string",
-        "description": "Base58-encoded Pool ID",
-        "maxLength": 63
+        "description": "Lock document ID"
       },
-      "unsignedTxHex": {
+      "envelopes": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 94,
+        "maxItems": 752,
         "position": 1,
-        "type": "string",
-        "description": "Unsigned multisig transaction in hex"
-      },
-      "description": {
-        "position": 2,
-        "type": "string",
-        "maxLength": 1000,
-        "description": "Human-readable explanation of the proposal"
+        "description": "Envelopes of 94 bytes each: shareIndex (1) + ephemeral public key (33) + nonce (12) + wrapped key (32) + tag (16). Up to 8; length must be a multiple of 94"
       }
     },
     "required": [
-      "poolId",
-      "unsignedTxHex",
-      "description",
-      "$createdAt",
-      "$updatedAt"
+      "lockId",
+      "envelopes",
+      "$createdAt"
     ],
     "indices": [
       {
-        "name": "idx_actionProposal_pool",
+        "name": "lockCreatedAt",
         "properties": [
-          { "poolId": "asc" }
+          {
+            "lockId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
         ]
       }
     ],
     "additionalProperties": false
   },
-  "action_proposal_signature": {
+  "privateMessage": {
     "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "Encrypted message for a pool's selected members.",
     "properties": {
-      "proposalId": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
         "position": 0,
-        "type": "string",
-        "description": "Base58-encoded ID of the action_proposal document",
-        "maxLength": 63
+        "description": "Lock document ID"
       },
-      "signature": {
+      "payload": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 29,
+        "maxItems": 4096,
         "position": 1,
-        "type": "string",
-        "maxLength": 2048,
-        "description": "Member's signature over the proposal transaction"
+        "description": "nonce (12) + AES-256-GCM ciphertext + tag (16), under the chat's group key"
       }
     },
     "required": [
-      "proposalId",
-      "signature",
-      "$createdAt",
-      "$updatedAt"
+      "lockId",
+      "payload",
+      "$createdAt"
     ],
     "indices": [
       {
-        "name": "idx_signature_proposal",
+        "name": "lockCreatedAt",
         "properties": [
-          { "proposalId": "asc" }
+          {
+            "lockId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
         ]
       }
     ],

@@ -1,0 +1,29 @@
+{
+  "baseBlockHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "blockHash": "aabbccddee000000000000000000000000000000000000000000000000000000",
+  "cbTx": { "height": 5000, "tx": "03ffff000000000000000000000000000000000000000000000000000000000000000000" },
+  "deletedMNs": [],
+  "mnList": [
+    {
+      "proRegTxHash": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaba",
+      "confirmedHash": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabb",
+      "addresses": { "core_p2p": "10.0.0.1:19999" },
+      "pubKeyOperator": "990000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "isValid": true
+    },
+    {
+      "proRegTxHash": "22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba",
+      "confirmedHash": "22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "service": "10.0.0.2:19999",
+      "pubKeyOperator": "880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "isValid": true
+    },
+    {
+      "proRegTxHash": "33ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca",
+      "confirmedHash": "33cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccb",
+      "addresses": { "core_p2p": "10.0.0.3:19999" },
+      "pubKeyOperator": "770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "isValid": false
+    }
+  ]
+}

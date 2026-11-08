@@ -1,0 +1,44 @@
+{
+  "baseBlockHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "blockHash": "aabbccddee000000000000000000000000000000000000000000000000000000",
+  "cbTx": "030000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000",
+  "cbTxMerkleTree": "0000000000000000000000000000000000000000000000000000000000000000",
+  "deletedMNs": [],
+  "mnList": [
+    {
+      "nVersion": 3,
+      "nType": 1,
+      "proRegTxHash": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaba",
+      "confirmedHash": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabb",
+      "addresses": { "core_p2p": "10.0.0.1:19999" },
+      "pubKeyOperator": "99" + "00".repeat(47),
+      "votingAddress": "yTestVotingAddress11111111",
+      "isValid": true
+    },
+    {
+      "nVersion": 2,
+      "nType": 0,
+      "proRegTxHash": "22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba",
+      "confirmedHash": "22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "service": "10.0.0.2:19999",
+      "pubKeyOperator": "88" + "00".repeat(47),
+      "votingAddress": "yTestVotingAddress22222222",
+      "isValid": true
+    },
+    {
+      "nVersion": 2,
+      "nType": 0,
+      "proRegTxHash": "33ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca",
+      "confirmedHash": "33cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccb",
+      "addresses": { "core_p2p": "10.0.0.3:19999" },
+      "pubKeyOperator": "77" + "00".repeat(47),
+      "votingAddress": "yTestVotingAddress33333333",
+      "isValid": false
+    }
+  ],
+  "deletedQuorums": [],
+  "newQuorums": [],
+  "quorumsCLSigs": {},
+  "merkleRootMNList": "0000000000000000000000000000000000000000000000000000000000000000",
+  "merkleRootQuorums": "0000000000000000000000000000000000000000000000000000000000000000"
+}
