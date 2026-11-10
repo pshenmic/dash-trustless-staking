@@ -33,10 +33,6 @@ export function setBackendMode (mode: BackendMode): void {
   location.reload()
 }
 
-// TEMPORARY: the other testnet DAPI nodes are down, so both SDKs are pinned to this one.
-// Remove once the network's node list is healthy again and the endpoint discovery can be trusted.
-const PINNED_DAPI = 'https://68.67.122.26:1443'
-
 async function selectBackend (): Promise<Backend> {
   const contractId = import.meta.env?.VITE_CONTRACT_ID
   if (backendMode() !== 'testnet' || contractId == null || contractId === '') return mockBackend
@@ -48,7 +44,6 @@ async function selectBackend (): Promise<Backend> {
   } catch {
     // No saved settings
   }
-  if (dapiUrls.length === 0) dapiUrls = [PINNED_DAPI]
   return createTestnetBackend(contractId, extensionSigner, dapiUrls.map(u => u.startsWith('http') ? u : `https://${u}`))
 }
 
