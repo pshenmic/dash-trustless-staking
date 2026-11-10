@@ -1,3 +1,4 @@
+import { contractId as configuredContractId, dapiEndpoints } from '../config'
 import { mockBackend } from './mock/mockBackend'
 import type { Backend } from './types'
 
@@ -34,17 +35,10 @@ export function setBackendMode (mode: BackendMode): void {
 }
 
 async function selectBackend (): Promise<Backend> {
-  const contractId = import.meta.env?.VITE_CONTRACT_ID
-  if (backendMode() !== 'testnet' || contractId == null || contractId === '') return mockBackend
+  if (backendMode() !== 'testnet' || configuredContractId === '') return mockBackend
   // Loaded on demand: the SDK and its WASM are only needed for the live backend
-  const [{ createTestnetBackend }, { extensionSigner }] = await Promise.all([import('./live'), import('./live/extensionSigner')])
-  let dapiUrls: string[] = []
-  try {
-    dapiUrls = (JSON.parse(localStorage.getItem('dts:settings') ?? '{}') as { dapiEndpoints?: string[] }).dapiEndpoints ?? []
-  } catch {
-    // No saved settings
-  }
-  return createTestnetBackend(contractId, extensionSigner, dapiUrls.map(u => u.startsWith('http') ? u : `https://${u}`))
+  const { createTestnetBackend } = await import('./live')
+  return createTestnetBackend(configuredContractId, dapiEndpoints())
 }
 
 export const backend: Backend = await selectBackend()

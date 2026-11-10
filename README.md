@@ -15,7 +15,19 @@ yarn preview       # serve dist/ over http
 ```
 
 The build uses relative paths and hash routing, so `dist/` works from any static host. Serve it over
-http(s) rather than opening `index.html` from disk: Dash Platform Extension only injects into web pages.
+http(s) rather than opening `index.html` from disk.
+
+The Platform SDK's WASM uses `SharedArrayBuffer`, so the page must be cross-origin isolated. Vite's dev
+and preview servers send:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+The production host must send the same two headers (for nginx, `add_header Cross-Origin-Opener-Policy
+same-origin always;` and `add_header Cross-Origin-Embedder-Policy require-corp always;`). Without them the
+dashboard fails with `SharedArrayBuffer transfer requires self.crossOriginIsolated`.
 
 ## Data source: mock or testnet
 
@@ -27,13 +39,16 @@ Chosen under **Settings → Data source** (kept per browser); `VITE_BACKEND` in 
   - **Settings → View as** lets you act as a made-up identity (alice, bob, carol … oscar).
   - Every signing step has **Fill with mock data** in place of a real wallet signature.
   - **Settings → Clear the sandbox** empties it again.
-- **Testnet (live)**, the default: pools, joins and public chat are real documents of the contract in `VITE_CONTRACT_ID`
-  (`src/data/live`), read through dash-platform-sdk and written through Dash Platform Extension. UTXO values
-  and block height come from DAPI Core. Creating documents costs credits and is permanent.
-  Locking, signing, registration and the private chat are switched off (`backend.features`) until Dash Core
-  v24 activates on testnet and the extension has `decrypt`. The placeholder third-party operators are hidden.
+- **Testnet (live)**, the default: pools, joins, chat, locking, signing and registration are real documents of
+  the contract in `VITE_CONTRACT_ID` (`src/data/live`), read through dash-platform-sdk and signed by the logged-in
+  private keys. UTXO values and block height come from DAPI Core. Creating documents costs credits and is
+  permanent.
 
-Wallet connection is real in both modes.
+**Login** asks for two keys of the same Dash Platform identity on testnet: the **authentication key** (signs
+your actions) and the **encryption key** (opens the private chat). Both are kept in session storage: a reload
+keeps you logged in, and closing the browser logs you out. The Dash Platform Extension option is shown in the
+dialog but disabled until its next release. The mock sandbox keeps
+its made-up identities and never uses these keys.
 
 ## Testnet contract and scripts
 
@@ -54,8 +69,8 @@ yarn deploy:contract # deploys schema.json as a NEW contract (about 0.42 DASH)
 ```
 src/
   lib/          consensus constants, validation rules, money math, status derivation (pure)
-  data/         source interfaces, view-model queries, mock backend
-  wallet/       Dash Platform Extension connection
+  data/         source interfaces, view-model queries, live and mock backends
+  wallet/       login session, identity lookup and Platform signing
   hooks/        TanStack Query hooks
   components/   shared UI; pool/ holds the pool page parts
   pages/        routes

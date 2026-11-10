@@ -7,7 +7,8 @@ import { Chip, Field, KeyValue, KeyValueList, Notice, PageHeader, Card } from '.
 import { errorMessage, useToast } from '../components/Toast'
 import { backend } from '../data'
 import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
-import { useWrite } from '../hooks/data'
+import { useHostingOptions, useWrite } from '../hooks/data'
+import { buildHostingProvider } from '../hosting'
 import { COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, formatDash, parseDash } from '../lib/format'
 import { feeShares, isBlsPublicKey, validatePoolTerms, type PoolTermsInput } from '../lib/rules'
@@ -17,7 +18,7 @@ import { useNetwork } from '../lib/network'
 import { useWallet } from '../wallet/WalletContext'
 import { config } from '../config'
 import { OperatorKeyPicker } from '../components/OperatorKeyPicker'
-import { findOperatorKey, findProvider, OPERATOR_PROVIDERS, operatorId } from '../operators'
+import { OPERATOR_PROVIDERS, operatorId } from '../operators'
 import { Flag, locationText } from '../components/Flag'
 
 const STEPS = ['Basics', 'Node', 'Exit terms', 'Review'] as const
@@ -70,7 +71,7 @@ function clearDraft (): void {
 
 export function CreatePoolPage (): ReactNode {
   const navigate = useNavigate()
-  const { activeIdentity, status, connect } = useWallet()
+  const { activeIdentity, openLogin } = useWallet()
   const activeIdentityRef = useRef(activeIdentity)
   activeIdentityRef.current = activeIdentity
   const { network, strict } = useNetwork()
@@ -78,15 +79,18 @@ export function CreatePoolPage (): ReactNode {
   const draft = readDraft()
   const [step, setStep] = useState(draft?.step ?? 0)
   const [touched, setTouched] = useState<boolean[]>(draft?.touched ?? STEPS.map(() => false))
-  // 'custom' = the creator runs the node; otherwise a third-party operator's id from src/operators.ts
+  // 'custom' = the creator runs the node; otherwise a third-party operator from src/operators.ts
   const [operatorSource, setOperatorSource] = useState(draft?.operatorSource ?? 'custom')
-  // Placeholder operators exist only in the mock preview: their keys are not real
-  const providers = OPERATOR_PROVIDERS.filter(p => backend.mode === 'mock' || p.placeholder !== true)
+  // Live hosting comes from pshenmic.dev's Platform contract; the mock sandbox keeps its preview keys
+  const hosting = useHostingOptions()
+  const hostingProvider = buildHostingProvider(hosting.data?.terms ?? null, hosting.data?.servers ?? [])
+  const providers = backend.mode === 'mock' ? OPERATOR_PROVIDERS : [hostingProvider]
   const provider = providers.find(p => p.id === operatorSource) ?? null
   const [form, setForm] = useState(draft?.form ?? {
     name: '', description: '', service: '', operatorPubKey: '', votingAddress: '',
     operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5'
   })
+  const selectedKey = provider?.keys.find(key => key.pubKey.toLowerCase() === form.operatorPubKey.trim().toLowerCase()) ?? null
 
   const terms: PoolTermsInput = {
     name: form.name.trim(),
@@ -94,12 +98,12 @@ export function CreatePoolPage (): ReactNode {
     // A third-party operator sets the address after registration, so the ProRegTx carries none
     service: provider != null ? '' : form.service.trim(),
     // Only a third-party operator's key carries a location; custom pools leave it out
-    location: provider != null ? findOperatorKey(form.operatorPubKey)?.country ?? '' : '',
+    location: provider != null ? selectedKey?.country ?? '' : '',
     operatorPubKey: form.operatorPubKey.trim().toLowerCase(),
     // A third-party operator votes with their own key for the chosen operator key
-    votingAddress: provider != null ? findOperatorKey(form.operatorPubKey)?.votingAddress ?? '' : form.votingAddress.trim(),
+    votingAddress: provider != null ? selectedKey?.votingAddress ?? '' : form.votingAddress.trim(),
     // A third-party operator's key fixes the fee; only a custom operator sets their own
-    operatorReward: provider != null ? findOperatorKey(form.operatorPubKey)?.operatorReward ?? NaN : Math.round(Number(form.operatorReward) * 100),
+    operatorReward: provider != null ? selectedKey?.operatorReward ?? NaN : Math.round(Number(form.operatorReward) * 100),
     earlyPeriodBlocks: form.earlyPeriodBlocks.trim() === '' ? NaN : Number(form.earlyPeriodBlocks),
     earlyPenalty: parseDash(form.earlyPenalty) ?? NaN,
     // Fixed by the app's configuration, not chosen by the creator
@@ -264,9 +268,21 @@ export function CreatePoolPage (): ReactNode {
                 )
               : (
                 <>
-                  <Field label='Operator ID' error={show('operatorPubKey')} hint='Each ID is one of the operator’s keys. A key can back only one masternode, so keys already used by a masternode or another pool can’t be picked.'>
-                    <OperatorKeyPicker provider={provider} value={form.operatorPubKey} onChange={set('operatorPubKey')} />
-                  </Field>
+                  {backend.mode === 'live' && hosting.isLoading && <Notice tone='info'>Loading available servers…</Notice>}
+                  {backend.mode === 'live' && hosting.isError && (
+                    <Notice tone='error' title='Could not load pshenmic.dev hosting'>{errorMessage(hosting.error)}</Notice>
+                  )}
+                  {backend.mode === 'live' && !hosting.isLoading && !hosting.isError && hosting.data?.terms == null && (
+                    <Notice tone='error' title='pshenmic.dev hosting unavailable'>The hosting terms are not published yet.</Notice>
+                  )}
+                  {provider.keys.length > 0 && (
+                    <Field label='Operator ID' error={show('operatorPubKey')} hint='Each ID is one of the operator’s keys. A key can back only one masternode, so keys already used by a masternode or another pool can’t be picked.'>
+                      <OperatorKeyPicker provider={provider} value={form.operatorPubKey} onChange={set('operatorPubKey')} />
+                    </Field>
+                  )}
+                  {backend.mode === 'live' && !hosting.isLoading && !hosting.isError && hosting.data?.terms != null && provider.keys.length === 0 && (
+                    <Notice tone='info'>No pshenmic.dev servers are available right now.</Notice>
+                  )}
                   <Notice tone='info'>
                     {provider.name} runs this node and holds its operator and voting keys. The chosen key sets the
                     operator fee and location; {provider.name} sets the node’s address after registration, and the
@@ -323,8 +339,8 @@ export function CreatePoolPage (): ReactNode {
             <KeyValueList>
               <KeyValue label='Name'>{terms.name}</KeyValue>
               <KeyValue label='Operator'>
-                {findProvider(terms.operatorPubKey) != null
-                  ? <>{findProvider(terms.operatorPubKey)?.name} <span className='font-mono font-medium text-muted'>· {operatorId(terms.operatorPubKey)}</span></>
+                {provider != null
+                  ? <>{provider.name} <span className='font-mono font-medium text-muted'>· {operatorId(terms.operatorPubKey)}</span></>
                   : 'You (custom)'}
               </KeyValue>
               <KeyValue label='Operator key'><span className='font-mono text-[12px] break-all'>{terms.operatorPubKey}</span></KeyValue>
@@ -358,7 +374,7 @@ export function CreatePoolPage (): ReactNode {
           {step < STEPS.length - 1
             ? <Button colorScheme='brand' size='md' onClick={next} disabled={!stepValid(step)}>Continue</Button>
             : activeIdentity == null
-              ? <Button colorScheme='brand' size='md' onClick={() => { void connect() }} disabled={status === 'unavailable'}>{status === 'unavailable' ? (draft != null ? 'Refresh after installing' : 'Install the extension to publish') : 'Connect to publish'}</Button>
+              ? <Button colorScheme='brand' size='md' onClick={openLogin}>Log in to publish</Button>
               : <Button colorScheme='brand' size='md' onClick={publish} disabled={create.isPending || Object.keys(errors).length > 0}>{create.isPending ? 'Publishing…' : 'Publish pool'}</Button>}
         </div>
       </Card>

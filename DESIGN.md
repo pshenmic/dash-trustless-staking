@@ -390,14 +390,15 @@ a share.
   `chatKey` document holding one envelope per participant. The creator must not generate it: whoever generates the
   key knows it.
 - **Envelope** (94 bytes): `shareIndex (1) || ephemeral public key (33) || nonce (12) || wrapped key (32) || tag (16)`.
-  Wrapping is ECIES: ECDH between a throwaway key and the member's public key, then a KDF, then AES-256-GCM. It needs
-  only public keys, so it causes no wallet prompt.
+  Wrapping is ECIES: ECDH between a throwaway key and the member's public key, then HKDF-SHA256 with info
+  `dash-trustless-staking/private-chat/v1`, then AES-256-GCM. It needs only public keys, so it causes no wallet
+  prompt.
 - **Which key document counts.** The oldest `chatKey` for the lock that a participant published, is well-formed, and
   has envelopes only for participants. Later ones are ignored, so everyone uses the same key. The group is fixed (no
   re-locking), so the key never rotates.
-- **Unwrapping** is the one step that uses a private key. The dapp calls the extension's `decrypt` method with the
-  member's key ID and their envelope; the private key never leaves the extension. The dapp keeps the group key in
-  memory for the page's lifetime only.
+- **Unwrapping** is the one step that uses a private key. With a private-key login the dapp unwraps the envelope
+  with the identity's encryption key; with the extension it will call the extension's `decrypt` method. The dapp
+  keeps the group key in memory for the page's lifetime only.
 - **Messages.** `privateMessage.payload = nonce (12) || AES-256-GCM(group key, UTF-8 text) || tag (16)`, encrypted and
   decrypted in the dapp. Clients show only messages from selected members that decrypt under the group key.
 

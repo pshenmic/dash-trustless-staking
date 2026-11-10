@@ -1,8 +1,11 @@
 import { DashPlatformSDK } from 'dash-platform-sdk'
-import { mockChatCrypto } from '../mock/mockChat'
+import { currentSession } from '../../wallet/authSession'
+import { createSigner } from '../../wallet/privateKeySigner'
 import type { Backend } from '../types'
 import { createLiveChain } from './chain'
-import { createLivePlatform, type Signer } from './platform'
+import { createLiveChatCrypto } from './chat'
+import { createLiveHosting } from './hosting'
+import { createLivePlatform } from './platform'
 import { createLiveTxBuilder } from './txBuilder'
 
 /*
@@ -10,15 +13,20 @@ import { createLiveTxBuilder } from './txBuilder'
  * masternode list over DAPI, and the shared registration transaction built by lib/registration.
  */
 
-export function createTestnetBackend (contractId: string, signer: Signer, dapiUrls?: string[]): Backend {
+export function createTestnetBackend (contractId: string, dapiUrls?: string[]): Backend {
   const sdk = new DashPlatformSDK(dapiUrls != null && dapiUrls.length > 0 ? { network: 'testnet', dapiUrl: dapiUrls } as never : { network: 'testnet' })
 
   return {
     mode: 'live',
-    features: { registration: true, privateChat: false },
-    platform: createLivePlatform(sdk, contractId, 'testnet', signer),
+    features: {
+      registration: true,
+      // Private chat needs the identity encryption key, which only the private-key login holds
+      get privateChat () { return currentSession()?.mode === 'privateKey' }
+    },
+    platform: createLivePlatform(sdk, contractId, 'testnet', createSigner(sdk)),
     chain: createLiveChain(dapiUrls),
     tx: createLiveTxBuilder(),
-    chat: mockChatCrypto
+    chat: createLiveChatCrypto(),
+    hosting: createLiveHosting(sdk)
   }
 }

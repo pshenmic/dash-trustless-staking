@@ -98,7 +98,7 @@ export function ChatComposer ({ onSend, note }: { onSend: (text: string) => Prom
 /** Public chat over `message` documents. Every message is a public, permanent Platform document. */
 export function Chat ({ channel, highlight = [] }: { channel: string, highlight?: string[] }): ReactNode {
   const { data: messages, isLoading } = useMessages(channel)
-  const { activeIdentity, connect, status } = useWallet()
+  const { activeIdentity, openLogin } = useWallet()
 
   return (
     <div className='flex flex-col gap-4'>
@@ -106,8 +106,8 @@ export function Chat ({ channel, highlight = [] }: { channel: string, highlight?
       {activeIdentity == null
         ? (
           <div className='flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-2 px-4 py-3 text-small'>
-            <span className='text-muted'>Connect your identity to write.</span>
-            {status !== 'unavailable' && <Button size='sm' colorScheme='brand' onClick={() => { void connect() }}>Connect</Button>}
+            <span className='text-muted'>Log in to write.</span>
+            <Button size='sm' colorScheme='brand' onClick={openLogin}>Log in</Button>
           </div>
           )
         : (

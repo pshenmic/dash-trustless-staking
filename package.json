@@ -34,6 +34,7 @@
     "dash-core-sdk": "1.1.5",
     "dash-platform-sdk": "1.6.1",
     "dash-ui-kit": "^2.1.5",
+    "pshenmic-dpp": "2.0.1-dev.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^7.18.4"

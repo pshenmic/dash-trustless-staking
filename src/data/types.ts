@@ -124,16 +124,40 @@ export interface ChatCrypto {
   /** ECIES-wraps the group key for each recipient. Needs only public keys, so no wallet prompt. */
   wrapGroupKey: (groupKey: Uint8Array, recipients: ChatRecipient[]) => Promise<string>
   /**
-   * Opens the member's own envelope with their identity key. Live: the extension's `decrypt` method;
-   * the private key never reaches the app. Returns null when the envelope isn't theirs or doesn't open.
+   * Opens the member's own envelope with their identity encryption key. Live: ECIES with the key held by
+   * the private-key session. Returns null when the envelope isn't theirs or doesn't open.
    */
   unwrapGroupKey: (identity: string, keyId: number, envelope: Uint8Array) => Promise<Uint8Array | null>
+}
+
+export interface HostingTerms {
+  /** Minimum operator reward, in basis points, a hosted pool must register with */
+  operatorRewardMin: number
+  description: string
+  url: string
+}
+
+export interface HostingServer {
+  name: string
+  region: string
+  /** BLS operator public key, 96 hex characters */
+  operatorPubKey: string
+}
+
+export interface HostingOptions {
+  terms: HostingTerms | null
+  servers: HostingServer[]
+}
+
+/** The pshenmic.dev hosting contract: terms and servers available for a new pool */
+export interface HostingSource {
+  getOptions: () => Promise<HostingOptions>
 }
 
 export interface BackendFeatures {
   /** Signing, broadcasting and masternode status: on once the live registration builder is wired */
   registration: boolean
-  /** Private chat: needs the extension's decrypt method */
+  /** Private chat: needs a private-key session with the identity's encryption key */
   privateChat: boolean
 }
 
@@ -144,6 +168,7 @@ export interface Backend {
   chain: ChainSource
   tx: TxBuilder
   chat: ChatCrypto
+  hosting: HostingSource
 }
 
 export function outpointKey (outpoint: Outpoint): string {

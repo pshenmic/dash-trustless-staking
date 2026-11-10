@@ -6,7 +6,7 @@ import { Card, CodeBlock, Notice, PageHeader } from '../components/ui'
 const SECTIONS = [
   { id: 'how', title: 'How it works' },
   { id: 'identity', title: 'Your identity' },
-  { id: 'extension', title: 'Dash Platform Extension' },
+  { id: 'extension', title: 'Logging in' },
   { id: 'signing', title: 'Signing with your wallet' },
   { id: 'leaving', title: 'Leaving a pool' },
   { id: 'faq', title: 'Risks and questions' },
@@ -109,27 +109,29 @@ export function GuidePage (): ReactNode {
             converted into credits, which pay for the documents you publish.
           </p>
           <Notice tone='info' title='Setting up an identity'>
-            Step-by-step instructions are coming. In short: install Dash Platform Extension, create or import a
-            wallet in it, and register an identity from the extension.
+            You need a Dash Platform identity on testnet and its authentication and encryption private keys. The
+            extension can create or import the wallet; any wallet that exports the identity keys works.
           </Notice>
         </Section>
 
-        <Section id='extension' title='Dash Platform Extension'>
+        <Section id='extension' title='Logging in'>
           <p>
-            The extension keeps your identity keys and signs Platform documents for this app. The app never sees
-            your keys. It works in desktop Chromium browsers; on phones this app is read-only for now.
+            Dash Platform Extension is the preferred login, but its next release is not out yet, so the option is
+            disabled in the dialog. Until then, log in with two private keys of the same identity:
           </p>
           <ol className='list-decimal space-y-2 pl-5'>
-            <li>Download the latest release from <a className='font-bold text-brand-ink hover:underline' href='https://github.com/pshenmic/dash-platform-extension/releases' target='_blank' rel='noreferrer'>GitHub</a> and unzip it.</li>
-            <li>Open <strong>Manage extensions</strong>, enable <strong>Developer mode</strong> and choose <strong>Load unpacked</strong>.</li>
-            <li>Set a password, add a wallet and select an identity.</li>
-            <li>Come back here and press <strong>Connect</strong>.</li>
+            <li>The <strong>authentication</strong> private key: an AUTHENTICATION key with HIGH or CRITICAL security, which signs your actions.</li>
+            <li>The <strong>encryption</strong> private key: an ENCRYPTION or DECRYPTION key, which opens the private chat.</li>
+            <li>Press <strong>Log in</strong>, paste both keys into the dialog and submit. They stay for this browser session: a reload keeps you logged in, and closing the browser logs you out.</li>
           </ol>
+          <p>
+            When the extension release lands, the extension option will come back enabled and take over both keys.
+          </p>
         </Section>
 
         <Section id='signing' title='Signing with your wallet'>
           <p>
-            Signatures for the masternode itself come from your Dash wallet, not the extension. The app shows what to
+            Signatures for the masternode itself come from your Dash wallet, not the app. The app shows what to
             sign; you sign in your wallet and paste the result back. Your wallet decodes the transaction and shows
             the terms, so check them there. Wallets are adding support for shared masternodes; Dash Core supports
             it from v24:

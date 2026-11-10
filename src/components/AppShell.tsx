@@ -8,6 +8,7 @@ import { shortId } from '../lib/format'
 import { useSettings } from '../lib/settings'
 import { useWallet } from '../wallet/WalletContext'
 import { IdentityChip } from './bits'
+import { LoginDialog } from './LoginDialog'
 import { errorMessage, useToast } from './Toast'
 import { cn } from './ui'
 
@@ -31,6 +32,7 @@ export function AppShell (): ReactNode {
       </main>
       <Footer />
       <BottomNav />
+      <LoginDialog />
     </div>
   )
 }
@@ -115,14 +117,10 @@ function ThemeToggle (): ReactNode {
 }
 
 function ConnectButton (): ReactNode {
-  const { status, identity, identities, connect, disconnect, selectIdentity, error } = useWallet()
+  const { status, identity, identities, openLogin, logout, selectIdentity } = useWallet()
   const { notify } = useToast()
 
-  useEffect(() => {
-    if (error != null) notify(error, 'error')
-  }, [error, notify])
-
-  if (status === 'connected' && identity != null) {
+  if (identity != null) {
     const copy = (): void => {
       navigator.clipboard.writeText(identity)
         .then(() => notify('Identity ID copied', 'info'))
@@ -135,17 +133,9 @@ function ConnectButton (): ReactNode {
           ...identities.filter(id => id !== identity).map(id => ({ label: `Use ${shortId(id, 6)}`, onClick: () => selectIdentity(id) })),
           { label: 'Copy identity ID', onClick: copy },
           { label: 'My dashboard', to: '/me' },
-          { label: 'Disconnect', onClick: disconnect }
+          { label: 'Log out', onClick: logout }
         ]}
       />
-    )
-  }
-
-  if (status === 'unavailable') {
-    return (
-      <Link to='/guide#extension'>
-        <Button size='sm' colorScheme='lightBlue' className='whitespace-nowrap'>Get extension</Button>
-      </Link>
     )
   }
 
@@ -153,11 +143,11 @@ function ConnectButton (): ReactNode {
     <Button
       size='sm'
       colorScheme='brand'
-      disabled={status === 'checking' || status === 'connecting'}
-      onClick={() => { void connect() }}
+      disabled={status === 'connecting'}
+      onClick={openLogin}
       className='whitespace-nowrap'
     >
-      {status === 'connecting' ? 'Connecting…' : 'Connect'}
+      {status === 'connecting' ? 'Logging in…' : 'Log in'}
     </Button>
   )
 }
