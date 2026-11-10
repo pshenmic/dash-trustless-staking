@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { identityId, sdk, signAndBroadcast } from './env.mjs'
 
-const schema = JSON.parse(readFileSync(fileURLToPath(new URL('../../schema.json', import.meta.url)), 'utf8'))
+const schema = JSON.parse(readFileSync(fileURLToPath(new URL('../schema.json', import.meta.url)), 'utf8'))
 
 const balanceBefore = await sdk.identities.getIdentityBalance(identityId)
 const identityNonce = await sdk.identities.getIdentityNonce(identityId) + 1n

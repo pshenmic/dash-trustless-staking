@@ -13,7 +13,7 @@ const env = Object.fromEntries(
 
 export const identityId = env.PLATFORM_IDENTITY_ID
 if (identityId == null || env.PLATFORM_IDENTITY_PRIVATE_KEY == null) {
-  throw new Error('Set PLATFORM_IDENTITY_ID and PLATFORM_IDENTITY_PRIVATE_KEY in v2/.env.local')
+  throw new Error('Set PLATFORM_IDENTITY_ID and PLATFORM_IDENTITY_PRIVATE_KEY in .env.local')
 }
 
 export const sdk = new DashPlatformSDK({ network: 'testnet' })
