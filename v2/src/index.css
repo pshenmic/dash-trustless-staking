@@ -1,0 +1,175 @@
+/*
+ * dash-ui-kit ships a precompiled copy of Tailwind utilities. Import it before Tailwind so the
+ * app's own utilities come later in the utilities layer and win (e.g. `hidden md:flex`).
+ */
+@import "dash-ui-kit/styles";
+@import "tailwindcss";
+@import "@fontsource-variable/manrope";
+@import "dash-ui-kit/theme";
+
+/* dash-ui-kit builds its class names at runtime (CVA), so Tailwind must scan its bundle too */
+@source "../node_modules/dash-ui-kit/dist";
+
+/* dash-ui-kit's ThemeProvider toggles .dark / .light on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Brand tokens from the Dash Brand Guidelines 2026 (slides 07–11).
+ * Solid fallbacks of the 5% / 15% / 75% tints are used where the guidelines give them.
+ * The "-ink" colors (darker mint/orange for text on light backgrounds) are not in the guidelines;
+ * they exist only to keep small text readable.
+ */
+:root {
+  --bg: #f6f8ff;          /* Hyperwave Blue 5% */
+  --surface: #ffffff;
+  --surface-2: #f3f3f4;   /* Midnight Circuit 5% */
+  --fg: #0c1c33;          /* Midnight Circuit */
+  --muted: #495566;       /* Midnight Circuit 75% */
+  --line: #dbdde1;        /* Midnight Circuit 15% */
+  --brand: #4c7eff;       /* Hyperwave Blue */
+  --brand-hover: #3c65cc;
+  --brand-soft: #e4ecff;  /* Hyperwave Blue 15% */
+  --brand-ink: #3c65cc;
+  --mint: #60f6d2;        /* Mint Current */
+  --mint-soft: #e7fef8;
+  --mint-ink: #177a63;
+  --red: #cd2e00;
+  --red-soft: #f8e0d9;
+  --red-ink: #cd2e00;
+  --orange: #f98f12;
+  --orange-soft: #feeedc;
+  --orange-ink: #a85a00;
+  --shadow: 0 12px 40px -12px rgb(12 28 51 / 0.12);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0c1c33;
+  --surface: #0f213d;     /* Hyperwave Blue 5% on Midnight */
+  --surface-2: #18283d;
+  --fg: #ffffff;
+  --muted: #c2c6cc;       /* White 75% on Midnight */
+  --line: #303e51;        /* White 15% on Midnight */
+  --brand: #4c7eff;
+  --brand-hover: #799eff;
+  --brand-soft: #152b51;  /* Hyperwave Blue 15% on Midnight */
+  --brand-ink: #799eff;
+  --mint: #60f6d2;
+  --mint-soft: #183d4a;
+  --mint-ink: #60f6d2;
+  --red: #cd2e00;
+  --red-soft: #291f2b;
+  --red-ink: #da6240;
+  --orange: #f98f12;
+  --orange-soft: #2f2d2e;
+  --orange-ink: #fbab4d;
+  --shadow: 0 12px 40px -12px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-dash-main: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-mint: var(--mint);
+  --color-mint-soft: var(--mint-soft);
+  --color-mint-ink: var(--mint-ink);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+  --color-red-ink: var(--red-ink);
+  --color-orange: var(--orange);
+  --color-orange-soft: var(--orange-soft);
+  --color-orange-ink: var(--orange-ink);
+  --color-midnight: #0c1c33;
+
+  --shadow-card: var(--shadow);
+}
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+  font-size: 16px;
+  line-height: 1.45;
+  /* Brand body text is Manrope Medium (slide 14) */
+  font-weight: 500;
+}
+
+/* Brand type scale (slide 14): Manrope ExtraBold headlines with -3% tracking */
+@utility text-display {
+  font-size: 32px;
+  line-height: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  @variant md {
+    font-size: 48px;
+    line-height: 50px;
+  }
+}
+
+@utility text-title {
+  font-size: 24px;
+  line-height: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  @variant md {
+    font-size: 32px;
+    line-height: 34px;
+  }
+}
+
+@utility text-section {
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  @variant md {
+    font-size: 24px;
+    line-height: 26px;
+  }
+}
+
+@utility text-lead {
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: 500;
+}
+
+@utility text-small {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@utility text-tag {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+}
