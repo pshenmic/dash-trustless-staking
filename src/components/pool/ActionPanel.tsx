@@ -40,19 +40,13 @@ export function ActionPanel ({ state, onShowMembers }: { state: PoolState, onSho
 }
 
 function ConnectPrompt (): ReactNode {
-  const { status, connect } = useWallet()
+  const { status, openLogin } = useWallet()
   return (
     <div className='flex flex-col gap-3 rounded-2xl bg-surface-2 p-4 text-small'>
-      <span className='text-muted'>
-        {status === 'unavailable'
-          ? 'To join or sign, install Dash Platform Extension in a desktop browser.'
-          : 'Connect your Dash Platform identity to join or sign.'}
-      </span>
-      {status !== 'unavailable' && (
-        <Button size='sm' colorScheme='brand' onClick={() => { void connect() }} disabled={status === 'connecting' || status === 'checking'}>
-          Connect identity
-        </Button>
-      )}
+      <span className='text-muted'>Log in with your identity keys to join or sign.</span>
+      <Button size='sm' colorScheme='brand' onClick={openLogin} disabled={status === 'connecting'}>
+        Log in
+      </Button>
     </div>
   )
 }

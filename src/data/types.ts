@@ -124,8 +124,8 @@ export interface ChatCrypto {
   /** ECIES-wraps the group key for each recipient. Needs only public keys, so no wallet prompt. */
   wrapGroupKey: (groupKey: Uint8Array, recipients: ChatRecipient[]) => Promise<string>
   /**
-   * Opens the member's own envelope with their identity key. Live: the extension's `decrypt` method;
-   * the private key never reaches the app. Returns null when the envelope isn't theirs or doesn't open.
+   * Opens the member's own envelope with their identity encryption key. Live: ECIES with the key held by
+   * the private-key session. Returns null when the envelope isn't theirs or doesn't open.
    */
   unwrapGroupKey: (identity: string, keyId: number, envelope: Uint8Array) => Promise<Uint8Array | null>
 }
@@ -133,7 +133,7 @@ export interface ChatCrypto {
 export interface BackendFeatures {
   /** Signing, broadcasting and masternode status: on once the live registration builder is wired */
   registration: boolean
-  /** Private chat: needs the extension's decrypt method */
+  /** Private chat: needs a private-key session with the identity's encryption key */
   privateChat: boolean
 }
 

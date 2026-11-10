@@ -131,21 +131,27 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
     fetchPrevouts(present)
   ])
 
-  const registration = txBuilder.buildRegistration(pool, present, inputValues)
-  lockProblems.push(...registration.problems)
+  // A lock that selected no valid join has no shared ProRegTx to build; consentHash() is only defined
+  // for one, so leave the registration absent and let lockProblems explain the state.
+  const registration = present.length === 0 ? null : txBuilder.buildRegistration(pool, present, inputValues)
+  if (registration != null) lockProblems.push(...registration.problems)
 
   const members: MemberState[] = present.map((join, shareIndex) => ({
     join,
     shareIndex,
-    consent: memberDocument(consents, lock.id, join.ownerId, c => txBuilder.verifyConsent(registration, shareIndex, c.signature)),
+    consent: registration == null
+      ? null
+      : memberDocument(consents, lock.id, join.ownerId, c => txBuilder.verifyConsent(registration, shareIndex, c.signature)),
     funding: null
   }))
   // A lock with no usable members has nothing to sign: "every member" must not hold vacuously
   const allConsented = members.length > 0 && members.every(m => m.consent != null)
   // Funding signatures cover the join signatures too, so they are checked against the join-signed tx
-  const joinedHex = allConsented ? txBuilder.withJoinSignatures(registration, members.map(m => m.consent?.signature ?? '')) : ''
+  const joinedHex = allConsented && registration != null
+    ? txBuilder.withJoinSignatures(registration, members.map(m => m.consent?.signature ?? ''))
+    : ''
   // Funding signatures only mean something once every consent is in
-  if (allConsented) {
+  if (allConsented && registration != null) {
     for (const m of members) {
       m.funding = memberDocument(fundings, lock.id, m.join.ownerId, f => txBuilder.verifyScriptSigs(registration, m.shareIndex, f.scriptSigs, prevouts, joinedHex))
     }
@@ -158,7 +164,7 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
   let registeredHeight: number | null = null
   let masternodeListHeight: number | null = null
   let broadcastProblems: string[] = []
-  if (allFunded && lockProblems.length === 0) {
+  if (allFunded && lockProblems.length === 0 && registration != null) {
     finalTx = txBuilder.combine(
       registration,
       members.map(m => m.consent?.signature ?? ''),

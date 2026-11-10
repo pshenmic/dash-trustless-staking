@@ -70,7 +70,7 @@ function clearDraft (): void {
 
 export function CreatePoolPage (): ReactNode {
   const navigate = useNavigate()
-  const { activeIdentity, status, connect } = useWallet()
+  const { activeIdentity, openLogin } = useWallet()
   const activeIdentityRef = useRef(activeIdentity)
   activeIdentityRef.current = activeIdentity
   const { network, strict } = useNetwork()
@@ -358,7 +358,7 @@ export function CreatePoolPage (): ReactNode {
           {step < STEPS.length - 1
             ? <Button colorScheme='brand' size='md' onClick={next} disabled={!stepValid(step)}>Continue</Button>
             : activeIdentity == null
-              ? <Button colorScheme='brand' size='md' onClick={() => { void connect() }} disabled={status === 'unavailable'}>{status === 'unavailable' ? (draft != null ? 'Refresh after installing' : 'Install the extension to publish') : 'Connect to publish'}</Button>
+              ? <Button colorScheme='brand' size='md' onClick={openLogin}>Log in to publish</Button>
               : <Button colorScheme='brand' size='md' onClick={publish} disabled={create.isPending || Object.keys(errors).length > 0}>{create.isPending ? 'Publishing…' : 'Publish pool'}</Button>}
         </div>
       </Card>

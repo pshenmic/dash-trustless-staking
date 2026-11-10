@@ -35,7 +35,7 @@ export function PrivateChat ({ state }: { state: PoolState }): ReactNode {
   })
   const chatKey = chatKeys.data == null ? null : findChatKey(chatKeys.data, state)
 
-  // Opening the envelope is the one step that uses the member's identity key (in the extension)
+  // Opening the envelope is the one step that uses the member's encryption key
   const groupKey = useQuery({
     queryKey: ['group-key', chatKey?.id, activeIdentity],
     queryFn: async () => chatKey == null || activeIdentity == null ? null : await loadGroupKey(activeIdentity, state, chatKey),
@@ -57,9 +57,9 @@ export function PrivateChat ({ state }: { state: PoolState }): ReactNode {
 
   if (!backend.features.privateChat) {
     return (
-      <EmptyState title='Not available on testnet yet'>
-        The private chat opens a member’s copy of the chat key with their identity key. That needs a decrypt method
-        in Dash Platform Extension, which is on the way. Use the public chat until then.
+      <EmptyState title='Log in to use the private chat'>
+        The private chat opens a member’s copy of the chat key with their identity’s encryption key. Log in with
+        your private keys on testnet to read it, or use the public chat.
       </EmptyState>
     )
   }

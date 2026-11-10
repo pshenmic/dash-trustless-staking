@@ -2,7 +2,8 @@ import { Button } from '../components/Button'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Dash, StatusBadge } from '../components/bits'
-import { Card, EmptyState, Loading, PageHeader, SectionTitle } from '../components/ui'
+import { Card, EmptyState, Loading, Notice, PageHeader, SectionTitle } from '../components/ui'
+import { errorMessage } from '../components/Toast'
 import type { ActionKind, PoolState } from '../data/queries'
 import { useMyActivity } from '../hooks/data'
 import { rewardSharePercent } from '../lib/rules'
@@ -16,18 +17,16 @@ const ACTION_TEXT: Record<ActionKind, { title: string, cta: string, tab: string 
 }
 
 export function MePage (): ReactNode {
-  const { activeIdentity, status, connect } = useWallet()
-  const { data, isLoading } = useMyActivity(activeIdentity)
+  const { activeIdentity, openLogin } = useWallet()
+  const { data, isLoading, error } = useMyActivity(activeIdentity)
 
   if (activeIdentity == null) {
     return (
       <div>
         <PageHeader title='My dashboard' />
         <EmptyState
-          title='Connect your identity'
-          action={status === 'unavailable'
-            ? <Link to='/guide#extension'><Button colorScheme='brand' size='md'>Get Dash Platform Extension</Button></Link>
-            : <Button colorScheme='brand' size='md' onClick={() => { void connect() }}>Connect</Button>}
+          title='Log in with your identity keys'
+          action={<Button colorScheme='brand' size='md' onClick={openLogin}>Log in</Button>}
         >
           Your pools, your shares and anything waiting for your signature show up here.
         </EmptyState>
@@ -38,10 +37,12 @@ export function MePage (): ReactNode {
   return (
     <div className='flex flex-col gap-10'>
       <PageHeader title='My dashboard' subtitle='Pools you created or joined, and anything waiting on you.' />
-      {isLoading || data == null
-        ? <Loading />
-        : (
-          <>
+      {error != null
+        ? <Notice tone='error' title='Could not load your dashboard'>{errorMessage(error)}</Notice>
+        : isLoading || data == null
+          ? <Loading />
+          : (
+            <>
             <section>
               <SectionTitle>Action required</SectionTitle>
               {data.actions.length === 0
