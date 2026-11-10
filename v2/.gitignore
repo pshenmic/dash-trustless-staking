@@ -1,0 +1,5 @@
+node_modules
+dist
+*.local
+scripts/.test-live.mjs
+scripts/.tmp
