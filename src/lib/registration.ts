@@ -1,10 +1,12 @@
-import { CollateralShare, consentHash, ExtNetInfo, ExtraPayload, Input, OutPoint, Output, Script, SHARED_COLLATERAL_SCRIPT, Transaction, TransactionType, verifyCompact } from 'dash-core-sdk'
+import { CollateralShare, ExtNetInfo, ExtraPayload, Input, OutPoint, Output, Script, Transaction, TransactionType } from 'dash-core-sdk'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { ripemd160 } from '@noble/hashes/ripemd160'
 import { sha256 } from '@noble/hashes/sha256'
 import { base64 } from '@scure/base'
 import { addressToScript } from './address.js'
 import { concatBytes, fromHex, toHex } from './bytes.js'
+import { verifyCompact } from './compactSignature.js'
+import { SHARED_COLLATERAL_SCRIPT } from './consensus.js'
 import type { Duffs, Join, Outpoint, Pool, Prevout } from './types.js'
 
 function doubleSHA256 (bytes: Uint8Array): Uint8Array {
@@ -118,7 +120,7 @@ export function buildRegistration (pool: Pool, members: Join[], inputValues: Map
   )
   ;(tx as any).extraPayload = payload
 
-  const hash = consentHash(tx)
+  const hash = tx.consentHash()
   return {
     fundingHex: funding.hex, unsignedHex: tx.hex(), consentHash: hash,
     collateralIndex, tx,

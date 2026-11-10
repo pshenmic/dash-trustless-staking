@@ -1,6 +1,7 @@
-import { ExtraPayload, Transaction, dissolveSignHash, verifyCompact } from 'dash-core-sdk'
+import { ExtraPayload, Transaction } from 'dash-core-sdk'
 import { addressToKeyId, addressToScript } from './address.js'
 import { toHex } from './bytes.js'
+import { verifyCompact } from './compactSignature.js'
 import { MAX_DISSOLVE_FEE } from './consensus.js'
 import { rawDigest } from './registration.js'
 import type { Duffs, Join } from './types.js'
@@ -68,7 +69,7 @@ export function verifyDissolution (ctx: DissolutionContext, signedHex: string): 
     findings.push(`A dissolution carries 1 or ${ctx.members.length} signatures, this one has ${sigCount}`)
   } else {
     // Core signs hash.begin(), so the digest is the raw bytes of the displayed hash
-    const digest = rawDigest(dissolveSignHash(tx, sigCount))
+    const digest = rawDigest(tx.dissolveSignHash())
     payload.sigs.forEach((signature, index) => {
       const shareIndex = sigCount === 1 ? payload.actorIndex : index
       const owner = ctx.members[shareIndex]?.ownerAddress

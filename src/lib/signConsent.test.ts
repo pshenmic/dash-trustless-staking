@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { Network, PrivateKey, verifyCompact } from 'dash-core-sdk'
-import { randomBytes } from 'node:crypto'
+import { Network, PrivateKey } from 'dash-core-sdk'
+import { randomBytes } from '@noble/hashes/utils'
+import { base64 } from '@scure/base'
 import { fromHex, toHex } from './bytes'
+import { verifyCompact } from './compactSignature'
 import { keyIdToAddress } from './address'
 import { rawDigest } from './registration'
 import { signConsentWithKey } from './signConsent'
@@ -20,7 +22,7 @@ describe('signConsentWithKey', () => {
 
     expect(result.ok).toBe(true)
     const signature = result.ok ? result.signature : ''
-    const sigHex = toHex(Buffer.from(signature, 'base64'))
+    const sigHex = toHex(base64.decode(signature))
     const keyId = key.getPublicKey().getPublicKeyHash()
 
     // Core signs hash.begin(), the reversed 32 bytes; the displayed hash must not verify

@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { Network, PrivateKey, Transaction, signCompact, verifyCompact } from 'dash-core-sdk'
-import { randomBytes } from 'node:crypto'
+import { Network, PrivateKey, Transaction } from 'dash-core-sdk'
+import { randomBytes } from '@noble/hashes/utils'
+import { base64 } from '@scure/base'
 import { addressToScript } from './address'
+import { signCompact, verifyCompact } from './compactSignature'
 import { sha256 } from '@noble/hashes/sha256'
-import { fromHex, toHex } from './bytes'
+import { concatBytes, fromHex, toHex } from './bytes'
 import { buildRegistration, extractScriptSigs, rawDigest, verifyScriptSigs, withJoinSignatures } from './registration'
 import { signFundingWithKeys } from './signFunding'
 import type { Join, Pool, Prevout } from './types'
@@ -74,7 +76,7 @@ function registration (): ReturnType<typeof buildRegistration> {
 }
 
 function consentsFor (reg: ReturnType<typeof buildRegistration>): string[] {
-  return [ownerA, ownerB].map(key => Buffer.from(signCompact(rawDigest(reg.consentHash), key), 'hex').toString('base64'))
+  return [ownerA, ownerB].map(key => base64.encode(fromHex(signCompact(rawDigest(reg.consentHash), key))))
 }
 
 describe('signFundingWithKeys', () => {
@@ -96,13 +98,13 @@ describe('signFundingWithKeys', () => {
 
     // Independent of the builder: SHA256d over prevouts (hash little-endian, then vout little-endian)
     const prevouts = reg.tx.inputs.map(input => {
-      const hash = Buffer.from(input.txId, 'hex').reverse()
-      const vout = Buffer.alloc(4)
-      vout.writeUInt32LE(input.vOut)
-      return Buffer.concat([hash, vout])
+      const hash = fromHex(input.txId).reverse()
+      const vout = new Uint8Array(4)
+      new DataView(vout.buffer).setUint32(0, input.vOut, true)
+      return concatBytes(hash, vout)
     })
 
-    expect(payload.inputsHash).toBe(toHex(Uint8Array.from(sha256(sha256(Buffer.concat(prevouts)))).reverse()))
+    expect(payload.inputsHash).toBe(toHex(Uint8Array.from(sha256(sha256(concatBytes(...prevouts)))).reverse()))
   })
 
   test('serializes the join signatures as hex, not base64', () => {
@@ -113,7 +115,7 @@ describe('signFundingWithKeys', () => {
     // 65 bytes per signature, one per share, in share order
     const payload = Transaction.fromHex(joined).extraPayload as unknown as { joinSigs: string[] }
     expect(payload.joinSigs).toHaveLength(2)
-    expect(payload.joinSigs[0]).toBe(toHex(Buffer.from(consents[0], 'base64')))
+    expect(payload.joinSigs[0]).toBe(toHex(base64.decode(consents[0])))
     expect(payload.joinSigs[0]).toMatch(/^[0-9a-f]{130}$/)
   })
 
@@ -168,7 +170,7 @@ describe('signFundingWithKeys', () => {
     const result = signFundingWithKeys(joined, members, 0, [utxoA.toWIF()], prevouts)
     expect(result.ok).toBe(true)
     // Sanity: a consent signature is compact over the consent hash, not a DER input signature
-    expect(verifyCompact(rawDigest(reg.consentHash), toHex(Buffer.from(consentsFor(reg)[0], "base64")), ownerA.getPublicKey().getPublicKeyHash())).toBe(true)
+    expect(verifyCompact(rawDigest(reg.consentHash), toHex(base64.decode(consentsFor(reg)[0])), ownerA.getPublicKey().getPublicKeyHash())).toBe(true)
     expect(fromHex(reg.unsignedHex).length).toBeGreaterThan(0)
   })
 })

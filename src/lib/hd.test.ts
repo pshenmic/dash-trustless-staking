@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { Network } from 'dash-core-sdk'
+import { Network, PrivateKey } from 'dash-core-sdk'
 import { coinType, deriveCoreKey, deriveCoreKeys, isValidSeedPhrase } from './hd'
 
 // Standard BIP39 test vector phrase (no passphrase)
@@ -60,7 +60,7 @@ describe('deriveCoreKey', () => {
 
   test('the WIF reproduces the address', () => {
     const key = deriveCoreKey(PHRASE, 7)
-    const fromWif = require('dash-core-sdk').PrivateKey.fromWIF(key.wif)
+    const fromWif = PrivateKey.fromWIF(key.wif)
 
     expect(fromWif.getPublicKey().getAddress(Network.Testnet)).toBe(key.address)
   })

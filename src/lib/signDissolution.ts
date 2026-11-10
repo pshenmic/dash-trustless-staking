@@ -1,9 +1,9 @@
 import {
-  ExtraPayload, Input, Network as CoreNetwork, Output, PrivateKey, Script, Transaction, TransactionType,
-  dissolveSignHash, signCompact
+  ExtraPayload, Input, Network as CoreNetwork, Output, PrivateKey, Script, Transaction, TransactionType
 } from 'dash-core-sdk'
 import { addressToKeyId, addressToScript } from './address.js'
 import { fromHex, toHex } from './bytes.js'
+import { signCompact } from './compactSignature.js'
 import type { DissolutionContext } from './dissolution.js'
 import { rawDigest } from './registration.js'
 import { previewUnilateralDissolve } from './rules.js'
@@ -66,7 +66,7 @@ export function signDissolutionWithKey (
     0, 3, TransactionType.TRANSACTION_PROVIDER_DISSOLVE,
     payload
   )
-  payload.sigs = [signCompact(rawDigest(dissolveSignHash(tx, 1)), key)]
+  payload.sigs = [signCompact(rawDigest(tx.dissolveSignHash()), key)]
 
   return { ok: true, hex: tx.hex() }
 }

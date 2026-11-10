@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import {
-  ExtraPayload, Input, Network, Output, PrivateKey, Script, Transaction, TransactionType, dissolveSignHash, signCompact
+  ExtraPayload, Input, Network, Output, PrivateKey, Script, Transaction, TransactionType
 } from 'dash-core-sdk'
-import { randomBytes } from 'node:crypto'
+import { randomBytes } from '@noble/hashes/utils'
+import { signCompact } from './compactSignature'
 import { MAX_DISSOLVE_FEE } from './consensus'
 import { rawDigest } from './registration'
 import { verifyDissolution, type DissolutionContext } from './dissolution'
@@ -64,7 +65,7 @@ function build (options: BuildOptions = {}): Transaction {
 }
 
 function sign (tx: Transaction, signerIndex = 0): string {
-  const digest = rawDigest(dissolveSignHash(tx, 1))
+  const digest = rawDigest(tx.dissolveSignHash())
   const signature = signCompact(digest, keys[signerIndex])
   if (!(tx.extraPayload instanceof ExtraPayload.ProDisTx)) throw new Error('Expected a ProDisTx payload')
   tx.extraPayload.sigs = [signature]

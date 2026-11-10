@@ -1,9 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
-  CollateralShare, ExtNetInfo, ExtraPayload, Input, OutPoint, Output, Script, SHARED_COLLATERAL_SCRIPT, Transaction,
-  TransactionType
+  CollateralShare, ExtNetInfo, ExtraPayload, Input, OutPoint, Output, Script, Transaction, TransactionType
 } from 'dash-core-sdk'
-import { COLLATERAL } from './consensus'
+import { COLLATERAL, SHARED_COLLATERAL_SCRIPT } from './consensus'
 import { finalTxProblems } from './preflight'
 import type { Join } from './types'
 

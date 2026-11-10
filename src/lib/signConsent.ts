@@ -1,7 +1,8 @@
-import { Network as CoreNetwork, PrivateKey, signCompact } from 'dash-core-sdk'
+import { Network as CoreNetwork, PrivateKey } from 'dash-core-sdk'
 import { base64 } from '@scure/base'
 import { addressToKeyId } from './address.js'
 import { fromHex, toHex } from './bytes.js'
+import { signCompact } from './compactSignature.js'
 import { rawDigest } from './registration.js'
 import type { Network } from './types.js'
 
