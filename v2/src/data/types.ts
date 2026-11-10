@@ -2,6 +2,7 @@ import type {
   ChainTx, ChatKey, Consent, Duffs, EncryptionKey, Feedback, Funding, Join, Lock, MasternodeEntry, Message, Outpoint,
   Pool, Prevout, PrivateMessage
 } from '../lib/types'
+import type { DissolutionContext, DissolutionVerdict } from '../lib/dissolution'
 
 /*
  * The UI talks to three sources. Today they are mocked (src/data/mock); the live versions are:
@@ -105,8 +106,8 @@ export interface TxBuilder {
   extractScriptSigs: (tx: RegistrationTx, shareIndex: number, signedHex: string, joinedHex: string) => string[] | null
   /** The final tx with all join signatures and scriptSigs, and its txid (= proTxHash) */
   combine: (tx: RegistrationTx, signatures: string[], scriptSigs: string[][]) => { hex: string, txid: string }
-  /** Checks a pasted unilateral ProDisTx: signed, spends this masternode's collateral */
-  verifyDissolution: (proTxHash: string, signedHex: string) => boolean
+  /** Checks a pasted unilateral ProDisTx: signed, spends this masternode's collateral, refunds every share */
+  verifyDissolution: (ctx: DissolutionContext, signedHex: string) => DissolutionVerdict
 }
 
 export interface ChatRecipient {

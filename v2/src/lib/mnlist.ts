@@ -1,3 +1,5 @@
+import { ExtraPayload, Transaction } from 'dash-core-sdk'
+
 /** A single masternode entry from the merged list. */
 export interface MnListEntry {
   proTxHash: string
@@ -20,23 +22,37 @@ export interface MnListDiff {
 }
 
 /**
+ * The block height a diff is anchored at. DAPI forwards Core's `protx diff` JSON, whose `cbTx` is
+ * the coinbase special transaction as hex — the height lives inside its CCbTx payload. Older
+ * payloads carry the height as an object instead, so both shapes are accepted.
+ */
+function heightFromCbTx (cbTx: unknown): number | null {
+  if (typeof cbTx === 'string') {
+    try {
+      const payload = Transaction.fromHex(cbTx).extraPayload
+
+      return payload instanceof ExtraPayload.CbTx ? payload.height : null
+    } catch {
+      return null
+    }
+  }
+
+  if (cbTx != null && typeof cbTx === 'object' && typeof (cbTx as { height?: unknown }).height === 'number') {
+    return (cbTx as { height: number }).height
+  }
+
+  return null
+}
+
+/**
  * Decode a raw `protx diff` object (as unwrapped from the CBOR stream or from Core's JSON output)
  * into a strongly-typed diff.
- *
- * On the initial subscribe DAPI sends a full diff where `cbTx` is an object carrying the block
- * height; incremental diffs carry `cbTx` as a raw hex string, so height falls back to null.
  */
 export function parseMnListDiff (diffObj: Record<string, unknown>): MnListDiff {
   const baseBlockHash = String(diffObj.baseBlockHash ?? '')
   const blockHash = String(diffObj.blockHash ?? '')
 
-  let height: number | null = null
-
-  if (diffObj.cbTx !== undefined && typeof diffObj.cbTx === 'object' && diffObj.cbTx !== null) {
-    const cbTx = diffObj.cbTx as Record<string, unknown>
-
-    if (typeof cbTx.height === 'number') height = cbTx.height
-  }
+  const height = heightFromCbTx(diffObj.cbTx)
 
   const deleted: string[] = Array.isArray(diffObj.deletedMNs) ? (diffObj.deletedMNs as string[]) : []
   const mnList: Array<Record<string, unknown>> = Array.isArray(diffObj.mnList) ? (diffObj.mnList as Array<Record<string, unknown>>) : []

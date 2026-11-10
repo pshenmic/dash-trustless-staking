@@ -8,6 +8,7 @@ import {
   type RegistrationTx as LibRegistration
 } from '../../lib/registration'
 import type { Duffs, Join, Pool, Prevout } from '../../lib/types'
+import { verifyDissolution as verifyDissolutionLib } from '../../lib/dissolution'
 import type { RegistrationTx, TxBuilder } from '../types'
 
 function feeShares (fee: Duffs, count: number): Duffs[] {
@@ -75,8 +76,6 @@ export function createLiveTxBuilder (): TxBuilder {
       return combineLib(registration, signatures, scriptSigs)
     },
 
-    verifyDissolution () {
-      return false
-    }
+    verifyDissolution: verifyDissolutionLib
   }
 }

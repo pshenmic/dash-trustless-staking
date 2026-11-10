@@ -1,6 +1,7 @@
 import { COLLATERAL, MIN_SHARES } from '../lib/consensus'
 import { joinProblems, selectionProblems } from '../lib/rules'
 import { finalTxProblems } from '../lib/preflight'
+import { clearDissolution, pendingDissolution } from '../lib/pendingDissolution'
 import {
   derivePoolStatus, findPoolLock, listStatus, lockMembers, memberDocument, signingStage, type SigningStage
 } from '../lib/status'
@@ -65,6 +66,8 @@ export interface PoolState {
   registeredHeight: number | null
   height: number
   status: PoolStatus
+  /** The dissolution this browser broadcast, until the chainlocked list catches up */
+  dissolutionTxid: string | null
   stage: SigningStage | null
   consentCount: number
   fundingCount: number
@@ -109,7 +112,7 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
 
   const base: PoolState = {
     pool, joins, lock, members: [], lockProblems: [], registration: null, finalTx: null,
-    regTx: null, masternode: null, registeredHeight: null, height, status: 'NEW', stage: null,
+    regTx: null, masternode: null, registeredHeight: null, height, status: 'NEW', dissolutionTxid: null, stage: null,
     consentCount: 0, fundingCount: 0, operatorKey: { masternode: null, otherPools: [] }, prevouts: new Map(), broadcastProblems: []
   }
   if (lock == null) return { ...base, operatorKey: await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id), prevouts: new Map() }
@@ -177,8 +180,11 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
     }
   }
 
-  const statusInput = { lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height }
+  const dissolutionTxid = pendingDissolution(pool.id)
+  const statusInput = { lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid }
   const status = derivePoolStatus(statusInput)
+  // The list has dropped the entry: the chain itself now says dissolved, so the local note is done
+  if (status === 'DISSOLVED') clearDissolution(pool.id)
   // Key conflicts only matter until the pool registers
   const operatorKey = status === 'SIGNING'
     ? await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id, finalTx?.txid)
@@ -193,6 +199,7 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
     masternode,
     registeredHeight,
     status,
+    dissolutionTxid,
     stage: status === 'SIGNING' ? signingStage(statusInput) : null,
     consentCount: members.filter(m => m.consent != null).length,
     fundingCount: members.filter(m => m.funding != null).length,

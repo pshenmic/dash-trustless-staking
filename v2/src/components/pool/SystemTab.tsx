@@ -13,9 +13,11 @@ import { KeyValue, KeyValueList, Notice } from '../ui'
  */
 export function SystemTab ({ state, member }: { state: PoolState, member: MemberState }): ReactNode {
   const [dissolveOpen, setDissolveOpen] = useState(false)
-  const inEarlyPeriod = state.registeredHeight != null &&
+  // A dissolved pool has no early period left to be inside of
+  const live = state.status !== 'DISSOLVED'
+  const inEarlyPeriod = live && state.registeredHeight != null &&
     state.height - state.registeredHeight < state.pool.earlyPeriodBlocks
-  const canDissolve = state.status !== 'SIGNING' && state.status !== 'DISSOLVED'
+  const canDissolve = state.status !== 'SIGNING' && state.status !== 'DISSOLVED' && state.status !== 'DISSOLVING'
 
   return (
     <div className='flex flex-col gap-6'>
@@ -43,7 +45,7 @@ export function SystemTab ({ state, member }: { state: PoolState, member: Member
           <KeyValue label='Early exit penalty'>
             {state.pool.earlyPenalty === 0
               ? 'None'
-              : `${formatDash(state.pool.earlyPenalty)}${state.registeredHeight == null ? '' : inEarlyPeriod ? ' (applies now)' : ' (early period over)'}`}
+              : `${formatDash(state.pool.earlyPenalty)}${!live || state.registeredHeight == null ? '' : inEarlyPeriod ? ' (applies now)' : ' (early period over)'}`}
           </KeyValue>
           <KeyValue label='Network fee'>Paid by you, on top of any penalty</KeyValue>
         </KeyValueList>
@@ -66,7 +68,11 @@ export function SystemTab ({ state, member }: { state: PoolState, member: Member
           </Button>
           {!canDissolve && (
             <p className='mt-1 text-small text-muted'>
-              {state.status === 'DISSOLVED' ? 'This pool is already dissolved.' : 'The masternode is not registered yet.'}
+              {state.status === 'DISSOLVED'
+                ? 'This pool is already dissolved.'
+                : state.status === 'DISSOLVING'
+                  ? 'A dissolution is already broadcast and confirming. Refunds arrive when it is mined.'
+                  : 'The masternode is not registered yet.'}
             </p>
           )}
         </div>

@@ -125,7 +125,7 @@ export interface ChainTx {
   height: number | null
 }
 
-export type PoolStatus = 'NEW' | 'SIGNING' | 'REGISTERED' | 'FORMED' | 'ERROR' | 'DISSOLVED'
+export type PoolStatus = 'NEW' | 'SIGNING' | 'REGISTERED' | 'FORMED' | 'ERROR' | 'DISSOLVING' | 'DISSOLVED'
 
 /** The pools list only uses Platform data, so it can tell NEW from LOCKED and nothing more */
 export type PoolListStatus = 'NEW' | 'LOCKED'

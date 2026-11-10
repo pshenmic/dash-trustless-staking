@@ -23,6 +23,7 @@ const STATUS_STYLE: Record<PoolStatus | 'LOCKED', { label: string, className: st
   REGISTERED: { label: 'Registered', className: 'bg-brand-soft text-brand-ink', dot: 'bg-brand' },
   FORMED: { label: 'Formed', className: 'bg-mint-soft text-mint-ink', dot: 'bg-mint' },
   ERROR: { label: 'Error', className: 'bg-red-soft text-red-ink', dot: 'bg-red' },
+  DISSOLVING: { label: 'Dissolving', className: 'bg-orange-soft text-orange-ink', dot: 'bg-orange' },
   DISSOLVED: { label: 'Dissolved', className: 'bg-surface-2 text-muted', dot: 'bg-muted' }
 }
 

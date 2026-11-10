@@ -12,9 +12,31 @@ function status (overrides: Partial<Input>): ReturnType<typeof derivePoolStatus>
     masternode: null,
     masternodeListHeight: 500,
     height: 600,
+    dissolutionTxid: null,
     ...overrides
   } as StatusInput)
 }
+
+describe('derivePoolStatus — a broadcast dissolution outranks the list', () => {
+  const listed = { proTxHash: 'a'.repeat(64), isValid: false, service: '[::]:0' }
+  const txid = 'b'.repeat(64)
+
+  test('dissolving while the chainlocked list still holds the entry', () => {
+    expect(status({ masternode: listed, dissolutionTxid: txid })).toBe('DISSOLVING')
+  })
+
+  test('dissolving even when the entry would otherwise read as error', () => {
+    expect(status({ masternode: listed, height: 900, dissolutionTxid: txid })).toBe('DISSOLVING')
+  })
+
+  test('dissolving while no entry is left but the list is behind', () => {
+    expect(status({ masternode: null, masternodeListHeight: null, dissolutionTxid: txid })).toBe('DISSOLVING')
+  })
+
+  test('dissolved once the list has dropped the entry', () => {
+    expect(status({ masternode: null, masternodeListHeight: 501, dissolutionTxid: txid })).toBe('DISSOLVED')
+  })
+})
 
 describe('derivePoolStatus — list-height gate', () => {
   test('signing when the list has never arrived', () => {

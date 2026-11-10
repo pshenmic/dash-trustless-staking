@@ -25,7 +25,7 @@ export function ActionPanel ({ state, onShowMembers }: { state: PoolState, onSho
       {(state.status === 'NEW' || state.status === 'SIGNING') && <OperatorKeyNotice usage={state.operatorKey} />}
       {state.status === 'NEW' && <NewActions state={state} onShowMembers={onShowMembers} />}
       {state.status === 'SIGNING' && <SigningActions state={state} />}
-      {(state.status === 'FORMED' || state.status === 'ERROR' || state.status === 'REGISTERED') && <RunningActions state={state} />}
+      {(state.status === 'FORMED' || state.status === 'ERROR' || state.status === 'REGISTERED' || state.status === 'DISSOLVING') && <RunningActions state={state} />}
       {state.status === 'DISSOLVED' && (
         <div>
           <h2 className='text-section'>Dissolved</h2>
@@ -218,7 +218,14 @@ function RunningActions ({ state }: { state: PoolState }): ReactNode {
   return (
     <>{state.status === 'FORMED'
       ? <Notice tone='success' title='Masternode is running'>Rewards go straight to each member’s reward address.</Notice>
-      : state.status === 'REGISTERED'
+      : state.status === 'DISSOLVING'
+        ? (
+          <Notice tone='info' title='Dissolution broadcast'>
+            The dissolution is confirming. Every share goes back to its refund address once the transaction is in a
+            chainlocked block — the masternode list keeps showing the old entry for a few minutes until then.
+          </Notice>
+          )
+        : state.status === 'REGISTERED'
         ? (
           <Notice tone='info' title='Registered, waiting for the operator'>
             The registration is on chain and the masternode is listed, but inactive until the operator sets its

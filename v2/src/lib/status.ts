@@ -9,6 +9,8 @@ import type { ChainTx, Consent, Funding, Join, Lock, MasternodeEntry, Pool, Pool
  *               the grace period after registration
  *   FORMED      the proTxHash is in the masternode list with isValid = true
  *   ERROR       in the list with isValid = false (PoSe-banned or revoked)
+ *   DISSOLVING  a ProDisTx was broadcast from this browser and the chainlocked list has not
+ *               dropped the entry yet
  *   DISSOLVED   the registration was mined but the masternode is gone from the list
  */
 
@@ -57,6 +59,8 @@ export interface StatusInput {
   masternodeListHeight: number | null
   /** Current chain height, for the post-registration grace period */
   height: number
+  /** ProDisTx this browser broadcast for the pool; see pendingDissolution.ts */
+  dissolutionTxid: string | null
 }
 
 /** A masternode registered without an address reports `[::]:0` */
@@ -64,10 +68,19 @@ function hasNoService (service: string): boolean {
   return service === '' || service === '[::]:0' || service === '0.0.0.0:0'
 }
 
-export function derivePoolStatus ({ lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height }: StatusInput): PoolStatus {
+export function derivePoolStatus ({ lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid }: StatusInput): PoolStatus {
   if (lock == null) return 'NEW'
   if (!allConsented || !allFunded) return 'SIGNING'
   if (regTx == null || regTx.height == null) return 'SIGNING'
+
+  // A dissolution we broadcast outranks the list's pre-dissolution view of the masternode: the
+  // chainlocked list trails the tip, so without this a dissolved pool reads as ERROR for a few
+  // minutes and invites a second dissolve.
+  if (dissolutionTxid != null) {
+    const listCaughtUp = masternodeListHeight != null && masternodeListHeight >= regTx.height
+
+    return masternode == null && listCaughtUp ? 'DISSOLVED' : 'DISSOLVING'
+  }
 
   // An entry for this proTxHash proves the list already covers the registration, whatever its
   // reported height — the height comes from the diff's cbTx and can be missing on a live stream.

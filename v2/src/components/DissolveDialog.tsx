@@ -6,11 +6,16 @@ import { mockDissolutionHex } from '../data/mock/mockTxBuilder'
 import type { MemberState, PoolState } from '../data/queries'
 import { useWrite } from '../hooks/data'
 import { DEFAULT_DISSOLVE_FEE, MAX_DISSOLVE_FEE } from '../lib/consensus'
+import type { DissolutionContext, DissolutionVerdict } from '../lib/dissolution'
 import { blocksToDuration, formatDash, parseDash, shortId } from '../lib/format'
+import { markDissolutionBroadcast } from '../lib/pendingDissolution'
 import { previewUnilateralDissolve } from '../lib/rules'
+import { signDissolutionWithKey } from '../lib/signDissolution'
 import { IdentityChip } from './bits'
 import { errorMessage, useToast } from './Toast'
-import { CodeBlock, Field, Notice } from './ui'
+import { Chip, CodeBlock, Field, Notice } from './ui'
+
+type Method = 'core' | 'wallet' | 'key'
 
 interface Props {
   state: PoolState
@@ -24,6 +29,8 @@ export function DissolveDialog ({ state, member, open, onOpenChange }: Props): R
   const { notify } = useToast()
   const [feeText, setFeeText] = useState(String(DEFAULT_DISSOLVE_FEE / 1e8))
   const [signed, setSigned] = useState('')
+  const [method, setMethod] = useState<Method>('core')
+  const [privateKey, setPrivateKey] = useState('')
   const proTxHash = state.finalTx?.txid ?? ''
 
   const fee = parseDash(feeText)
@@ -32,14 +39,39 @@ export function DissolveDialog ({ state, member, open, onOpenChange }: Props): R
     state.members.map(m => m.join.amount), member.shareIndex, state.pool.earlyPeriodBlocks, state.pool.earlyPenalty,
     state.registeredHeight ?? state.height, state.height, fee ?? DEFAULT_DISSOLVE_FEE
   )
-  const signedValid = signed.trim() !== '' && backend.tx.verifyDissolution(proTxHash, signed)
+  const context: DissolutionContext = {
+    proTxHash,
+    collateralIndex: state.registration?.collateralIndex ?? 0,
+    members: state.members.map(m => m.join),
+    earlyPeriodBlocks: state.pool.earlyPeriodBlocks,
+    earlyPenalty: state.pool.earlyPenalty,
+    registeredHeight: state.registeredHeight,
+    height: state.height
+  }
+  const verdict = checkDissolution(context, signed)
+  const signedValid = verdict?.ok === true
   const command = `protx shared_dissolve ${proTxHash} ${member.shareIndex} ${fee ?? DEFAULT_DISSOLVE_FEE} false`
+
+  const signWithKey = (): void => {
+    if (fee == null) return
+    const result = signDissolutionWithKey(context, member.shareIndex, fee, privateKey)
+    if (!result.ok) {
+      notify(result.error, 'error')
+      return
+    }
+    setSigned(result.hex)
+    setPrivateKey('')
+    notify('Signed with your private key. Review the transaction below, then broadcast it.')
+  }
 
   const broadcast = useWrite(async () => await backend.chain.broadcastTransaction(signed.trim()))
 
   const submit = (): void => {
     broadcast.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: txid => {
+        // Remember it: the chainlocked list keeps showing the masternode for a while, and the pool
+        // must not invite a second dissolution in the meantime
+        markDissolutionBroadcast(state.pool.id, txid)
         notify('Dissolution broadcast. Refunds arrive when it confirms.')
         onOpenChange(false)
       },
@@ -88,13 +120,59 @@ export function DissolveDialog ({ state, member, open, onOpenChange }: Props): R
         </div>
 
         <div>
-          <div className='mb-1.5 flex items-center justify-between'>
-            <span className='text-small font-bold'>Sign in your wallet (Dash Core console)</span>
-            <CopyButton text={command} aria-label='Copy command' />
+          <span className='text-small font-bold'>How do you want to sign?</span>
+          <div className='mt-2 flex flex-wrap gap-2'>
+            <Chip active={method === 'core'} onClick={() => setMethod('core')}>Dash Core</Chip>
+            <Chip active={method === 'wallet'} onClick={() => setMethod('wallet')}>Dash Desktop Wallet</Chip>
+            <Chip active={method === 'key'} onClick={() => setMethod('key')}>Private key</Chip>
           </div>
-          <CodeBlock className='max-h-20'>{command}</CodeBlock>
-          <div className='mt-1.5 text-small text-muted'>Your wallet builds the transaction from on-chain data and signs it with your share owner key for masternode {shortId(proTxHash, 8)}.</div>
         </div>
+
+        {method === 'core' && (
+          <div>
+            <div className='mb-1.5 flex items-center justify-between'>
+              <span className='text-small font-bold'>Sign in the Dash Core console</span>
+              <CopyButton text={command} aria-label='Copy command' />
+            </div>
+            <CodeBlock className='max-h-20'>{command}</CodeBlock>
+            <div className='mt-1.5 text-small text-muted'>Your wallet builds the transaction from on-chain data and signs it with your share owner key for masternode {shortId(proTxHash, 8)}.</div>
+          </div>
+        )}
+
+        {method === 'wallet' && (
+          <Notice tone='info' title='Signing from Dash Desktop Wallet'>
+            This is not wired yet. Once the wallet can build a shared-masternode dissolution it will be a one-click
+            link from here. For now, sign in Dash Core or paste your private key and sign here — then broadcast below.
+          </Notice>
+        )}
+
+        {method === 'key' && (
+          <Field
+            label='Your share owner private key'
+            htmlFor='dissolve-private-key'
+            hint='WIF or 64-character hex. Used in this tab only: never stored, never sent, cleared after signing.'
+          >
+            <div className='mb-2 rounded-xl bg-surface-2 px-3 py-2 text-small'>
+              <span className='text-muted'>Signing key for </span>
+              <span className='font-mono break-all'>{member.join.ownerAddress}</span>
+              <CopyButton text={member.join.ownerAddress} aria-label='Copy signing address' />
+            </div>
+            <Input
+              id='dissolve-private-key'
+              type='password'
+              autoComplete='off'
+              spellCheck={false}
+              value={privateKey}
+              onChange={e => setPrivateKey(e.target.value)}
+              placeholder='WIF or hex private key'
+            />
+            <div className='mt-2'>
+              <Button colorScheme='brand' size='md' disabled={privateKey.trim() === '' || fee == null} onClick={signWithKey}>
+                Sign the dissolution
+              </Button>
+            </div>
+          </Field>
+        )}
 
         <div>
           <label className='mb-1.5 block text-small font-bold' htmlFor='dissolve-signed'>Paste the signed transaction</label>
@@ -105,10 +183,15 @@ export function DissolveDialog ({ state, member, open, onOpenChange }: Props): R
             onChange={setSigned}
             font='grotesque'
             placeholder='Signed ProDisTx hex'
-            error={signed.trim() !== '' && !signedValid}
+            error={verdict != null && !verdict.ok}
             success={signedValid}
           />
-          {signed.trim() !== '' && !signedValid && <div className='mt-1.5 text-small text-red-ink'>This is not a signed dissolution of this masternode</div>}
+          {signedValid && <div className='mt-1.5 text-small text-mint-ink'>Valid unilateral dissolution of this masternode</div>}
+          {verdict != null && !verdict.ok && (
+            <ul className='mt-1.5 flex flex-col gap-1 text-small text-red-ink'>
+              {verdict.findings.map(f => <li key={f}>{f}</li>)}
+            </ul>
+          )}
         </div>
 
         <div className='flex flex-wrap items-center gap-3'>
@@ -124,4 +207,14 @@ export function DissolveDialog ({ state, member, open, onOpenChange }: Props): R
       </div>
     </Dialog>
   )
+}
+
+/** Verification must never take the dialog down with it: a throw becomes a finding */
+function checkDissolution (ctx: DissolutionContext, signedHex: string): DissolutionVerdict | null {
+  if (signedHex.trim() === '') return null
+  try {
+    return backend.tx.verifyDissolution(ctx, signedHex)
+  } catch (e) {
+    return { ok: false, findings: [errorMessage(e)] }
+  }
 }

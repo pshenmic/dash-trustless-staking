@@ -99,7 +99,11 @@ export const mockTxBuilder: TxBuilder = {
     return { hex: MOCK_REGISTRATION_PREFIX + txid + mockHash(`final:${txid}`, 300), txid }
   },
 
-  verifyDissolution (proTxHash, signedHex) {
-    return isHex(signedHex, 60) && signedHex.trim().toLowerCase().startsWith((MOCK_DISSOLVE_PREFIX + proTxHash).toLowerCase())
+  verifyDissolution (ctx, signedHex) {
+    if (!isHex(signedHex, 60)) return { ok: false, findings: ['The pasted transaction cannot be parsed'] }
+    if (!signedHex.trim().toLowerCase().startsWith((MOCK_DISSOLVE_PREFIX + ctx.proTxHash).toLowerCase())) {
+      return { ok: false, findings: ['The dissolution is for a different masternode'] }
+    }
+    return { ok: true, findings: [] }
   }
 }

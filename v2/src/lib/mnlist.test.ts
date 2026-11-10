@@ -37,11 +37,30 @@ describe('parseMnListDiff', () => {
     expect(added[2].isValid).toBe(false)
   })
 
-  test('sets height to null when cbTx is a raw hex string', () => {
-    const rawDiff = { ...fullDiff, cbTx: '03ffff000000000000000000000000000000000000000000000000000000000000000000' }
-    const diff = parseMnListDiff(rawDiff)
+  test('keeps the object-shaped height from older payloads', () => {
+    const objectDiff = { ...fullDiff, cbTx: { height: 5000 } }
+    expect(parseMnListDiff(objectDiff).height).toBe(5000)
+  })
+})
 
-    expect(diff.height).toBeNull()
+// Captured from the live testnet stream: DAPI forwards Core's `protx diff` JSON, where cbTx is the
+// coinbase special transaction as hex, not an object with a height field
+const LIVE_CBTX = '03000500010000000000000000000000000000000000000000000000000000000000000000ffffffff016affffffff03b6c28c03000000001976a914b489115851ca07a26a5ad8bac3cec3c7dbebd83188ac2ed5fd0300000000016af472a806000000001976a91464f2b2b84f62d68a2cd7f7f5fb2b5aa75ef716d788ac00000000cf0400663b1800d3cdffa2d3fb8eb2185e750ba31880af0520a67034d83e4d7c727c194ecd2d7ef1c93e755dc834ddbf5bb746364e90b29f2e04ce070190cb7801c1a316487cf2008940c3b6a86cb0f0909fc7956205f4965b30dc74ef77c2808947395bd2bdb1e078a18c5228e3658c0774f281a74500e210008fd87921bb4b7b80c3f12c0ccd6887ada1c589fc9ddc6c85af4723be74bf46cd8f2137f4de837c287c4218c5633dd865dacfb02200000000000000000000000000000000000000000000000000000000000000000000'
+
+describe('parseMnListDiff — height', () => {
+  test('reads the height out of a real cbTx hex', () => {
+    expect(parseMnListDiff({ ...fullDiff, cbTx: LIVE_CBTX }).height).toBe(1588070)
+  })
+
+  test('the masternode list knows its height, which is what gates DISSOLVED', () => {
+    const list = new SimplifiedMNList()
+    list.apply(parseMnListDiff({ ...fullDiff, cbTx: LIVE_CBTX }))
+
+    expect(list.height).toBe(1588070)
+  })
+
+  test('an unparseable cbTx leaves the height unknown', () => {
+    expect(parseMnListDiff({ ...fullDiff, cbTx: 'deadbeef' }).height).toBeNull()
   })
 })
 
