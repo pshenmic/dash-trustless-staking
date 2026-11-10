@@ -63,8 +63,8 @@ export function LoginDialog (): ReactNode {
           <div className='flex flex-col gap-1'>
             <span className='font-bold'>Private Key</span>
             <span className='text-small text-muted'>
-              Both keys must belong to the same Dash Platform identity on testnet. They are stored in this
-              browser so you can sign and read your messages.
+              Both keys must belong to the same Dash Platform identity on testnet. They are kept for this
+              browser session, so a reload keeps you logged in and closing the browser logs you out.
             </span>
           </div>
 

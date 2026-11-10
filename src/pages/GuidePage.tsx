@@ -122,7 +122,7 @@ export function GuidePage (): ReactNode {
           <ol className='list-decimal space-y-2 pl-5'>
             <li>The <strong>authentication</strong> private key: an AUTHENTICATION key with HIGH or CRITICAL security, which signs your actions.</li>
             <li>The <strong>encryption</strong> private key: an ENCRYPTION or DECRYPTION key, which opens the private chat.</li>
-            <li>Press <strong>Log in</strong>, paste both keys into the dialog and submit. They stay in this browser so the session survives a reload.</li>
+            <li>Press <strong>Log in</strong>, paste both keys into the dialog and submit. They stay for this browser session: a reload keeps you logged in, and closing the browser logs you out.</li>
           </ol>
           <p>
             When the extension release lands, the extension option will come back enabled and take over both keys.

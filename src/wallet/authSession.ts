@@ -17,6 +17,30 @@ function isRecord (value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function read (which: 'session' | 'local'): string | null {
+  try {
+    return (which === 'session' ? sessionStorage : localStorage).getItem(STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function write (which: 'session' | 'local', value: string): void {
+  try {
+    (which === 'session' ? sessionStorage : localStorage).setItem(STORAGE_KEY, value)
+  } catch {
+    // Storage unavailable
+  }
+}
+
+function remove (which: 'session' | 'local'): void {
+  try {
+    (which === 'session' ? sessionStorage : localStorage).removeItem(STORAGE_KEY)
+  } catch {
+    // Storage unavailable
+  }
+}
+
 function parse (raw: string | null): AuthSession | null {
   if (raw == null) return null
   try {
@@ -44,12 +68,21 @@ function parse (raw: string | null): AuthSession | null {
 }
 
 export function loadSession (): AuthSession | null {
-  if (cache !== undefined) return cache
-  try {
-    cache = parse(localStorage.getItem(STORAGE_KEY))
-  } catch {
-    cache = null
+  // A null cache means "no session yet or logged out": re-read storage so a session written by an
+  // earlier module instance (or a test fixture) is still picked up.
+  if (cache != null) return cache
+  let raw = read('session')
+  if (raw == null) {
+    // One-time migration: earlier builds kept the session (and its keys) in localStorage
+    const legacy = read('local')
+    if (legacy != null) {
+      raw = legacy
+      write('session', legacy)
+      remove('local')
+    }
   }
+  cache = parse(raw)
+  if (cache == null && raw != null) remove('session')
   return cache
 }
 
@@ -59,18 +92,13 @@ export function currentSession (): AuthSession | null {
 
 export function saveSession (session: AuthSession): void {
   cache = session
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-  } catch {
-    // Storage unavailable: the session lasts for this page only
-  }
+  write('session', JSON.stringify(session))
+  // The keys never outlive the browser session
+  remove('local')
 }
 
 export function clearSession (): void {
   cache = null
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    // Storage unavailable
-  }
+  remove('session')
+  remove('local')
 }

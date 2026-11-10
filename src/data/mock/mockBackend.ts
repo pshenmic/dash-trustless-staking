@@ -278,5 +278,6 @@ export const mockBackend: Backend = {
   platform,
   chain,
   tx: mockTxBuilder,
-  chat: mockChatCrypto
+  chat: mockChatCrypto,
+  hosting: { getOptions: async () => ({ terms: null, servers: [] }) }
 }

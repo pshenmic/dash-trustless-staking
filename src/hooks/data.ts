@@ -4,6 +4,7 @@ import {
   fetchCreatorProfile, fetchMyActivity, fetchPoolState, fetchPoolSummaries,
   type CreatorProfile, type MyActivity, type PoolState, type PoolSummary
 } from '../data/queries'
+import type { HostingOptions } from '../data/types'
 import type { Feedback, Message } from '../lib/types'
 
 export function usePoolSummaries (): UseQueryResult<PoolSummary[]> {
@@ -51,6 +52,16 @@ export function useUsername (identityId: string): string | null {
     staleTime: Infinity
   })
   return data ?? null
+}
+
+/** pshenmic.dev's hosting terms and available servers; only the live backend has them */
+export function useHostingOptions (): UseQueryResult<HostingOptions> {
+  return useQuery({
+    queryKey: ['hosting'],
+    queryFn: async () => await backend.hosting.getOptions(),
+    enabled: backend.mode === 'live',
+    staleTime: 30_000
+  })
 }
 
 export function useBlockHeight (): number | null {

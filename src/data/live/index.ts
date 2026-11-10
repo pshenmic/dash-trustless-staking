@@ -4,6 +4,7 @@ import { createSigner } from '../../wallet/privateKeySigner'
 import type { Backend } from '../types'
 import { createLiveChain } from './chain'
 import { createLiveChatCrypto } from './chat'
+import { createLiveHosting } from './hosting'
 import { createLivePlatform } from './platform'
 import { createLiveTxBuilder } from './txBuilder'
 
@@ -25,6 +26,7 @@ export function createTestnetBackend (contractId: string, dapiUrls?: string[]): 
     platform: createLivePlatform(sdk, contractId, 'testnet', createSigner(sdk)),
     chain: createLiveChain(dapiUrls),
     tx: createLiveTxBuilder(),
-    chat: createLiveChatCrypto()
+    chat: createLiveChatCrypto(),
+    hosting: createLiveHosting(sdk)
   }
 }

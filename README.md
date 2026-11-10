@@ -45,8 +45,9 @@ Chosen under **Settings → Data source** (kept per browser); `VITE_BACKEND` in 
   permanent.
 
 **Login** asks for two keys of the same Dash Platform identity on testnet: the **authentication key** (signs
-your actions) and the **encryption key** (opens the private chat). Both are stored in this browser. The Dash
-Platform Extension option is shown in the dialog but disabled until its next release. The mock sandbox keeps
+your actions) and the **encryption key** (opens the private chat). Both are kept in session storage: a reload
+keeps you logged in, and closing the browser logs you out. The Dash Platform Extension option is shown in the
+dialog but disabled until its next release. The mock sandbox keeps
 its made-up identities and never uses these keys.
 
 ## Testnet contract and scripts

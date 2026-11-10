@@ -24,12 +24,15 @@ const session: AuthSession = {
 
 describe('authSession', () => {
   beforeEach(() => {
+    vi.stubGlobal('sessionStorage', fakeStorage())
     vi.stubGlobal('localStorage', fakeStorage())
     clearSession()
   })
 
-  test('round-trips a private-key session through storage and the cache', () => {
+  test('round-trips a private-key session through sessionStorage and the cache', () => {
     saveSession(session)
+    expect(sessionStorage.getItem('dts:auth')).toBe(JSON.stringify(session))
+    expect(localStorage.getItem('dts:auth')).toBeNull()
     expect(loadSession()).toEqual(session)
     expect(currentSession()).toEqual(session)
   })
@@ -40,38 +43,46 @@ describe('authSession', () => {
     expect(loadSession()).toEqual(extension)
   })
 
-  test('clears the session from storage and the cache', () => {
+  test('migrates a legacy localStorage session into sessionStorage once', () => {
+    localStorage.setItem('dts:auth', JSON.stringify(session))
+    expect(loadSession()).toEqual(session)
+    expect(sessionStorage.getItem('dts:auth')).toBe(JSON.stringify(session))
+    expect(localStorage.getItem('dts:auth')).toBeNull()
+  })
+
+  test('clears the session from both storages and the cache', () => {
     saveSession(session)
+    localStorage.setItem('dts:auth', 'legacy')
     clearSession()
     expect(loadSession()).toBeNull()
     expect(currentSession()).toBeNull()
+    expect(sessionStorage.getItem('dts:auth')).toBeNull()
     expect(localStorage.getItem('dts:auth')).toBeNull()
   })
 
   test('returns null for malformed JSON', () => {
-    clearSession()
-    localStorage.setItem('dts:auth', '{')
+    sessionStorage.setItem('dts:auth', '{')
     expect(loadSession()).toBeNull()
+    expect(sessionStorage.getItem('dts:auth')).toBeNull()
   })
 
   test('returns null for a private-key session missing a key', () => {
-    clearSession()
-    localStorage.setItem('dts:auth', JSON.stringify({ mode: 'privateKey', identityId: 'id', authKeyId: 0, authKeyWif: 'cV1' }))
+    sessionStorage.setItem('dts:auth', JSON.stringify({ mode: 'privateKey', identityId: 'id', authKeyId: 0, authKeyWif: 'cV1' }))
     expect(loadSession()).toBeNull()
   })
 
   test('returns null for an unknown mode', () => {
-    clearSession()
-    localStorage.setItem('dts:auth', JSON.stringify({ mode: 'something', identityId: 'id' }))
+    sessionStorage.setItem('dts:auth', JSON.stringify({ mode: 'something', identityId: 'id' }))
     expect(loadSession()).toBeNull()
   })
 
   test('keeps the session in memory when storage writes fail', () => {
-    vi.stubGlobal('localStorage', {
+    vi.stubGlobal('sessionStorage', {
       ...fakeStorage(),
       setItem: () => { throw new Error('quota') }
     })
     saveSession(session)
     expect(currentSession()).toEqual(session)
+    expect(localStorage.getItem('dts:auth')).toBeNull()
   })
 })
