@@ -1,67 +1,65 @@
-# Dash Pooled Trustless Staking 
+# Dash Trustless Staking: web app
 
-Decentralized trustless shared masternode solution based on the Dash Platform.
+A static React app that coordinates **Dash Core v24 shared masternodes**: members pool DASH into one
+1000 DASH masternode, coordinating through Dash Platform documents. It runs against DAPI only, with no
+servers, so anyone can build it and run it locally. See [`DESIGN.md`](DESIGN.md) for the protocol
+and data contract.
 
-The concept of Dash Trustless Staking DApp, is to create a simple application
-for a users to start investing in the Dash Masternodes in a Trustless and
-Decentralized way. The idea behind, is to gather people together in “pools”
-where they can stake Dash together.
+## Run
 
-It utilises Dash Platform blockchain together with multisig transactions, forming
-a yet another level of governance inside Dash DAO. For node register, withdrawal
-and voting happens by the quorum of the all members (the necessary sig power
-defined on pool creation).
-
-As an example, let’s say you want to join the pool and start earning masternode
-rewards. Upon join, you apply an UTXO from your local wallet, that you are going
-to use as a collateral (it maybe any amount less than 1000 DASH). After pool is
-filled with necessary amount to register a node, an unsigned transaction gets
-created and broadcasted to each member of the pool. After all participant signs
-and shares with others their parts of the signature, final transaction could be
-constructed and broadcasted in the Dash Core network.
-
-The same way we can achieve governance on the Core & Platform layer, which
-I believe would attract people into voting.
-
-
-# How to use
-
-The application is in ongoing development. Currently, we have implemented 4 commands:
-
-* Pool creation
-* Get Pool by ID
-* Join Pool
-* Top Up Identity (utility)
-
-To use them, do `npm install`, and then you can pass a commands through `node index`
-
-Example:
-```
-node index <command> 
+```bash
+yarn install
+yarn dev           # http://localhost:5173
+yarn build         # static build in dist/
+yarn preview       # serve dist/ over http
 ```
 
-### Create Pool:
-To create pool, you provide pool name, description and masternode type
+The build uses relative paths and hash routing, so `dist/` works from any static host. Serve it over
+http(s) rather than opening `index.html` from disk: Dash Platform Extension only injects into web pages.
+
+## Data source: mock or testnet
+
+Chosen under **Settings → Data source** (kept per browser); `VITE_BACKEND` in `.env` sets the default (`testnet`).
+
+- **Mock sandbox**: Platform, DAPI and the transaction builder are simulated in the browser
+  (`src/data/mock`), kept in `localStorage`. It starts with no pools; create one and play every role to try
+  the whole flow, including registration.
+  - **Settings → View as** lets you act as a made-up identity (alice, bob, carol … oscar).
+  - Every signing step has **Fill with mock data** in place of a real wallet signature.
+  - **Settings → Clear the sandbox** empties it again.
+- **Testnet (live)**, the default: pools, joins and public chat are real documents of the contract in `VITE_CONTRACT_ID`
+  (`src/data/live`), read through dash-platform-sdk and written through Dash Platform Extension. UTXO values
+  and block height come from DAPI Core. Creating documents costs credits and is permanent.
+  Locking, signing, registration and the private chat are switched off (`backend.features`) until Dash Core
+  v24 activates on testnet and the extension has `decrypt`. The placeholder third-party operators are hidden.
+
+Wallet connection is real in both modes.
+
+## Testnet contract and scripts
+
+The data contract (`schema.json`) is deployed on testnet; its ID is `VITE_CONTRACT_ID` in `.env`.
+
+Scripts in `scripts/` talk to testnet with the identity in `.env.local` (git-ignored; copy the two
+`PLATFORM_IDENTITY_*` variables there):
+
+```bash
+yarn identity        # balance and keys of the test identity (read-only)
+yarn test:contract   # creates test documents and checks the contract's rules and queries
+yarn test:live       # creates a pool and a join through the app's live data layer and reads them back
+yarn deploy:contract # deploys schema.json as a NEW contract (about 0.42 DASH)
+```
+
+## Layout
 
 ```
-node index.js pool create MyPool PoolDescription MASTERNODE
+src/
+  lib/          consensus constants, validation rules, money math, status derivation (pure)
+  data/         source interfaces, view-model queries, mock backend
+  wallet/       Dash Platform Extension connection
+  hooks/        TanStack Query hooks
+  components/   shared UI; pool/ holds the pool page parts
+  pages/        routes
 ```
 
-### Get Pool By ID:
-To retrieve info about the pool, simply query it by identifier
-
-```
-node index.js pool get 8uff2sddkV889RW5xgYYGP7GskCFdh5MN3opC3DLJnwF
-```
-
-### Top Up Identity:
-Top up identity, simply provide amount of credits to top up in duffs (satoshi)
-```
-node index.js identity topup 10000
-```
-
-### Join Pool:
-To join pool, you provide a Pool ID, and your UTXO that you want to use as a collateral
-```
-node index.js pool join 8uff2sddkV889RW5xgYYGP7GskCFdh5MN3opC3DLJnwF fd479cef4ca559aea4c22758196963a850c8de44895baf4e257988642727eb4a 1
-```
+UI: [dash-ui-kit](https://github.com/AlexeyTripleA/dash-ui-kit) on Tailwind v4, with colors, type and
+spacing from the Dash Brand Guidelines 2026 (`src/index.css`).

@@ -1,51 +1,51 @@
 {
-  "name": "dash-trustless-staking",
-  "version": "1.0.0",
-  "description": "Decentralized trustless shared masternode solution based on the Dash Platform.",
-  "main": "index.js",
-  "bin": {
-    "dash-trustless-staking": "./index.js"
-  },
-  "type": "module",
-  "scripts": {
-    "dev": "node index.js",
-    "lint": "echo \"Warn: no lint specified\" && exit 0",
-    "test": "echo \"Warn: no test specified\" && exit 0"
-  },
+  "name": "dash-trustless-staking-web",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Frontend for coordinating Dash shared masternodes through Dash Platform",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/pshenmic/dash-trustless-staking.git"
   },
-  "keywords": [
-    "dash",
-    "staking",
-    "masternode",
-    "trustless",
-    "decentralized"
-  ],
   "author": "pshenmic",
-  "contributors": [
-    {
-      "name": "LexxXell",
-      "email": "lexxxell007@gmail.com",
-      "url": "https://github.com/lexxxell"
-    }
-  ],
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/pshenmic/dash-trustless-staking/issues"
-  },
-  "homepage": "https://github.com/pshenmic/dash-trustless-staking#readme",
-  "engines": {
-    "node": ">=14.0.0"
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "identity": "node scripts/identity.mjs",
+    "test:contract": "node scripts/test-contract.mjs",
+    "deploy:contract": "node scripts/deploy-contract.mjs",
+    "test:live": "esbuild scripts/test-live.ts --bundle --platform=node --format=esm --packages=external --outfile=scripts/.test-live.mjs --log-level=error && VITE_CONTRACT_ID=$(grep VITE_CONTRACT_ID .env | cut -d= -f2) node scripts/.test-live.mjs"
   },
   "dependencies": {
-    "@dashevo/bls": "^1.3.5",
-    "@dashevo/dashcore-lib": "^0.25.0",
-    "bip39": "^3.1.0",
-    "commander": "^13.0.0",
-    "dash-platform-sdk": "1.6.0-dev.9",
-    "dotenv": "^16.4.7",
-    "ws": "^8.18.3"
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^1.2.6",
+    "@scure/bip32": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
+    "@tanstack/react-query": "^5.104.0",
+    "cbor2": "^2.4.1",
+    "country-flag-icons": "^1.6.20",
+    "dash-core-sdk": "1.1.5",
+    "dash-platform-sdk": "1.6.1",
+    "dash-ui-kit": "^2.1.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.18.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^5.1.0"
   }
 }
