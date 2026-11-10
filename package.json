@@ -1,6 +1,6 @@
 {
   "name": "dash-trustless-staking",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Decentralized trustless shared masternode solution based on the Dash Platform.",
   "main": "index.js",
   "bin": {
@@ -43,7 +43,6 @@
     "@dashevo/bls": "^1.3.5",
     "@dashevo/dashcore-lib": "^0.25.0",
     "bip39": "^3.1.0",
-    "chrome-devtools-mcp": "^1.12.0",
     "commander": "^13.0.0",
     "dash-platform-sdk": "1.6.0-dev.9",
     "dotenv": "^16.4.7",
