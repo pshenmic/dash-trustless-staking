@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { backendMode } from '../data'
 import { clearSession, loadSession, saveSession, type AuthSession } from './authSession'
+import { connectExtension, watchForExtension } from './extension'
 import { findIdentityForKeys, parsePrivateKey } from './identity'
 import { clearSignerKeyCache } from './privateKeySigner'
 
@@ -22,6 +23,7 @@ interface WalletContextValue {
   openLogin: () => void
   closeLogin: () => void
   loginWithPrivateKey: (authenticationKeyText: string, encryptionKeyText: string) => Promise<void>
+  loginWithExtension: () => Promise<void>
   logout: () => void
   selectIdentity: (id: string) => void
   setPreviewIdentity: (id: string | null) => void
@@ -57,8 +59,23 @@ export function WalletProvider ({ children }: { children: ReactNode }): ReactNod
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // The extension option is gated until its next release; ignore and clear the old auto-connect flag
-    writeStorage(LEGACY_CONNECTED_KEY, null)
+    // Reconnect an extension session after a reload; the extension's connect is idempotent once approved.
+    if (loadSession()?.mode !== 'extension') return
+    const stop = watchForExtension(() => {
+      void connectExtension().then(info => {
+        setSession(current => {
+          if (current?.mode !== 'extension') return current
+          const next: AuthSession = { ...current, identityId: info.currentIdentity, identities: info.identities }
+          saveSession(next)
+          return next
+        })
+        setStatus('connected')
+        writeStorage(LEGACY_CONNECTED_KEY, '1')
+      }).catch(() => {
+        // Keep the saved session; a manual extension login can reconnect later
+      })
+    })
+    return stop
   }, [])
 
   const openLogin = useCallback(() => {
@@ -94,6 +111,24 @@ export function WalletProvider ({ children }: { children: ReactNode }): ReactNod
     }
   }, [])
 
+  const loginWithExtension = useCallback(async () => {
+    setError(null)
+    setStatus('connecting')
+    try {
+      const info = await connectExtension()
+      const next: AuthSession = { mode: 'extension', identityId: info.currentIdentity, identities: info.identities }
+      saveSession(next)
+      setSession(next)
+      setStatus('connected')
+      setLoginOpen(false)
+      writeStorage(LEGACY_CONNECTED_KEY, '1')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setStatus(loadSession() == null ? 'disconnected' : 'connected')
+      throw e
+    }
+  }, [])
+
   const logout = useCallback(() => {
     clearSession()
     clearSignerKeyCache()
@@ -118,12 +153,15 @@ export function WalletProvider ({ children }: { children: ReactNode }): ReactNod
   }, [])
 
   const identity = session?.identityId ?? null
+  const identities = session?.mode === 'extension'
+    ? session.identities ?? (identity == null ? [] : [identity])
+    : identity == null ? [] : [identity]
 
   const value = useMemo<WalletContextValue>(() => ({
     status,
     mode: session?.mode ?? null,
     identity,
-    identities: identity == null ? [] : [identity],
+    identities,
     previewIdentity,
     activeIdentity: backendMode() === 'mock' ? previewIdentity ?? identity : identity,
     error,
@@ -131,12 +169,13 @@ export function WalletProvider ({ children }: { children: ReactNode }): ReactNod
     openLogin,
     closeLogin,
     loginWithPrivateKey,
+    loginWithExtension,
     logout,
     selectIdentity,
     setPreviewIdentity
   }), [
-    status, session, identity, previewIdentity, error, loginOpen, openLogin, closeLogin,
-    loginWithPrivateKey, logout, selectIdentity, setPreviewIdentity
+    status, session, identity, identities, previewIdentity, error, loginOpen, openLogin, closeLogin,
+    loginWithPrivateKey, loginWithExtension, logout, selectIdentity, setPreviewIdentity
   ])
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
