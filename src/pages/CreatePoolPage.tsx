@@ -230,10 +230,10 @@ export function CreatePoolPage (): ReactNode {
           <>
             <Field label='Operator' hint={provider?.description ?? 'You run the node yourself and hold its operator key.'}>
               <div className='flex flex-wrap gap-2'>
-                <Chip active={provider == null} onClick={() => chooseSource('custom')}>Custom</Chip>
                 {providers.map(p => (
                   <Chip key={p.id} active={operatorSource === p.id} onClick={() => chooseSource(p.id)}>{p.name}</Chip>
                 ))}
+                <Chip active={provider == null} onClick={() => chooseSource('custom')}>Custom</Chip>
               </div>
             </Field>
 
