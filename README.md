@@ -41,13 +41,14 @@ Chosen under **Settings → Data source** (kept per browser); `VITE_BACKEND` in 
   - **Settings → Clear the sandbox** empties it again.
 - **Testnet (live)**, the default: pools, joins, chat, locking, signing and registration are real documents of
   the contract in `VITE_CONTRACT_ID` (`src/data/live`), read through dash-platform-sdk and signed by the logged-in
-  identity (private keys or the extension). UTXO values and block height come from DAPI Core. Creating documents
-  costs credits and is permanent.
+  private keys. UTXO values and block height come from DAPI Core. Creating documents costs credits and is
+  permanent.
 
-**Login** offers **Dash Platform Extension** (preferred; install and unlock it in Chrome) or two keys of the
-same Dash Platform identity on testnet: the **authentication key** (signs your actions) and the **encryption
-key** (opens the private chat). Private-key sessions are kept in session storage: a reload keeps you logged in,
-and closing the browser logs you out. The mock sandbox keeps its made-up identities and never uses these keys.
+**Login** asks for two keys of the same Dash Platform identity on testnet: the **authentication key** (signs
+your actions) and the **encryption key** (opens the private chat). Both are kept in session storage: a reload
+keeps you logged in, and closing the browser logs you out. The Dash Platform Extension option is shown in the
+dialog but disabled until its next release. The mock sandbox keeps
+its made-up identities and never uses these keys.
 
 ## Testnet contract and scripts
 

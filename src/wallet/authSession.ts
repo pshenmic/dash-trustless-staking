@@ -7,7 +7,7 @@ export type AuthSession =
     encryptionKeyId: number
     encryptionKeyWif: string
   }
-  | { mode: 'extension', identityId: string, identities?: string[] }
+  | { mode: 'extension', identityId: string }
 
 const STORAGE_KEY = 'dts:auth'
 
@@ -46,16 +46,7 @@ function parse (raw: string | null): AuthSession | null {
   try {
     const value: unknown = JSON.parse(raw)
     if (!isRecord(value) || typeof value.identityId !== 'string') return null
-    if (value.mode === 'extension') {
-      const identities = Array.isArray(value.identities)
-        ? value.identities.filter((identity): identity is string => typeof identity === 'string')
-        : []
-      return {
-        mode: 'extension',
-        identityId: value.identityId,
-        ...(identities.length > 0 ? { identities } : {})
-      }
-    }
+    if (value.mode === 'extension') return { mode: 'extension', identityId: value.identityId }
     if (value.mode !== 'privateKey') return null
     if (
       typeof value.authKeyId !== 'number' ||

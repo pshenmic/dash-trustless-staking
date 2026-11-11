@@ -6,29 +6,28 @@ import { errorMessage, useToast } from './Toast'
 import { Field, Notice } from './ui'
 
 /**
- * Login dialog. Dash Platform Extension is the preferred method; private-key login needs both the
- * authentication key (signing) and the encryption key (private chat) of the same Dash Platform identity.
+ * Login dialog. The extension option is the preferred one but stays disabled until its next release;
+ * private-key login needs both the authentication key (signing) and the encryption key (private chat)
+ * of the same Dash Platform identity.
  */
 export function LoginDialog (): ReactNode {
-  const { loginOpen, closeLogin, loginWithPrivateKey, loginWithExtension } = useWallet()
+  const { loginOpen, closeLogin, loginWithPrivateKey } = useWallet()
   const { notify } = useToast()
   const [authenticationKey, setAuthenticationKey] = useState('')
   const [encryptionKey, setEncryptionKey] = useState('')
-  const [showPrivate, setShowPrivate] = useState(false)
-  const [pending, setPending] = useState<'private' | 'extension' | null>(null)
+  const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (loginOpen) return
     setAuthenticationKey('')
     setEncryptionKey('')
-    setShowPrivate(false)
     setError(null)
-    setPending(null)
+    setPending(false)
   }, [loginOpen])
 
   const submit = async (): Promise<void> => {
-    setPending('private')
+    setPending(true)
     setError(null)
     try {
       await loginWithPrivateKey(authenticationKey, encryptionKey)
@@ -36,20 +35,7 @@ export function LoginDialog (): ReactNode {
     } catch (e) {
       setError(errorMessage(e))
     } finally {
-      setPending(null)
-    }
-  }
-
-  const submitExtension = async (): Promise<void> => {
-    setPending('extension')
-    setError(null)
-    try {
-      await loginWithExtension()
-      notify('Logged in with Dash Platform Extension', 'success')
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setPending(null)
+      setPending(false)
     }
   }
 
@@ -58,82 +44,75 @@ export function LoginDialog (): ReactNode {
       open={loginOpen}
       onOpenChange={open => { if (!open) closeLogin() }}
       title='Log in'
-      maxWidth='md'
+      maxWidth='lg'
       horizontalMargin={12}
       className='max-h-[92dvh] overflow-y-auto !rounded-3xl dark:!border-line dark:!bg-surface'
     >
-      <div className='flex flex-col gap-2'>
-        <Button
-          size='sm'
-          colorScheme='brand'
-          className='w-full justify-center'
-          disabled={pending != null}
-          onClick={() => { void submitExtension() }}
-        >
-          {pending === 'extension' ? 'Connecting…' : 'Login with Dash Extension'}
-        </Button>
+      <div className='flex flex-col gap-5'>
+        <p className='text-small text-muted'>Choose how to sign in.</p>
 
-        <Button
-          size='sm'
-          colorScheme='lightBlue'
-          className='w-full justify-center'
-          disabled={pending != null}
-          onClick={() => setShowPrivate(value => !value)}
-        >
-          {showPrivate ? 'Hide Private Keys' : 'Login with Private Keys'}
-        </Button>
+        <div className='flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface-2 p-4 opacity-60'>
+          <div className='flex flex-col gap-1'>
+            <span className='font-bold'>Dash Extension</span>
+            <span className='text-small text-muted'>Preferred. Available after the next extension release.</span>
+          </div>
+          <Button size='sm' colorScheme='lightBlue' disabled>Unavailable</Button>
+        </div>
 
-        {showPrivate && (
-          <div className='flex flex-col gap-3 rounded-2xl border border-line p-3'>
-            <Field
-              label='Authentication key'
-              hint='AUTHENTICATION key with HIGH or CRITICAL security.'
-              htmlFor='login-authentication-key'
-            >
-              <Input
-                id='login-authentication-key'
-                type='password'
-                autoComplete='off'
-                spellCheck={false}
-                value={authenticationKey}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuthenticationKey(e.target.value)}
-                placeholder='WIF or 64-character hex'
-              />
-            </Field>
+        <div className='flex flex-col gap-4 rounded-2xl border border-line p-4'>
+          <div className='flex flex-col gap-1'>
+            <span className='font-bold'>Private Key</span>
+            <span className='text-small text-muted'>
+              Both keys must belong to the same Dash Platform identity on testnet. They are kept for this
+              browser session, so a reload keeps you logged in and closing the browser logs you out.
+            </span>
+          </div>
 
-            <Field
-              label='Encryption key'
-              hint='ENCRYPTION or DECRYPTION key of the same identity.'
-              htmlFor='login-encryption-key'
-            >
-              <Input
-                id='login-encryption-key'
-                type='password'
-                autoComplete='off'
-                spellCheck={false}
-                value={encryptionKey}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEncryptionKey(e.target.value)}
-                placeholder='WIF or 64-character hex'
-              />
-            </Field>
+          <Field
+            label='Authentication key'
+            hint='Signs your actions. An AUTHENTICATION key with HIGH or CRITICAL security.'
+            htmlFor='login-authentication-key'
+          >
+            <Input
+              id='login-authentication-key'
+              type='password'
+              autoComplete='off'
+              spellCheck={false}
+              value={authenticationKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuthenticationKey(e.target.value)}
+              placeholder='WIF or 64-character hex private key'
+            />
+          </Field>
 
-            <p className='text-tag text-muted'>
-              Both keys must belong to the same Dash Platform identity on testnet. Kept for this browser session.
-            </p>
+          <Field
+            label='Encryption key'
+            hint='Reads your private messages. An ENCRYPTION or DECRYPTION key of the same identity.'
+            htmlFor='login-encryption-key'
+          >
+            <Input
+              id='login-encryption-key'
+              type='password'
+              autoComplete='off'
+              spellCheck={false}
+              value={encryptionKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEncryptionKey(e.target.value)}
+              placeholder='WIF or 64-character hex private key'
+            />
+          </Field>
 
+          {error != null && <Notice tone='error' title='Could not log in'>{error}</Notice>}
+
+          <div className='flex justify-end'>
             <Button
               colorScheme='brand'
-              size='sm'
-              className='self-start'
-              disabled={pending != null || authenticationKey.trim() === '' || encryptionKey.trim() === ''}
+              size='md'
+              disabled={pending || authenticationKey.trim() === '' || encryptionKey.trim() === ''}
               onClick={() => { void submit() }}
             >
-              {pending === 'private' ? 'Looking up identity…' : 'Log in'}
+              {pending ? 'Looking up identity…' : 'Log in'}
             </Button>
           </div>
-        )}
-
-        {error != null && <Notice tone='error' title='Could not log in'>{error}</Notice>}
+        </div>
       </div>
     </Dialog>
   )
