@@ -89,7 +89,7 @@ export function CreatePoolPage (): ReactNode {
   const provider = providers.find(p => p.id === operatorSource) ?? null
   const [form, setForm] = useState(() => ({
     name: '', description: '', service: '', operatorPubKey: '', votingAddress: '',
-    operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5', fee: '', feePayer: 'members',
+    operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5', fee: '', feePayer: 'creator',
     // Old drafts predate the fee fields; keep their values and fill the new ones with defaults
     ...(draft?.form ?? {})
   }))
