@@ -9,7 +9,7 @@ import { formatDash } from '../../lib/format'
 import { useWallet } from '../../wallet/WalletContext'
 import { Dash, FillBar } from '../bits'
 import { JoinDialog } from '../JoinDialog'
-import { SignPanel } from '../SignPanel'
+import { FeeFundingPanel, SignPanel } from '../SignPanel'
 import { errorMessage, useToast } from '../Toast'
 import { Card, Notice } from '../ui'
 import { OperatorKeyNotice } from './OperatorKeyNotice'
@@ -146,6 +146,12 @@ function SigningActions ({ state }: { state: PoolState }): ReactNode {
           <div className='rounded-2xl bg-surface-2 px-3 py-2'><span className='text-muted'>Consents</span> <strong>{state.consentCount}/{n}</strong></div>
           <div className='rounded-2xl bg-surface-2 px-3 py-2'><span className='text-muted'>Funding</span> <strong>{state.fundingCount}/{n}</strong></div>
         </div>
+        {state.pool.feePayer === 'creator' && (
+          <div className='mt-2 rounded-2xl bg-surface-2 px-3 py-2 text-small'>
+            <span className='text-muted'>Registration fee</span>{' '}
+            <strong>{state.feeFunding != null ? 'Creator signed' : 'Waiting for the creator'}</strong>
+          </div>
+        )}
       </div>
 
       {state.lockProblems.length > 0 && (
@@ -169,6 +175,10 @@ function SigningActions ({ state }: { state: PoolState }): ReactNode {
             <Notice tone='success' title='Your part is done'>Waiting for the other members to sign.</Notice>
           )}
         </>
+      )}
+
+      {canSign && state.lockProblems.length === 0 && role.isCreator && state.pool.feePayer === 'creator' && state.feeFunding == null && state.stage === 'funding' && (
+        <FeeFundingPanel state={state} />
       )}
 
       {role.myJoin != null && role.myMember == null && (

@@ -22,7 +22,7 @@ interface Props {
 }
 
 /** "txid:vout" → Outpoint */
-function parseOutpoint (value: string): Outpoint | null {
+export function parseOutpoint (value: string): Outpoint | null {
   const [txid, vout] = value.trim().split(':')
   if (txid == null || vout == null || !isTxid(txid) || !/^\d+$/.test(vout)) return null
   return { txid: txid.toLowerCase(), vout: Number(vout) }
@@ -59,9 +59,11 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
     enabled: outpoints.some(o => o != null)
   })
   const knownTotal = (values.data ?? []).reduce<number>((s, v) => s + (v ?? 0), 0)
-  // The fee share depends on how many members the creator selects; plan for the largest share (2 members)
-  const maxFeeShare = Math.ceil(pool.fee / MIN_SHARES)
-  const minFeeShare = Math.floor(pool.fee / MAX_SHARES)
+  // The fee share depends on how many members the creator selects; plan for the largest share (2 members).
+  // When the creator pays, members reserve nothing for it.
+  const creatorPays = pool.feePayer === 'creator'
+  const maxFeeShare = creatorPays ? 0 : Math.ceil(pool.fee / MIN_SHARES)
+  const minFeeShare = creatorPays ? 0 : Math.floor(pool.fee / MAX_SHARES)
   const needed = (amount ?? 0) + maxFeeShare
   const utxoProblem = outpoints.some(o => o == null)
     ? 'Enter each UTXO as txid:vout'
@@ -169,12 +171,15 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
           ))}
           <button type='button' onClick={() => setUtxos(list => [...list, ''])} className='self-start text-small font-bold text-brand-ink hover:underline'>+ Add UTXO</button>
           <div className='text-small text-muted'>
-            They must cover your amount plus your share of the {formatDash(pool.fee)} fee ({formatDash(minFeeShare)} to {formatDash(maxFeeShare)} depending on the member count). Don’t spend them until the pool registers.
+            {creatorPays
+              ? `They only need to cover your amount; the pool creator pays the ${formatDash(pool.fee)} registration fee.`
+              : `They must cover your amount plus your share of the ${formatDash(pool.fee)} fee (${formatDash(minFeeShare)} to ${formatDash(maxFeeShare)} depending on the member count).`}
+            {' '}Don’t spend them until the pool registers.
           </div>
           {touched && (utxoProblem != null || duplicate) && <div className='text-small text-red-ink'>{duplicate ? 'The same UTXO is listed twice' : utxoProblem}</div>}
         </div>
 
-        <Field label='Change address' error={show('changeAddress')} hint='Receives whatever your UTXOs hold beyond your amount and fee.' htmlFor='join-change'>
+        <Field label='Change address' error={show('changeAddress')} hint={creatorPays ? 'Receives whatever your UTXOs hold beyond your amount.' : 'Receives whatever your UTXOs hold beyond your amount and fee.'} htmlFor='join-change'>
           <Input id='join-change' value={fields.changeAddress} onChange={set('changeAddress')} placeholder='y…' spellCheck={false} />
         </Field>
 

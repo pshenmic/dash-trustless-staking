@@ -1,6 +1,6 @@
 import { Transaction } from 'dash-core-sdk'
 import { COLLATERAL, SHARED_COLLATERAL_SCRIPT } from './consensus.js'
-import type { Duffs, Join } from './types.js'
+import type { Duffs, Join, Outpoint } from './types.js'
 
 export interface CombinedTx {
   collateralIndex: number
@@ -12,7 +12,7 @@ export interface CombinedTx {
  * signed, the collateral output exact, and the outputs covered by the inputs. Returns human-readable
  * problems; empty means the transaction is ready.
  */
-export function finalTxProblems (combined: CombinedTx, members: Join[], inputValues: Map<string, Duffs | null>): string[] {
+export function finalTxProblems (combined: CombinedTx, members: Join[], inputValues: Map<string, Duffs | null>, feeInputs: Outpoint[] = [], fee: Duffs = 0): string[] {
   const problems: string[] = []
   let tx: Transaction
 
@@ -22,7 +22,7 @@ export function finalTxProblems (combined: CombinedTx, members: Join[], inputVal
     return ['The combined transaction cannot be parsed']
   }
 
-  const expectedInputs = members.reduce((count, member) => count + member.inputs.length, 0)
+  const expectedInputs = members.reduce((count, member) => count + member.inputs.length, 0) + feeInputs.length
   if (tx.inputs.length !== expectedInputs) {
     problems.push(`The transaction has ${tx.inputs.length} inputs but the pool committed ${expectedInputs}`)
   }
@@ -45,12 +45,10 @@ export function finalTxProblems (combined: CombinedTx, members: Join[], inputVal
   }
 
   let totalIn = 0
-  for (const member of members) {
-    for (const outpoint of member.inputs) {
-      const value = inputValues.get(`${outpoint.txid}:${outpoint.vout}`)
-      if (value == null) problems.push(`Missing value for input ${outpoint.txid.slice(0, 8)}…:${outpoint.vout}`)
-      else totalIn += Number(value)
-    }
+  for (const outpoint of [...members.flatMap(member => member.inputs), ...feeInputs]) {
+    const value = inputValues.get(`${outpoint.txid}:${outpoint.vout}`)
+    if (value == null) problems.push(`Missing value for input ${outpoint.txid.slice(0, 8)}…:${outpoint.vout}`)
+    else totalIn += Number(value)
   }
 
   const collateral = tx.outputs[combined.collateralIndex]
@@ -63,6 +61,7 @@ export function finalTxProblems (combined: CombinedTx, members: Join[], inputVal
 
   const totalOut = tx.outputs.reduce((sum, output) => sum + Number(output.satoshis), 0)
   if (totalIn < totalOut) problems.push(`The outputs exceed the inputs by ${totalOut - totalIn} duffs`)
+  else if (totalIn - totalOut < fee) problems.push(`The transaction pays ${totalIn - totalOut} duffs in fees, less than the pool's ${fee}`)
 
   return [...new Set(problems)]
 }

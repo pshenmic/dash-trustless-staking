@@ -71,6 +71,12 @@
         "minimum": 1,
         "position": 9,
         "description": "Registration transaction fee in duffs, split between members"
+      },
+      "feePayer": {
+        "type": "string",
+        "enum": ["creator", "members"],
+        "position": 10,
+        "description": "Who pays the registration fee: the pool creator from a fee input, or split between members. Missing means members."
       }
     },
     "required": [
@@ -250,6 +256,21 @@
         "maxItems": 256,
         "position": 1,
         "description": "Join document IDs in share order, concatenated (2 to 8 x 32 bytes)"
+      },
+      "feeInputs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 36,
+        "maxItems": 360,
+        "position": 2,
+        "description": "Creator fee outpoints: txid (32 bytes, internal order) + vout (uint32 LE), concatenated. 1 to 10 inputs; length must be a multiple of 36"
+      },
+      "feeChangeAddress": {
+        "type": "string",
+        "minLength": 26,
+        "maxLength": 64,
+        "position": 3,
+        "description": "Change address for the creator's fee inputs; omit when the inputs exactly cover the fee"
       }
     },
     "required": [
@@ -339,6 +360,50 @@
         "maxItems": 4096,
         "position": 1,
         "description": "Compact-size-prefixed scriptSigs, one per input of this member, in their input order"
+      }
+    },
+    "required": [
+      "lockId",
+      "scriptSigs",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "lockOwner",
+        "properties": [
+          {
+            "lockId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "feeFunding": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "The pool creator's signatures for the fee inputs",
+    "properties": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Lock document ID"
+      },
+      "scriptSigs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 4096,
+        "position": 1,
+        "description": "Compact-size-prefixed scriptSigs, one per creator fee input, in the lock feeInputs order"
       }
     },
     "required": [

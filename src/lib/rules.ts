@@ -4,7 +4,7 @@ import {
 import { decodeAddress } from './address'
 import { isCountryCode } from './countries'
 import { formatDash } from './format'
-import type { Duffs, Join, Pool } from './types'
+import type { Duffs, FeePayer, Join, Pool } from './types'
 
 /*
  * Client-side validation rules (DESIGN.md §5) and the money math shared by the registration
@@ -62,6 +62,18 @@ export interface PoolTermsInput {
   earlyPeriodBlocks: number
   earlyPenalty: Duffs
   fee: Duffs
+  feePayer: FeePayer
+}
+
+/**
+ * The registration fee split among members. A creator-paid fee gives every member a zero share: the
+ * creator's fee input covers the whole amount instead.
+ */
+export function memberFeeShares (fee: Duffs, count: number, payer: FeePayer = 'members'): Duffs[] {
+  if (count <= 0) return []
+  if (payer === 'creator') return Array.from({ length: count }, () => 0)
+  const per = Math.floor(fee / count)
+  return Array.from({ length: count }, (_, i) => i === count - 1 ? fee - per * (count - 1) : per)
 }
 
 export function validatePoolTerms (terms: PoolTermsInput, network: 'testnet' | 'mainnet', strict = false): Partial<Record<keyof PoolTermsInput, string>> {
@@ -88,6 +100,7 @@ export function validatePoolTerms (terms: PoolTermsInput, network: 'testnet' | '
     errors.earlyPenalty = `Must be below ${formatDash(MIN_SHARE)}, the smallest possible share`
   }
   if (!Number.isInteger(terms.fee) || terms.fee <= 0) errors.fee = 'Enter a fee'
+  if (terms.feePayer !== 'creator' && terms.feePayer !== 'members') errors.feePayer = 'Choose who pays the registration fee'
   return errors
 }
 

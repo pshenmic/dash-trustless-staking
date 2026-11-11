@@ -25,6 +25,8 @@ export interface PlatformSource {
   listLocks: (poolIds: string[]) => Promise<Lock[]>
   listConsents: (lockId: string) => Promise<Consent[]>
   listFundings: (lockId: string) => Promise<Funding[]>
+  /** The creator's fee signatures for a lock, when the creator pays the registration fee */
+  listFeeFundings: (lockId: string) => Promise<Funding[]>
   listMessages: (channel: string) => Promise<Message[]>
   listFeedback: (poolId: string) => Promise<Feedback[]>
   listChatKeys: (lockId: string) => Promise<ChatKey[]>
@@ -43,6 +45,7 @@ export interface PlatformSource {
   createLock: (identity: string, data: NewDocument<Lock>) => Promise<Lock>
   createConsent: (identity: string, data: NewDocument<Consent>) => Promise<Consent>
   createFunding: (identity: string, data: NewDocument<Funding>) => Promise<Funding>
+  createFeeFunding: (identity: string, data: NewDocument<Funding>) => Promise<Funding>
   sendMessage: (identity: string, data: NewDocument<Message>) => Promise<Message>
   createFeedback: (identity: string, data: NewDocument<Feedback>) => Promise<Feedback>
   createChatKey: (identity: string, data: NewDocument<ChatKey>) => Promise<ChatKey>
@@ -89,13 +92,16 @@ export interface RegistrationTx {
   consentHash: string
   collateralIndex: number
   members: RegistrationMember[]
+  /** Creator fee inputs, at the end of the transaction when the creator pays */
+  feeInputs: Outpoint[]
+  feeChangeAddress?: string
   /** Reasons the tx can't be completed, e.g. a member's inputs don't cover their share */
   problems: string[]
 }
 
 export interface TxBuilder {
   /** Deterministic build from documents + input values (DESIGN.md §6) */
-  buildRegistration: (pool: Pool, members: Join[], inputValues: Map<string, Duffs | null>) => RegistrationTx
+  buildRegistration: (pool: Pool, members: Join[], inputValues: Map<string, Duffs | null>, feeInputs?: Outpoint[], feeChangeAddress?: string) => RegistrationTx
   /** Checks that the signature recovers to the member's owner key over the consent hash */
   verifyConsent: (tx: RegistrationTx, shareIndex: number, signatureBase64: string) => boolean
   /** Unsigned tx with all join signatures inserted: what members sign their inputs on */
@@ -104,8 +110,12 @@ export interface TxBuilder {
   verifyScriptSigs: (tx: RegistrationTx, shareIndex: number, scriptSigs: string[], prevouts: Map<string, Prevout | null>, joinedHex: string) => boolean
   /** Pulls the member's scriptSigs out of a partially signed tx they pasted; null if they don't verify */
   extractScriptSigs: (tx: RegistrationTx, shareIndex: number, signedHex: string, joinedHex: string) => string[] | null
+  /** Checks the creator's fee signatures against the joined tx */
+  verifyFeeScriptSigs: (tx: RegistrationTx, scriptSigs: string[], prevouts: Map<string, Prevout | null>, joinedHex: string) => boolean
+  /** Pulls the creator fee scriptSigs out of a signed tx */
+  extractFeeScriptSigs: (tx: RegistrationTx, signedHex: string, joinedHex: string) => string[] | null
   /** The final tx with all join signatures and scriptSigs, and its txid (= proTxHash) */
-  combine: (tx: RegistrationTx, signatures: string[], scriptSigs: string[][]) => { hex: string, txid: string }
+  combine: (tx: RegistrationTx, signatures: string[], scriptSigs: string[][], feeScriptSigs?: string[]) => { hex: string, txid: string }
   /** Checks a pasted unilateral ProDisTx: signed, spends this masternode's collateral, refunds every share */
   verifyDissolution: (ctx: DissolutionContext, signedHex: string) => DissolutionVerdict
 }

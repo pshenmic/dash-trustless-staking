@@ -5,7 +5,7 @@ import { ripemd160 } from '@noble/hashes/ripemd160'
 import { scriptToAddress } from './address.js'
 import { fromHex, toHex } from './bytes.js'
 import { legacySighash } from './registration.js'
-import type { Join, Prevout } from './types.js'
+import type { Join, Outpoint, Prevout } from './types.js'
 
 export type SignFundingResult =
   | { ok: true, hex: string, signedInputs: number }
@@ -38,29 +38,20 @@ function p2pkhScriptSig (signatureDer: Uint8Array, publicKey: Uint8Array): strin
   ].join('')
 }
 
-/**
- * Signs this member's funding inputs with one or more private keys (WIF or hex, separated by commas,
- * spaces or newlines) and returns the partially signed transaction. Every input of the member must
- * be covered: the pool needs the whole set, so a partial result is reported as an error.
- */
-export function signFundingWithKeys (joinedHex: string, members: Join[], shareIndex: number, keyTexts: string[], prevouts: Map<string, Prevout | null>): SignFundingResult {
-  const member = members[shareIndex]
-  if (member == null) return { ok: false, error: 'This identity is not a member of the pool' }
-
+function signInputs (joinedHex: string, inputs: Outpoint[], offset: number, keyTexts: string[], prevouts: Map<string, Prevout | null>): SignFundingResult {
   const keys = keyTexts.flatMap(text => text.split(/[\s,]+/)).filter(text => text !== '').map(parseKey)
   if (keys.length === 0) return { ok: false, error: 'Paste at least one private key' }
   if (keys.some(key => key == null)) return { ok: false, error: 'One of the pasted keys is not a valid WIF or 64-character hex key' }
 
   try {
     const tx = Transaction.fromHex(joinedHex)
-    const offset = members.slice(0, shareIndex).reduce((sum, join) => sum + join.inputs.length, 0)
     const missing: string[] = []
 
-    for (let k = 0; k < member.inputs.length; k++) {
-      const prevout = prevouts.get(`${member.inputs[k].txid}:${member.inputs[k].vout}`)
+    for (let k = 0; k < inputs.length; k++) {
+      const prevout = prevouts.get(`${inputs[k].txid}:${inputs[k].vout}`)
       if (prevout == null) return { ok: false, error: `Could not read the funding transaction for input ${k + 1}` }
       if (!/^76a914[a-fA-F0-9]{40}88ac$/.test(prevout.script)) {
-        return { ok: false, error: 'One of your inputs is not P2PKH, so it cannot be signed here' }
+        return { ok: false, error: 'One of the inputs is not P2PKH, so it cannot be signed here' }
       }
 
       const key = keys.find(candidate => candidate != null && hash160(candidate.getPublicKey().bytes()) === prevout.script.slice(6, 46))
@@ -79,11 +70,30 @@ export function signFundingWithKeys (joinedHex: string, members: Join[], shareIn
     }
 
     if (missing.length > 0) {
-      return { ok: false, error: `Add the private key for ${[...new Set(missing)].join(', ')} — every input you committed has to be signed` }
+      return { ok: false, error: `Add the private key for ${[...new Set(missing)].join(', ')} — every input has to be signed` }
     }
 
-    return { ok: true, hex: tx.hex(), signedInputs: member.inputs.length }
+    return { ok: true, hex: tx.hex(), signedInputs: inputs.length }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Could not sign the funding inputs' }
   }
+}
+
+/**
+ * Signs this member's funding inputs with one or more private keys (WIF or hex, separated by commas,
+ * spaces or newlines) and returns the partially signed transaction. Every input of the member must
+ * be covered: the pool needs the whole set, so a partial result is reported as an error.
+ */
+export function signFundingWithKeys (joinedHex: string, members: Join[], shareIndex: number, keyTexts: string[], prevouts: Map<string, Prevout | null>): SignFundingResult {
+  const member = members[shareIndex]
+  if (member == null) return { ok: false, error: 'This identity is not a member of the pool' }
+  const offset = members.slice(0, shareIndex).reduce((sum, join) => sum + join.inputs.length, 0)
+  return signInputs(joinedHex, member.inputs, offset, keyTexts, prevouts)
+}
+
+/** Signs the creator's fee inputs, which sit after every member input in the registration tx. */
+export function signFeeInputsWithKeys (joinedHex: string, members: Join[], feeInputs: Outpoint[], keyTexts: string[], prevouts: Map<string, Prevout | null>): SignFundingResult {
+  if (feeInputs.length === 0) return { ok: false, error: 'The pool has no creator fee input' }
+  const offset = members.reduce((sum, join) => sum + join.inputs.length, 0)
+  return signInputs(joinedHex, feeInputs, offset, keyTexts, prevouts)
 }

@@ -1,6 +1,6 @@
-import { feeShares } from '../../lib/rules'
+import { memberFeeShares } from '../../lib/rules'
 import { formatDash } from '../../lib/format'
-import type { Duffs, Join, Pool } from '../../lib/types'
+import type { Duffs, Join, Outpoint, Pool } from '../../lib/types'
 import { outpointKey, type RegistrationMember, type RegistrationTx, type TxBuilder } from '../types'
 import { mockHash, mockTxHex } from './mockHash'
 
@@ -52,8 +52,8 @@ function isHex (value: string, minBytes: number): boolean {
 }
 
 export const mockTxBuilder: TxBuilder = {
-  buildRegistration (pool: Pool, members: Join[], inputValues: Map<string, Duffs | null>): RegistrationTx {
-    const fees = feeShares(pool.fee, members.length)
+  buildRegistration (pool: Pool, members: Join[], inputValues: Map<string, Duffs | null>, feeInputs: Outpoint[] = [], feeChangeAddress?: string): RegistrationTx {
+    const fees = memberFeeShares(pool.fee, members.length, pool.feePayer)
     const problems: string[] = []
     const regMembers: RegistrationMember[] = members.map((join, i) => {
       const values = join.inputs.map(o => inputValues.get(outpointKey(o)) ?? null)
@@ -63,13 +63,27 @@ export const mockTxBuilder: TxBuilder = {
       else if (change != null && change < 0) problems.push(`Share ${i + 1}: inputs are ${formatDash(-change)} short of amount + fee`)
       return { join, feeShare: fees[i], inputTotal, change }
     })
+    let feeChange = 0
+    if (pool.feePayer === 'creator') {
+      if (feeInputs.length === 0) problems.push('The creator fee input is missing')
+      const values = feeInputs.map(o => inputValues.get(outpointKey(o)) ?? null)
+      const total = values.every(v => v != null) ? values.reduce<number>((s, v) => s + (v ?? 0), 0) : null
+      if (total == null) problems.push('A creator fee input was not found on chain')
+      else if (total < (pool.fee ?? 0)) problems.push(`The creator fee inputs are ${formatDash(pool.fee - total)} short`)
+      else if (total > (pool.fee ?? 0)) {
+        feeChange = total - pool.fee
+        if (feeChangeAddress == null || feeChangeAddress === '') problems.push('The creator fee inputs leave change; enter a change address')
+      }
+    }
     const consentHash = mockConsentHash(pool, members)
-    const changeOutputs = regMembers.filter(m => (m.change ?? 0) > 0).length
+    const changeOutputs = regMembers.filter(m => (m.change ?? 0) > 0).length + (feeChange > 0 ? 1 : 0)
     return {
       unsignedHex: mockTxHex(`unsigned:${consentHash}`),
       consentHash,
       collateralIndex: changeOutputs,
       members: regMembers,
+      feeInputs,
+      ...(feeChangeAddress != null && feeChangeAddress !== '' ? { feeChangeAddress } : {}),
       problems
     }
   },
@@ -92,6 +106,15 @@ export const mockTxBuilder: TxBuilder = {
     if (!isHex(signedHex, 60)) return null
     const member = tx.members[shareIndex]
     return member == null ? null : mockScriptSigs(`${tx.consentHash}:${shareIndex}:${signedHex.slice(0, 16)}`, member.join.inputs.length)
+  },
+
+  verifyFeeScriptSigs (tx, scriptSigs, _prevouts, _joinedHex) {
+    return tx.feeInputs.length > 0 && scriptSigs.length === tx.feeInputs.length && scriptSigs.every(s => isHex(s, 70))
+  },
+
+  extractFeeScriptSigs (tx, signedHex, _joinedHex) {
+    if (!isHex(signedHex, 60)) return null
+    return mockScriptSigs(`${tx.consentHash}:fee:${signedHex.slice(0, 16)}`, tx.feeInputs.length)
   },
 
   combine (tx) {

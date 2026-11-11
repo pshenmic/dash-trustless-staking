@@ -1,4 +1,4 @@
-import { Dialog } from 'dash-ui-kit/react'
+import { Dialog, Input } from 'dash-ui-kit/react'
 import { Button } from '../Button'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
@@ -9,9 +9,10 @@ import { COLLATERAL, MAX_SHARES } from '../../lib/consensus'
 import { formatDash, relativeTime } from '../../lib/format'
 import { rewardSharePercent, selectionProblems } from '../../lib/rules'
 import { useSettings } from '../../lib/settings'
-import type { Join } from '../../lib/types'
+import type { Join, Outpoint } from '../../lib/types'
 import { useWallet } from '../../wallet/WalletContext'
 import { Dash, FillBar, IdentityChip, YouTag } from '../bits'
+import { parseOutpoint } from '../JoinDialog'
 import { errorMessage, useToast } from '../Toast'
 import { cn, EmptyState, Notice } from '../ui'
 import { poolRole } from './role'
@@ -51,18 +52,44 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
   const { notify } = useToast()
   const [selected, setSelected] = useState<string[]>([])
   const [confirming, setConfirming] = useState(false)
+  const creatorPays = state.pool.feePayer === 'creator'
+  const [feeUtxos, setFeeUtxos] = useState<string[]>([''])
+  const [feeChangeAddress, setFeeChangeAddress] = useState('')
 
   const byId = new Map(state.joins.map(j => [j.id, j]))
   const chosen = selected.map(id => byId.get(id)).filter((j): j is Join => j != null)
   const total = chosen.reduce((s, j) => s + j.amount, 0)
+  const feeOutpoints = feeUtxos.map(parseOutpoint)
+  const feeInputs = feeOutpoints.filter((o): o is Outpoint => o != null)
+  const feeValues = useQuery({
+    queryKey: ['lock-fee-outputs', state.pool.id, feeOutpoints.map(o => o == null ? '' : `${o.txid}:${o.vout}`)],
+    queryFn: async () => await Promise.all(feeOutpoints.map(async o => o == null ? null : await backend.chain.getOutputValue(o))),
+    enabled: creatorPays && feeOutpoints.some(o => o != null)
+  })
   // A lock is final, so also check what can't be fixed afterwards: every selected member's UTXOs must
-  // exist and cover their share plus their part of the fee
+  // exist and cover their share plus their part of the fee, and the creator fee input must be there
   const funding = useQuery({
-    queryKey: ['lock-funding', state.pool.id, selected],
-    queryFn: async () => backend.tx.buildRegistration(state.pool, chosen, await fetchInputValues(chosen)).problems,
+    queryKey: ['lock-funding', state.pool.id, selected, feeOutpoints.map(o => o == null ? '' : `${o.txid}:${o.vout}`), feeChangeAddress],
+    queryFn: async () => {
+      try {
+        const change = feeChangeAddress.trim() === '' ? undefined : feeChangeAddress.trim()
+        return backend.tx.buildRegistration(state.pool, chosen, await fetchInputValues(chosen, feeInputs), feeInputs, change).problems
+      } catch (e) {
+        return [errorMessage(e)]
+      }
+    },
     enabled: chosen.length > 0
   })
-  const problems = chosen.length > 0 ? [...selectionProblems(state.pool, chosen), ...(funding.data ?? [])] : []
+  const feeInputProblem = creatorPays
+    ? feeUtxos.some(value => value.trim() !== '' && parseOutpoint(value) == null)
+      ? 'Enter each fee UTXO as txid:vout'
+      : new Set(feeOutpoints.filter((o): o is Outpoint => o != null).map(o => `${o.txid}:${o.vout}`)).size < feeOutpoints.filter(o => o != null).length
+        ? 'The same fee UTXO is listed twice'
+        : null
+    : null
+  const problems = chosen.length > 0
+    ? [...selectionProblems(state.pool, chosen), ...(funding.data ?? []), ...(feeInputProblem != null ? [feeInputProblem] : [])]
+    : []
   const ready = chosen.length > 0 && problems.length === 0 && funding.data != null && !funding.isFetching
 
   const toggle = (id: string): void => {
@@ -71,7 +98,14 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
 
   const lock = useWrite(async () => {
     if (activeIdentity == null) throw new Error('Connect your identity first')
-    return await backend.platform.createLock(activeIdentity, { poolId: state.pool.id, joinIds: selected })
+    const feeChange = feeChangeAddress.trim()
+    return await backend.platform.createLock(activeIdentity, {
+      poolId: state.pool.id,
+      joinIds: selected,
+      ...(creatorPays
+        ? { feeInputs, ...(feeChange !== '' ? { feeChangeAddress: feeChange } : {}) }
+        : {})
+    })
   })
 
   const submit = (): void => {
@@ -128,6 +162,41 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
           )
         })}
       </ul>
+
+      {creatorPays && (
+        <div className='flex flex-col gap-3 rounded-2xl bg-surface-2 p-4'>
+          <div>
+            <span className='text-small font-bold'>Creator fee UTXOs</span>
+            <p className='mt-1 text-small text-muted'>
+              They must cover the {formatDash(state.pool.fee)} registration fee. The rest goes to the change address.
+            </p>
+          </div>
+          {feeUtxos.map((value, i) => (
+            <div key={i} className='flex gap-2'>
+              <Input
+                value={value}
+                onChange={e => setFeeUtxos(list => list.map((v, k) => k === i ? e.target.value : v))}
+                placeholder='txid:vout'
+                spellCheck={false}
+                aria-label={`Fee UTXO ${i + 1}`}
+                className='w-full font-mono text-small'
+              />
+              <span className='w-24 shrink-0 self-center text-right text-small text-muted'>
+                {feeOutpoints[i] == null ? '' : feeValues.data?.[i] == null ? (feeValues.isFetching ? '…' : 'not found') : formatDash(feeValues.data[i] as number)}
+              </span>
+              {feeUtxos.length > 1 && (
+                <button type='button' onClick={() => setFeeUtxos(list => list.filter((_, k) => k !== i))} className='px-2 text-muted hover:text-red-ink' aria-label={`Remove fee UTXO ${i + 1}`}>✕</button>
+              )}
+            </div>
+          ))}
+          <button type='button' onClick={() => setFeeUtxos(list => [...list, ''])} className='self-start text-small font-bold text-brand-ink hover:underline'>+ Add fee UTXO</button>
+          <label className='flex flex-col gap-1'>
+            <span className='text-small font-bold'>Fee change address</span>
+            <Input value={feeChangeAddress} onChange={e => setFeeChangeAddress(e.target.value)} placeholder='y…' spellCheck={false} />
+            <span className='text-small text-muted'>Where the fee input’s change goes. Required when the UTXO is larger than the fee.</span>
+          </label>
+        </div>
+      )}
 
       {problems.length > 0 && <Notice tone='warning' title='Not ready to lock'>{problems.join('. ')}.</Notice>}
 
