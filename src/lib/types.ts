@@ -8,6 +8,8 @@
 
 export type Duffs = number
 
+export type FeePayer = 'creator' | 'members'
+
 export interface BaseDocument {
   id: string
   ownerId: string
@@ -31,8 +33,10 @@ export interface Pool extends BaseDocument {
   operatorReward: number
   earlyPeriodBlocks: number
   earlyPenalty: Duffs
-  /** Total registration tx fee, split between members */
+  /** Total registration tx fee, paid by the members or by the creator */
   fee: Duffs
+  /** Who pays the registration fee; missing on old pools means members */
+  feePayer?: FeePayer
 }
 
 export interface Outpoint {
@@ -65,6 +69,10 @@ export interface Lock extends BaseDocument {
   poolId: string
   /** Join document IDs in share order */
   joinIds: string[]
+  /** Creator fee outpoints, when the creator pays the registration fee */
+  feeInputs?: Outpoint[]
+  /** Change address for the creator fee inputs; absent when the inputs exactly cover the fee */
+  feeChangeAddress?: string
 }
 
 export interface Consent extends BaseDocument {

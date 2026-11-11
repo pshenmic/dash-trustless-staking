@@ -19,6 +19,7 @@ export interface MockState {
   locks: Lock[]
   consents: Consent[]
   fundings: Funding[]
+  feeFundings: Funding[]
   messages: Message[]
   feedback: Feedback[]
   chatKeys: ChatKey[]
@@ -29,7 +30,7 @@ export interface MockState {
   chain: MockChainState
 }
 
-export const MOCK_STATE_VERSION = 10
+export const MOCK_STATE_VERSION = 11
 
 const NAMES = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'grace', 'heidi', 'ivan', 'judy', 'nodeops', 'oscar'] as const
 
@@ -51,6 +52,7 @@ export function createFixtures (now = Date.now()): MockState {
     locks: [],
     consents: [],
     fundings: [],
+    feeFundings: [],
     messages: [],
     feedback: [],
     chatKeys: [],

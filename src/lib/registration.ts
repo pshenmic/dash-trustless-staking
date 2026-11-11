@@ -7,6 +7,7 @@ import { addressToScript } from './address.js'
 import { concatBytes, fromHex, toHex } from './bytes.js'
 import { verifyCompact } from './compactSignature.js'
 import { SHARED_COLLATERAL_SCRIPT } from './consensus.js'
+import { memberFeeShares } from './rules.js'
 import type { Duffs, Join, Outpoint, Pool, Prevout } from './types.js'
 
 function doubleSHA256 (bytes: Uint8Array): Uint8Array {
@@ -43,14 +44,22 @@ function ownerHex (addressOrScript: string): string { return toScript(addressOrS
 
 export interface FundingResult { hex: string; tx: Transaction; problems: string[] }
 
-export function buildFundingTx (pool: Pool, members: Join[], inputValues: Map<string, Duffs | null>): FundingResult {
+export function buildFundingTx (
+  pool: Pool,
+  members: Join[],
+  inputValues: Map<string, Duffs | null>,
+  feeInputs: Outpoint[] = [],
+  feeChangeAddress?: string
+): FundingResult {
   const problems: string[] = []
   const inputs: Input[] = []
   for (const member of members) for (const op of member.inputs) inputs.push(new Input(op.txid, op.vout, new Script(), 0xffffffff))
+  for (const op of feeInputs) inputs.push(new Input(op.txid, op.vout, new Script(), 0xffffffff))
   if (members.length === 0) return { hex: '', tx: new Transaction([], [], 0, 3, TransactionType.TRANSACTION_NORMAL), problems: ['No members'] }
 
   const fee = pool.fee ?? 0
-  const feePerMember = fee / members.length
+  const payer = pool.feePayer ?? 'members'
+  const feeShares = memberFeeShares(fee, members.length, payer)
   const outputs: Output[] = []
 
   for (let i = 0; i < members.length; i++) {
@@ -61,11 +70,29 @@ export function buildFundingTx (pool: Pool, members: Join[], inputValues: Map<st
       if (value != null) memberTotal += Number(value)
       else problems.push(`missing-input-value:${member.id}/${outpointKey(op)}`)
     }
-    const lastFeeShare = fee - Math.floor(feePerMember) * (members.length - 1)
-    const feeShare = i === (members.length - 1) ? lastFeeShare : Math.floor(feePerMember)
-    const change = memberTotal - (member.amount ?? 0) - feeShare
+    const change = memberTotal - (member.amount ?? 0) - (feeShares[i] ?? 0)
     if (change > 0 && change >= DUST_THRESHOLD) outputs.push(new Output(BigInt(change), toScript(member.changeAddress)))
     else if (change > 0) problems.push(`dust-change-dropped:${member.id}/${change}`)
+  }
+
+  if (payer === 'creator') {
+    if (feeInputs.length === 0) problems.push('The creator fee input is missing')
+    let feeTotal = 0
+    for (const op of feeInputs) {
+      const value = inputValues.get(outpointKey(op))
+      if (value != null) feeTotal += Number(value)
+      else problems.push(`missing-fee-input-value:${outpointKey(op)}`)
+    }
+    const change = feeTotal - fee
+    if (change < 0) {
+      problems.push(`The creator fee inputs cover ${feeTotal} of ${fee} duffs`)
+    } else if (change > 0 && change >= DUST_THRESHOLD) {
+      if (feeChangeAddress == null || feeChangeAddress === '') problems.push('The creator fee inputs leave change; enter a change address')
+      else outputs.push(new Output(BigInt(change), toScript(feeChangeAddress)))
+    }
+    // Change below dust is dropped; the transaction then pays a few duffs more than pool.fee.
+  } else if (feeInputs.length > 0) {
+    problems.push('Fee inputs are only used when the creator pays the registration fee')
   }
 
   const tx = new Transaction(inputs, outputs, 0, 3, TransactionType.TRANSACTION_NORMAL)
@@ -77,6 +104,7 @@ export function buildFundingTx (pool: Pool, members: Join[], inputValues: Map<st
 export interface RegistrationTx {
   fundingHex: string; unsignedHex: string; consentHash: string
   collateralIndex: number; members: RegistrationMemberData[]; tx: Transaction; problems: string[]
+  feeInputs: Outpoint[]; feeChangeAddress?: string
 }
 export interface RegistrationMemberData { joinId: string; shareIndex: number; inputCount: number }
 
@@ -89,8 +117,14 @@ function parseService (service: string): ExtNetInfo {
   return net
 }
 
-export function buildRegistration (pool: Pool, members: Join[], inputValues: Map<string, Duffs | null>): RegistrationTx {
-  const funding = buildFundingTx(pool, members, inputValues)
+export function buildRegistration (
+  pool: Pool,
+  members: Join[],
+  inputValues: Map<string, Duffs | null>,
+  feeInputs: Outpoint[] = [],
+  feeChangeAddress?: string
+): RegistrationTx {
+  const funding = buildFundingTx(pool, members, inputValues, feeInputs, feeChangeAddress)
   const problems = [...funding.problems]
   const tx = funding.tx
 
@@ -125,7 +159,7 @@ export function buildRegistration (pool: Pool, members: Join[], inputValues: Map
     fundingHex: funding.hex, unsignedHex: tx.hex(), consentHash: hash,
     collateralIndex, tx,
     members: members.map((m, i) => ({ joinId: m.id, shareIndex: i, inputCount: m.inputs.length })),
-    problems
+    problems, feeInputs, feeChangeAddress
   }
 }
 
@@ -200,29 +234,56 @@ function hash160 (bytes: Uint8Array): string {
   return toHex(ripemd160(sha256(bytes)))
 }
 
+function verifyInputSignatures (tx: Transaction, inputs: Outpoint[], offset: number, scriptSigs: string[], prevouts: Map<string, Prevout | null>): boolean {
+  if (scriptSigs.length !== inputs.length) return false
+  for (let k = 0; k < inputs.length; k++) {
+    const prevout = prevouts.get(outpointKey(inputs[k]))
+    if (prevout == null) return false
+    if (!/^76a914[a-fA-F0-9]{40}88ac$/.test(prevout.script)) return false // P2PKH only
+    const parsed = parseP2pkhScriptSig(scriptSigs[k])
+    if (parsed == null) return false
+    if (hash160(parsed.publicKey) !== prevout.script.slice(6, 46)) return false
+    const signature = secp256k1.Signature.fromBytes(parsed.signature.slice(0, -1), 'der').toBytes('compact')
+    const digest = legacySighash(tx, offset + k, prevout.script)
+    // prehash: false — the digest is already double-SHA256, and plain verify() would hash it again
+    if (!secp256k1.verify(signature, digest, parsed.publicKey, { prehash: false })) return false
+  }
+  return true
+}
+
 export function verifyScriptSigs (joinedHex: string, members: Join[], shareIndex: number, scriptSigs: string[], prevouts: Map<string, Prevout | null>): boolean {
   const member = members[shareIndex]
-  if (member == null || scriptSigs.length !== member.inputs.length) return false
+  if (member == null) return false
   try {
     const tx = Transaction.fromHex(joinedHex)
     const offset = members.slice(0, shareIndex).reduce((s, m) => s + m.inputs.length, 0)
-    for (let k = 0; k < member.inputs.length; k++) {
-      const prevout = prevouts.get(outpointKey(member.inputs[k]))
-      if (prevout == null) return false
-      if (!/^76a914[a-fA-F0-9]{40}88ac$/.test(prevout.script)) return false // P2PKH only
-      const parsed = parseP2pkhScriptSig(scriptSigs[k])
-      if (parsed == null) return false
-      if (hash160(parsed.publicKey) !== prevout.script.slice(6, 46)) return false
-      const signature = secp256k1.Signature.fromBytes(parsed.signature.slice(0, -1), 'der').toBytes('compact')
-      const digest = legacySighash(tx, offset + k, prevout.script)
-      // prehash: false — the digest is already double-SHA256, and plain verify() would hash it again
-      if (!secp256k1.verify(signature, digest, parsed.publicKey, { prehash: false })) return false
-    }
-    return true
+    return verifyInputSignatures(tx, member.inputs, offset, scriptSigs, prevouts)
   } catch { return false }
 }
 
-export function combine (reg: RegistrationTx, signatures: string[], scriptSigs: string[][]): { hex: string, txid: string } {
+export function verifyFeeScriptSigs (joinedHex: string, members: Join[], feeInputs: Outpoint[], scriptSigs: string[], prevouts: Map<string, Prevout | null>): boolean {
+  if (feeInputs.length === 0) return false
+  try {
+    const tx = Transaction.fromHex(joinedHex)
+    const offset = members.reduce((s, m) => s + m.inputs.length, 0)
+    return verifyInputSignatures(tx, feeInputs, offset, scriptSigs, prevouts)
+  } catch { return false }
+}
+
+export function extractFeeScriptSigs (joinedHex: string, members: Join[], feeInputs: Outpoint[], signedHex: string): string[] | null {
+  try {
+    const joined = Transaction.fromHex(joinedHex)
+    const signed = Transaction.fromHex(signedHex)
+    if (joined.inputs.length !== signed.inputs.length || feeInputs.length === 0) return null
+    const offset = members.reduce((s, m) => s + m.inputs.length, 0)
+    return feeInputs.map((_, k) => signed.inputs[offset + k]?.scriptSig.hex() ?? null)
+      .every(value => value != null)
+      ? feeInputs.map((_, k) => signed.inputs[offset + k].scriptSig.hex())
+      : null
+  } catch { return null }
+}
+
+export function combine (reg: RegistrationTx, signatures: string[], scriptSigs: string[][], feeScriptSigs: string[] = []): { hex: string, txid: string } {
   const joined = withJoinSignatures(reg, signatures)
   const tx = Transaction.fromHex(joined)
   let index = 0
@@ -231,6 +292,10 @@ export function combine (reg: RegistrationTx, signatures: string[], scriptSigs: 
       if (index >= tx.inputs.length) break
       tx.inputs[index++].scriptSig = Script.fromHex(scriptSig)
     }
+  }
+  for (const scriptSig of feeScriptSigs) {
+    if (index >= tx.inputs.length) break
+    tx.inputs[index++].scriptSig = Script.fromHex(scriptSig)
   }
   return { hex: tx.hex(), txid: tx.hash() }
 }

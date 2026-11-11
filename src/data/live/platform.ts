@@ -101,7 +101,8 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
         operatorReward: asNumber(p.operatorReward),
         earlyPeriodBlocks: asNumber(p.earlyPeriodBlocks),
         earlyPenalty: asNumber(p.earlyPenalty),
-        fee: asNumber(p.fee)
+        fee: asNumber(p.fee),
+        ...(p.feePayer === 'creator' || p.feePayer === 'members' ? { feePayer: p.feePayer } : {})
       }
     },
     join: (doc: RawDocument): Join => {
@@ -118,9 +119,16 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
         ...(p.encryptionKeyId != null ? { encryptionKeyId: asNumber(p.encryptionKeyId) } : {})
       }
     },
-    lock: (doc: RawDocument): Lock => ({ ...base(doc), poolId: asId(doc.properties.poolId), joinIds: decodeJoinIds(asBytes(doc.properties.joinIds)) }),
+    lock: (doc: RawDocument): Lock => ({
+      ...base(doc),
+      poolId: asId(doc.properties.poolId),
+      joinIds: decodeJoinIds(asBytes(doc.properties.joinIds)),
+      ...(doc.properties.feeInputs != null ? { feeInputs: decodeOutpoints(asBytes(doc.properties.feeInputs)) } : {}),
+      ...(typeof doc.properties.feeChangeAddress === 'string' && doc.properties.feeChangeAddress !== '' ? { feeChangeAddress: doc.properties.feeChangeAddress } : {})
+    }),
     consent: (doc: RawDocument): Consent => ({ ...base(doc), lockId: asId(doc.properties.lockId), signature: base64.encode(asBytes(doc.properties.signature)) }),
     funding: (doc: RawDocument): Funding => ({ ...base(doc), lockId: asId(doc.properties.lockId), scriptSigs: decodeScriptSigs(asBytes(doc.properties.scriptSigs)) }),
+    feeFunding: (doc: RawDocument): Funding => ({ ...base(doc), lockId: asId(doc.properties.lockId), scriptSigs: decodeScriptSigs(asBytes(doc.properties.scriptSigs)) }),
     feedback: (doc: RawDocument): Feedback => ({ ...base(doc), poolId: asId(doc.properties.poolId), rating: asNumber(doc.properties.rating), text: String(doc.properties.text ?? '') }),
     message: (doc: RawDocument): Message => ({ ...base(doc), channel: String(doc.properties.channel), text: String(doc.properties.text) }),
     chatKey: (doc: RawDocument): ChatKey => ({ ...base(doc), lockId: asId(doc.properties.lockId), envelopes: toHex(asBytes(doc.properties.envelopes)) }),
@@ -176,6 +184,7 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     listLocks: async poolIds => (await Promise.all(poolIds.map(async id => await query('lock', [['poolId', '==', id]])))).flat(),
     listConsents: async lockId => await query('consent', [['lockId', '==', lockId]]),
     listFundings: async lockId => await query('funding', [['lockId', '==', lockId]]),
+    listFeeFundings: async lockId => await query('feeFunding', [['lockId', '==', lockId]]),
     listMessages: async channel => await byParent('message', 'channel', channel),
     listFeedback: async poolId => (await byParent('feedback', 'poolId', poolId)).reverse(),
     listChatKeys: async lockId => await byParent('chatKey', 'lockId', lockId),
@@ -215,7 +224,8 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
       operatorReward: pool.operatorReward,
       earlyPeriodBlocks: pool.earlyPeriodBlocks,
       earlyPenalty: pool.earlyPenalty,
-      fee: pool.fee
+      fee: pool.fee,
+      ...(pool.feePayer != null ? { feePayer: pool.feePayer } : {})
     }),
     createJoin: async (identity, join) => await publish(identity, 'join', {
       poolId: idBytes(join.poolId),
@@ -227,13 +237,19 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
       changeScript: addressToScript(join.changeAddress, network),
       ...(join.encryptionKeyId != null ? { encryptionKeyId: join.encryptionKeyId } : {})
     }),
-    createLock: async (identity, lock) => await publish(identity, 'lock', {
-      poolId: idBytes(lock.poolId), joinIds: concatBytes(...lock.joinIds.map(idBytes))
-    }),
+    createLock: async (identity, lock) => {
+      const data: Record<string, unknown> = { poolId: idBytes(lock.poolId), joinIds: concatBytes(...lock.joinIds.map(idBytes)) }
+      if (lock.feeInputs != null && lock.feeInputs.length > 0) data.feeInputs = encodeOutpoints(lock.feeInputs)
+      if (lock.feeChangeAddress != null && lock.feeChangeAddress !== '') data.feeChangeAddress = lock.feeChangeAddress
+      return await publish(identity, 'lock', data)
+    },
     createConsent: async (identity, consent) => await publish(identity, 'consent', {
       lockId: idBytes(consent.lockId), signature: base64.decode(consent.signature)
     }),
     createFunding: async (identity, funding) => await publish(identity, 'funding', {
+      lockId: idBytes(funding.lockId), scriptSigs: encodeScriptSigs(funding.scriptSigs)
+    }),
+    createFeeFunding: async (identity, funding) => await publish(identity, 'feeFunding', {
       lockId: idBytes(funding.lockId), scriptSigs: encodeScriptSigs(funding.scriptSigs)
     }),
     sendMessage: async (identity, message) => await publish(identity, 'message', { channel: message.channel, text: message.text }),

@@ -6,7 +6,7 @@ import {
   derivePoolStatus, findPoolLock, listStatus, lockMembers, memberDocument, signingStage, type SigningStage
 } from '../lib/status'
 import type {
-  ChainTx, Consent, Duffs, Feedback, Funding, Join, Lock, MasternodeEntry, Pool, PoolListStatus, PoolStatus, Prevout
+  ChainTx, Consent, Duffs, Feedback, Funding, Join, Lock, MasternodeEntry, Outpoint, Pool, PoolListStatus, PoolStatus, Prevout
 } from '../lib/types'
 import { backend } from './index'
 import { outpointKey, type RegistrationTx } from './types'
@@ -56,6 +56,8 @@ export interface PoolState {
   lock: Lock | null
   /** Lock members in share order (only when a lock exists) */
   members: MemberState[]
+  /** The creator's fee signatures, when the creator pays the registration fee */
+  feeFunding: Funding | null
   /** Why the lock can never form, if it can't */
   lockProblems: string[]
   registration: RegistrationTx | null
@@ -111,12 +113,13 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
   const lock = findPoolLock(pool, locks)
 
   const base: PoolState = {
-    pool, joins, lock, members: [], lockProblems: [], registration: null, finalTx: null,
+    pool, joins, lock, members: [], feeFunding: null, lockProblems: [], registration: null, finalTx: null,
     regTx: null, masternode: null, registeredHeight: null, height, status: 'NEW', dissolutionTxid: null, stage: null,
     consentCount: 0, fundingCount: 0, operatorKey: { masternode: null, otherPools: [] }, prevouts: new Map(), broadcastProblems: []
   }
   if (lock == null) return { ...base, operatorKey: await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id), prevouts: new Map() }
 
+  const feeInputs = pool.feePayer === 'creator' ? lock.feeInputs ?? [] : []
   const resolved = lockMembers(lock, joins)
   const present = resolved.filter((j): j is Join => j != null)
   const lockProblems = [
@@ -124,16 +127,19 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
     ...selectionProblems(pool, present)
   ]
 
-  const [consents, fundings, inputValues, prevouts] = await Promise.all([
+  const [consents, fundings, feeFundings, inputValues, prevouts] = await Promise.all([
     platform.listConsents(lock.id),
     platform.listFundings(lock.id),
-    fetchInputValues(present),
-    fetchPrevouts(present)
+    platform.listFeeFundings(lock.id),
+    fetchInputValues(present, feeInputs),
+    fetchPrevouts(present, feeInputs)
   ])
 
   // A lock that selected no valid join has no shared ProRegTx to build; consentHash() is only defined
   // for one, so leave the registration absent and let lockProblems explain the state.
-  const registration = present.length === 0 ? null : txBuilder.buildRegistration(pool, present, inputValues)
+  const registration = present.length === 0
+    ? null
+    : txBuilder.buildRegistration(pool, present, inputValues, feeInputs, lock.feeChangeAddress)
   if (registration != null) lockProblems.push(...registration.problems)
 
   const members: MemberState[] = present.map((join, shareIndex) => ({
@@ -156,7 +162,10 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
       m.funding = memberDocument(fundings, lock.id, m.join.ownerId, f => txBuilder.verifyScriptSigs(registration, m.shareIndex, f.scriptSigs, prevouts, joinedHex))
     }
   }
-  const allFunded = allConsented && members.every(m => m.funding != null)
+  const feeFunding = registration != null && pool.feePayer === 'creator' && allConsented
+    ? memberDocument(feeFundings, lock.id, pool.ownerId, f => txBuilder.verifyFeeScriptSigs(registration, f.scriptSigs, prevouts, joinedHex))
+    : null
+  const allFunded = allConsented && members.every(m => m.funding != null) && (pool.feePayer !== 'creator' || feeFunding != null)
 
   let finalTx: PoolState['finalTx'] = null
   let regTx: ChainTx | null = null
@@ -168,13 +177,16 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
     finalTx = txBuilder.combine(
       registration,
       members.map(m => m.consent?.signature ?? ''),
-      members.map(m => m.funding?.scriptSigs ?? [])
+      members.map(m => m.funding?.scriptSigs ?? []),
+      feeFunding?.scriptSigs ?? []
     )
     // Nothing is broadcast that has not been re-checked against the final bytes
     broadcastProblems = finalTxProblems(
       { hex: finalTx.hex, collateralIndex: registration.collateralIndex },
       present,
-      inputValues
+      inputValues,
+      feeInputs,
+      pool.fee
     )
     regTx = await chain.getTransaction(finalTx.txid)
     if (regTx?.height != null) {
@@ -198,6 +210,7 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
   return {
     ...base,
     members,
+    feeFunding,
     lockProblems: [...new Set(lockProblems)],
     registration,
     finalTx,
@@ -215,15 +228,15 @@ export async function fetchPoolState (poolId: string): Promise<PoolState | null>
   }
 }
 
-export async function fetchInputValues (joins: Join[]): Promise<Map<string, Duffs | null>> {
-  const outpoints = joins.flatMap(j => j.inputs)
+export async function fetchInputValues (joins: Join[], extra: Outpoint[] = []): Promise<Map<string, Duffs | null>> {
+  const outpoints = [...joins.flatMap(j => j.inputs), ...extra]
   const values = await Promise.all(outpoints.map(async o => await chain.getOutputValue(o)))
   return new Map(outpoints.map((o, i) => [outpointKey(o), values[i]]))
 }
 
 /** Scripts and values of the joins' funding outputs, for checking P2PKH funding signatures */
-export async function fetchPrevouts (joins: Join[]): Promise<Map<string, Prevout | null>> {
-  const outpoints = joins.flatMap(j => j.inputs)
+export async function fetchPrevouts (joins: Join[], extra: Outpoint[] = []): Promise<Map<string, Prevout | null>> {
+  const outpoints = [...joins.flatMap(j => j.inputs), ...extra]
   const prevouts = await Promise.all(outpoints.map(async o => await chain.getPrevout(o)))
   return new Map(outpoints.map((o, i) => [outpointKey(o), prevouts[i]]))
 }

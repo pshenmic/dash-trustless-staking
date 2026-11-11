@@ -11,7 +11,8 @@ import { useHostingOptions, useWrite } from '../hooks/data'
 import { buildHostingProvider } from '../hosting'
 import { COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, formatDash, parseDash } from '../lib/format'
-import { feeShares, isBlsPublicKey, validatePoolTerms, type PoolTermsInput } from '../lib/rules'
+import { memberFeeShares, isBlsPublicKey, validatePoolTerms, type PoolTermsInput } from '../lib/rules'
+import type { FeePayer } from '../lib/types'
 import { fetchOperatorKeyUsage } from '../data/queries'
 import { OperatorKeyNotice } from '../components/pool/OperatorKeyNotice'
 import { useNetwork } from '../lib/network'
@@ -36,7 +37,7 @@ const PERIODS = [
 const STEP_FIELDS: Array<Array<keyof PoolTermsInput>> = [
   ['name', 'description'],
   ['operatorPubKey', 'service', 'votingAddress', 'operatorReward'],
-  ['earlyPeriodBlocks', 'earlyPenalty'],
+  ['earlyPeriodBlocks', 'earlyPenalty', 'fee', 'feePayer'],
   []
 ]
 
@@ -86,10 +87,12 @@ export function CreatePoolPage (): ReactNode {
   const hostingProvider = buildHostingProvider(hosting.data?.terms ?? null, hosting.data?.servers ?? [])
   const providers = backend.mode === 'mock' ? OPERATOR_PROVIDERS : [hostingProvider]
   const provider = providers.find(p => p.id === operatorSource) ?? null
-  const [form, setForm] = useState(draft?.form ?? {
+  const [form, setForm] = useState(() => ({
     name: '', description: '', service: '', operatorPubKey: '', votingAddress: '',
-    operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5'
-  })
+    operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5', fee: '', feePayer: 'members',
+    // Old drafts predate the fee fields; keep their values and fill the new ones with defaults
+    ...(draft?.form ?? {})
+  }))
   const selectedKey = provider?.keys.find(key => key.pubKey.toLowerCase() === form.operatorPubKey.trim().toLowerCase()) ?? null
 
   const terms: PoolTermsInput = {
@@ -106,8 +109,9 @@ export function CreatePoolPage (): ReactNode {
     operatorReward: provider != null ? selectedKey?.operatorReward ?? NaN : Math.round(Number(form.operatorReward) * 100),
     earlyPeriodBlocks: form.earlyPeriodBlocks.trim() === '' ? NaN : Number(form.earlyPeriodBlocks),
     earlyPenalty: parseDash(form.earlyPenalty) ?? NaN,
-    // Fixed by the app's configuration, not chosen by the creator
-    fee: config.registrationFee
+    // Blank keeps the app default; the pool document stores the resolved amount
+    fee: form.fee.trim() === '' ? config.registrationFee : parseDash(form.fee) ?? NaN,
+    feePayer: form.feePayer as FeePayer
   }
   if (provider == null && (form.operatorReward.trim() === '' || !Number.isFinite(Number(form.operatorReward)))) terms.operatorReward = NaN
   const errors = validatePoolTerms(terms, network, strict)
@@ -322,6 +326,20 @@ export function CreatePoolPage (): ReactNode {
             <Field label='Early exit penalty' error={show('earlyPenalty')} hint='Below the smallest share. 0 means members can leave early for free.' htmlFor='pool-penalty'>
               <Input id='pool-penalty' inputMode='decimal' value={form.earlyPenalty} onChange={e => set('earlyPenalty')(e.target.value)} prefix='DASH' disabled={terms.earlyPeriodBlocks === 0} />
             </Field>
+            <Field label='Registration fee' error={show('fee')} hint={`Optional. Leave it blank for ${formatDash(config.registrationFee)}. This is a network fee, separate from the operator fee.`} htmlFor='pool-fee'>
+              <Input id='pool-fee' inputMode='decimal' value={form.fee} onChange={e => set('fee')(e.target.value)} prefix='DASH' placeholder={formatDash(config.registrationFee)} />
+            </Field>
+            <Field label='Who pays the registration fee' error={show('feePayer')}>
+              <div className='flex flex-wrap gap-2'>
+                <Chip active={form.feePayer === 'members'} onClick={() => set('feePayer')('members')}>Split between members</Chip>
+                <Chip active={form.feePayer === 'creator'} onClick={() => set('feePayer')('creator')}>Pool creator</Chip>
+              </div>
+            </Field>
+            {form.feePayer === 'creator' && (
+              <Notice tone='info' title='You pay the registration fee'>
+                You will commit a fee UTXO when you lock the pool. You do not need to take a share.
+              </Notice>
+            )}
             {terms.earlyPenalty === 0 && (
               <Notice tone='warning' title='No penalty'>Any member will be able to force an early exit at no cost beyond the transaction fee.</Notice>
             )}
@@ -356,7 +374,9 @@ export function CreatePoolPage (): ReactNode {
               <KeyValue label='Operator fee'>{formatBasisPoints(terms.operatorReward)}</KeyValue>
               <KeyValue
                 label='Registration fee'
-                hint={`Fixed. Split between members: ${formatDash(feeShares(terms.fee, MAX_SHARES)[0])} each with ${MAX_SHARES}, up to ${formatDash(feeShares(terms.fee, MIN_SHARES)[1])} with ${MIN_SHARES}`}
+                hint={terms.feePayer === 'creator'
+                  ? 'Paid by you (the pool creator) from a fee input at lock'
+                  : `Split between members: ${formatDash(memberFeeShares(terms.fee, MAX_SHARES, 'members')[0])} each with ${MAX_SHARES}, up to ${formatDash(memberFeeShares(terms.fee, MIN_SHARES, 'members')[1])} with ${MIN_SHARES}`}
               >
                 {formatDash(terms.fee)}
               </KeyValue>

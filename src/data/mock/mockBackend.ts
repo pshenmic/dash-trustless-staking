@@ -119,6 +119,10 @@ const platform: PlatformSource = {
     await latency()
     return state.fundings.filter(f => f.lockId === lockId)
   },
+  async listFeeFundings (lockId) {
+    await latency()
+    return state.feeFundings.filter(f => f.lockId === lockId)
+  },
   async listMessages (channel) {
     await latency()
     return state.messages.filter(m => m.channel === channel).sort((a, b) => a.createdAt - b.createdAt)
@@ -169,6 +173,10 @@ const platform: PlatformSource = {
   async createFunding (identity, data) {
     await latency()
     return create(state.fundings, identity, data)
+  },
+  async createFeeFunding (identity, data) {
+    await latency()
+    return create(state.feeFundings, identity, data)
   },
   async sendMessage (identity, data) {
     await latency()
