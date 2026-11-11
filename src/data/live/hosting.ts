@@ -1,6 +1,6 @@
 import type { DashPlatformSDK } from 'dash-platform-sdk'
 import { toHex } from '../../lib/bytes'
-import { HOSTING_CONTRACT_ID } from '../../hosting'
+import { HOSTING_CONTRACT_ID, HOSTING_OWNER_ID } from '../../hosting'
 import type { HostingOptions, HostingServer, HostingSource, HostingTerms } from '../types'
 
 const PAGE = 100
@@ -36,7 +36,7 @@ export function createLiveHosting (sdk: DashPlatformSDK): HostingSource {
   return {
     async getOptions (): Promise<HostingOptions> {
       const [termDocs, serverDocs] = await Promise.all([
-        sdk.documents.query(HOSTING_CONTRACT_ID, 'terms', [] as never, undefined as never, PAGE) as unknown as RawDocument[],
+        sdk.documents.query(HOSTING_CONTRACT_ID, 'terms', [['$ownerId', '==', HOSTING_OWNER_ID]] as never, undefined as never, PAGE) as unknown as RawDocument[],
         sdk.documents.query(HOSTING_CONTRACT_ID, 'server', [['status', '==', 'AVAILABLE']] as never, undefined as never, PAGE) as unknown as RawDocument[]
       ])
       const terms = termDocs.map(decodeTerms).find((value): value is HostingTerms => value != null) ?? null

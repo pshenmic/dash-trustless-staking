@@ -4,6 +4,9 @@ import type { OperatorProvider } from './operators'
 /** pshenmic.dev hosting contract on testnet (from ../pshenmic-masternode-hosting) */
 export const HOSTING_CONTRACT_ID = import.meta.env?.VITE_HOSTING_CONTRACT_ID ?? '48mAzzn5UV3vLLm1M5iXs9i2qrcvpBh1kv3imdTaRxhg'
 
+/** Controller identity that owns the hosting contract; `terms` is a singleton on its `$ownerId` index */
+export const HOSTING_OWNER_ID = import.meta.env?.VITE_HOSTING_OWNER_ID ?? '9m1QYXVRyUpg99PyVD6DcdffuMhsJfgwLDxTeAg6PxDj'
+
 /**
  * The voting address every pool hosted by pshenmic.dev must use. The operator holds this key and votes
  * on governance for the masternode; it is not derived from the hosting contract.

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { HOSTING_CONTRACT_ID, HOSTING_VOTING_ADDRESS, buildHostingProvider } from './hosting'
+import { HOSTING_CONTRACT_ID, HOSTING_OWNER_ID, HOSTING_VOTING_ADDRESS, buildHostingProvider } from './hosting'
 
 const terms = {
   operatorRewardMin: 500,
@@ -45,6 +45,7 @@ describe('buildHostingProvider', () => {
 
   test('uses the testnet hosting contract and pshenmic.dev voting address', () => {
     expect(HOSTING_CONTRACT_ID).toBe('48mAzzn5UV3vLLm1M5iXs9i2qrcvpBh1kv3imdTaRxhg')
+    expect(HOSTING_OWNER_ID).toBe('9m1QYXVRyUpg99PyVD6DcdffuMhsJfgwLDxTeAg6PxDj')
     expect(HOSTING_VOTING_ADDRESS).toBe('ygVtwBQx7MiHS84FtX8CFTqgFBf8z25B2b')
   })
 })
