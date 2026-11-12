@@ -116,17 +116,16 @@ export function GuidePage (): ReactNode {
 
         <Section id='extension' title='Logging in'>
           <p>
-            Dash Platform Extension is the preferred login, but its next release is not out yet, so the option is
-            disabled in the dialog. Until then, log in with two private keys of the same identity:
+            Dash Platform Extension is the preferred login. Install and unlock it in Chrome, then choose
+            <strong>Use Dash Extension</strong> in the dialog and approve the connection. The app never sees your
+            keys.
           </p>
+          <p>You can also log in with two private keys of the same identity:</p>
           <ol className='list-decimal space-y-2 pl-5'>
             <li>The <strong>authentication</strong> private key: an AUTHENTICATION key with HIGH or CRITICAL security, which signs your actions.</li>
             <li>The <strong>encryption</strong> private key: an ENCRYPTION or DECRYPTION key, which opens the private chat.</li>
             <li>Press <strong>Log in</strong>, paste both keys into the dialog and submit. They stay for this browser session: a reload keeps you logged in, and closing the browser logs you out.</li>
           </ol>
-          <p>
-            When the extension release lands, the extension option will come back enabled and take over both keys.
-          </p>
         </Section>
 
         <Section id='signing' title='Signing with your wallet'>
