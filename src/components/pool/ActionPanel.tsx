@@ -1,6 +1,6 @@
 import { ProgressStepBar } from 'dash-ui-kit/react'
 import { Button } from '../Button'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { backend } from '../../data'
 import type { PoolState } from '../../data/queries'
 import { useWrite } from '../../hooks/data'
@@ -111,10 +111,13 @@ function SigningActions ({ state }: { state: PoolState }): ReactNode {
   const { activeIdentity } = useWallet()
   const { notify } = useToast()
   const role = poolRole(state, activeIdentity)
+  const [feePrefill, setFeePrefill] = useState<string | null>(null)
   const n = state.members.length
   const stepIndex = { consent: 1, funding: 2, broadcast: 3, confirming: 4 }[state.stage ?? 'consent']
   // Consents and funding signatures only mean something against a real v24 registration transaction
   const canSign = backend.features.registration
+
+  useEffect(() => { setFeePrefill(null) }, [state.pool.id])
 
   const broadcast = useWrite(async () => {
     if (state.finalTx == null) throw new Error('The transaction is not complete')
@@ -170,7 +173,17 @@ function SigningActions ({ state }: { state: PoolState }): ReactNode {
       {canSign && state.lockProblems.length === 0 && role.myMember != null && (
         <>
           {state.stage === 'consent' && role.myMember.consent == null && <SignPanel kind='consent' state={state} member={role.myMember} />}
-          {state.stage === 'funding' && role.myMember.funding == null && <SignPanel kind='funding' state={state} member={role.myMember} />}
+          {state.stage === 'funding' && role.myMember.funding == null && (
+            <SignPanel
+              kind='funding'
+              state={state}
+              member={role.myMember}
+              onFeeSignature={hex => {
+                setFeePrefill(hex)
+                setTimeout(() => document.getElementById('fee-funding-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+              }}
+            />
+          )}
           {((state.stage === 'consent' && role.myMember.consent != null) || (state.stage === 'funding' && role.myMember.funding != null)) && (
             <Notice tone='success' title='Your part is done'>Waiting for the other members to sign.</Notice>
           )}
@@ -178,7 +191,7 @@ function SigningActions ({ state }: { state: PoolState }): ReactNode {
       )}
 
       {canSign && state.lockProblems.length === 0 && role.isCreator && state.pool.feePayer === 'creator' && state.feeFunding == null && state.stage === 'funding' && (
-        <FeeFundingPanel state={state} />
+        <FeeFundingPanel state={state} prefill={feePrefill} />
       )}
 
       {role.myJoin != null && role.myMember == null && (

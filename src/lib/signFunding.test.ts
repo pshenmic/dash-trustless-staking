@@ -6,8 +6,8 @@ import { addressToScript } from './address'
 import { signCompact, verifyCompact } from './compactSignature'
 import { sha256 } from '@noble/hashes/sha256'
 import { concatBytes, fromHex, toHex } from './bytes'
-import { buildRegistration, extractScriptSigs, rawDigest, verifyScriptSigs, withJoinSignatures } from './registration'
-import { signFundingWithKeys } from './signFunding'
+import { buildRegistration, extractFeeScriptSigs, extractScriptSigs, rawDigest, verifyFeeScriptSigs, verifyScriptSigs, withJoinSignatures } from './registration'
+import { signFeeInputsWithKeys, signFundingWithKeys } from './signFunding'
 import type { Join, Pool, Prevout } from './types'
 
 function makeKey (): PrivateKey {
@@ -42,6 +42,8 @@ const ownerA = makeKey()
 const ownerB = makeKey()
 const utxoA = makeKey()
 const utxoB = makeKey()
+const utxoFee = makeKey()
+const feeOutpoint = { txid: 'cc'.repeat(32), vout: 0 }
 
 const members = [
   joinWith('join-a', addressOf(ownerA), 'aa'.repeat(32), 600_00000000),
@@ -132,6 +134,43 @@ describe('signFundingWithKeys', () => {
     expect(verifyScriptSigs(joined, members, 0, scriptSigs ?? [], prevouts)).toBe(true)
     // The other member's input is untouched
     expect(extractScriptSigs(joined, members, 1, result.hex)).toBeNull()
+  })
+
+  test('ignores signatures on inputs outside the member', () => {
+    const reg = registration()
+    const joined = withJoinSignatures(reg, consentsFor(reg))
+
+    const first = signFundingWithKeys(joined, members, 0, [utxoA.toWIF()], prevouts)
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+
+    // A wallet signs every input it controls; the second member's signature must not invalidate
+    // the first member's already-signed transaction.
+    const both = signFundingWithKeys(first.hex, members, 1, [utxoB.toWIF()], prevouts)
+    expect(both.ok).toBe(true)
+    if (!both.ok) return
+
+    const scriptSigs = extractScriptSigs(joined, members, 0, both.hex)
+    expect(scriptSigs).not.toBeNull()
+    expect(verifyScriptSigs(joined, members, 0, scriptSigs ?? [], prevouts)).toBe(true)
+  })
+
+  test('extracts and verifies the creator fee signatures from the same signed hex', () => {
+    const feePool = { ...pool, feePayer: 'creator' } as unknown as Pool
+    const values = new Map(inputValues)
+    values.set(`${feeOutpoint.txid}:${feeOutpoint.vout}`, 100_000)
+    const feePrevouts = new Map(prevouts)
+    feePrevouts.set(`${feeOutpoint.txid}:${feeOutpoint.vout}`, { script: scriptOf(addressOf(utxoFee)), value: 100_000 })
+
+    const reg = buildRegistration(feePool, members, values as never, [feeOutpoint], addressOf(ownerA))
+    const joined = withJoinSignatures(reg, consentsFor(reg))
+    const signed = signFeeInputsWithKeys(joined, members, [feeOutpoint], [utxoFee.toWIF()], feePrevouts)
+    expect(signed.ok).toBe(true)
+    if (!signed.ok) return
+
+    const scriptSigs = extractFeeScriptSigs(joined, members, [feeOutpoint], signed.hex)
+    expect(scriptSigs).not.toBeNull()
+    expect(verifyFeeScriptSigs(joined, members, [feeOutpoint], scriptSigs ?? [], feePrevouts)).toBe(true)
   })
 
   test('accepts several keys, one per input', () => {
