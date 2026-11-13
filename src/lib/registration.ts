@@ -176,19 +176,29 @@ export function withJoinSignatures (reg: RegistrationTx, signatures: string[]): 
   return reg.tx.hex()
 }
 
+/**
+ * A wallet may sign every input it controls, not just the member's funding inputs. Those extra
+ * signatures (for example the creator fee input) must not make the member's own result unusable:
+ * signatures are per input and every other input is blanked in the digest. Compare the transaction
+ * body with all scriptSigs removed, then take only the member's inputs.
+ */
+function withoutScriptSigs (hex: string): string {
+  const tx = Transaction.fromHex(hex)
+  for (const input of tx.inputs) input.scriptSig = new Script()
+  return tx.hex()
+}
+
 export function extractScriptSigs (joinedHex: string, members: Join[], shareIndex: number, signedHex: string): string[] | null {
   try {
-    const joined = Transaction.fromHex(joinedHex)
     const signed = Transaction.fromHex(signedHex)
+    const joined = Transaction.fromHex(joinedHex)
     if (joined.inputs.length !== signed.inputs.length) return null
+    if (withoutScriptSigs(joinedHex) !== withoutScriptSigs(signedHex)) return null
+
     const offset = members.slice(0, shareIndex).reduce((s, m) => s + m.inputs.length, 0)
     const count = members[shareIndex]?.inputs.length ?? 0
-    const scriptSigs: string[] = []
-    for (let i = 0; i < joined.inputs.length; i++) {
-      if (i >= offset && i < offset + count) scriptSigs.push(signed.inputs[i].scriptSig.hex())
-      else if (joined.inputs[i].scriptSig.hex() !== signed.inputs[i].scriptSig.hex() || joined.inputs[i].sequence !== signed.inputs[i].sequence) return null
-    }
-    return scriptSigs
+    const scriptSigs = Array.from({ length: count }, (_, k) => signed.inputs[offset + k]?.scriptSig.hex() ?? '')
+    return scriptSigs.some(s => s === '') ? null : scriptSigs
   } catch { return null }
 }
 
@@ -275,11 +285,10 @@ export function extractFeeScriptSigs (joinedHex: string, members: Join[], feeInp
     const joined = Transaction.fromHex(joinedHex)
     const signed = Transaction.fromHex(signedHex)
     if (joined.inputs.length !== signed.inputs.length || feeInputs.length === 0) return null
+    if (withoutScriptSigs(joinedHex) !== withoutScriptSigs(signedHex)) return null
     const offset = members.reduce((s, m) => s + m.inputs.length, 0)
-    return feeInputs.map((_, k) => signed.inputs[offset + k]?.scriptSig.hex() ?? null)
-      .every(value => value != null)
-      ? feeInputs.map((_, k) => signed.inputs[offset + k].scriptSig.hex())
-      : null
+    const scriptSigs = feeInputs.map((_, k) => signed.inputs[offset + k]?.scriptSig.hex() ?? '')
+    return scriptSigs.some(s => s === '') ? null : scriptSigs
   } catch { return null }
 }
 

@@ -1,6 +1,6 @@
 import { CopyButton, Input, Textarea } from 'dash-ui-kit/react'
 import { Button } from './Button'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { backend } from '../data'
 import { mockSignature } from '../data/mock/mockHash'
 import { mockSignedFundingHex } from '../data/mock/mockTxBuilder'
@@ -22,7 +22,7 @@ type Method = 'core' | 'wallet' | 'key'
  * Signing step for a lock member. The app never touches keys: it shows what to sign, the user
  * signs in their own wallet, pastes the result, and the app checks it before publishing.
  */
-export function SignPanel ({ kind, state, member }: { kind: Kind, state: PoolState, member: MemberState }): ReactNode {
+export function SignPanel ({ kind, state, member, onFeeSignature }: { kind: Kind, state: PoolState, member: MemberState, onFeeSignature?: (signedHex: string) => void }): ReactNode {
   const { activeIdentity } = useWallet()
   const { notify } = useToast()
   const [input, setInput] = useState('')
@@ -43,6 +43,19 @@ export function SignPanel ({ kind, state, member }: { kind: Kind, state: PoolSta
       ? parseConsent(input, member.shareIndex, s => backend.tx.verifyConsent(registration, member.shareIndex, s))
       : parseFunding(input, h => backend.tx.extractScriptSigs(registration, member.shareIndex, h, txHex))
   }, [input, kind, registration, member.shareIndex])
+
+  // A Core wallet signs every input it controls, so the creator's funding hex can already contain
+  // the creator fee input's signature. Offer it for the fee step, but never publish it from here.
+  const feeCandidate = useMemo(() => {
+    if (kind !== 'funding' || onFeeSignature == null || registration == null || parsed?.ok !== true) return null
+    if (state.pool.feePayer !== 'creator' || state.feeFunding != null || activeIdentity !== state.pool.ownerId) return null
+    if (registration.feeInputs.length === 0) return null
+    const hex = signedHexFrom(input)
+    if (hex == null) return null
+    const scriptSigs = backend.tx.extractFeeScriptSigs(registration, hex, txHex)
+    if (scriptSigs == null) return null
+    return backend.tx.verifyFeeScriptSigs(registration, scriptSigs, state.prevouts, txHex) ? hex : null
+  }, [kind, onFeeSignature, registration, parsed?.ok, state.pool.feePayer, state.feeFunding, activeIdentity, state.pool.ownerId, state.prevouts, input, txHex])
 
   const publish = useWrite(async () => {
     if (activeIdentity == null || lock == null || parsed == null || !parsed.ok) throw new Error('Nothing to publish')
@@ -240,6 +253,25 @@ export function SignPanel ({ kind, state, member }: { kind: Kind, state: PoolSta
         )}
       </div>
 
+      {feeCandidate != null && onFeeSignature != null && (
+        <Notice tone='info' title='Fee signature found'>
+          This signed transaction also contains a signature for your creator fee input. Would you like to use it for
+          the fee step instead of signing again?
+          <div className='mt-3'>
+            <Button
+              size='sm'
+              colorScheme='brand'
+              onClick={() => {
+                onFeeSignature(feeCandidate)
+                notify('Fee signature loaded in the fee step. Review it, then publish it.')
+              }}
+            >
+              Use for fee signing
+            </Button>
+          </div>
+        </Notice>
+      )}
+
       <div className='flex flex-wrap items-center gap-3'>
         <Button colorScheme='brand' size='md' disabled={parsed?.ok !== true || publish.isPending} onClick={submit}>
           {publish.isPending ? 'Publishing…' : kind === 'consent' ? 'Publish consent' : 'Publish signatures'}
@@ -264,6 +296,15 @@ function tryJson (value: string): unknown {
   }
 }
 
+/** Accepts raw signed hex or the JSON result of `signrawtransactionwithwallet` */
+function signedHexFrom (input: string): string | null {
+  const trimmed = input.trim()
+  if (trimmed === '') return null
+  const json = tryJson(trimmed) as { hex?: string } | null
+  const hex = json?.hex ?? trimmed
+  return /^[0-9a-fA-F]+$/.test(hex) ? hex : null
+}
+
 /** Accepts a bare base64 signature or the JSON result of `protx shared_sign` */
 function parseConsent (input: string, shareIndex: number, verify: (sig: string) => boolean): Parsed {
   let signature = input.trim()
@@ -280,10 +321,8 @@ function parseConsent (input: string, shareIndex: number, verify: (sig: string) 
 
 /** Accepts signed hex or the JSON result of `signrawtransactionwithwallet` */
 function parseFunding (input: string, extract: (hex: string) => string[] | null): Parsed {
-  let hex = input.trim()
-  const json = tryJson(hex) as { hex?: string } | null
-  if (json?.hex != null) hex = json.hex
-  const scriptSigs = extract(hex)
+  const hex = signedHexFrom(input)
+  const scriptSigs = hex == null ? null : extract(hex)
   return scriptSigs == null
     ? { ok: false, error: 'Could not find valid signatures for your inputs in this transaction' }
     : { ok: true, value: scriptSigs }
@@ -293,10 +332,11 @@ function parseFunding (input: string, extract: (hex: string) => string[] | null)
  * The creator-paid registration fee. The fee inputs are already in the lock, so the transaction the
  * creator signs is the same joined tx members sign; the app only extracts the fee inputs' scriptSigs.
  */
-export function FeeFundingPanel ({ state }: { state: PoolState }): ReactNode {
+export function FeeFundingPanel ({ state, prefill }: { state: PoolState, prefill?: string | null }): ReactNode {
   const { activeIdentity } = useWallet()
   const { notify } = useToast()
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(prefill ?? '')
+  useEffect(() => { if (prefill != null) setInput(prefill) }, [prefill])
   const [method, setMethod] = useState<'core' | 'key'>('core')
   const [privateKey, setPrivateKey] = useState('')
   const registration = state.registration
@@ -356,7 +396,7 @@ export function FeeFundingPanel ({ state }: { state: PoolState }): ReactNode {
   }
 
   return (
-    <div className='flex flex-col gap-5 rounded-2xl border border-line p-4'>
+    <div id='fee-funding-panel' className='flex scroll-mt-24 flex-col gap-5 rounded-2xl border border-line p-4'>
       <div>
         <h3 className='text-lead font-extrabold tracking-[-0.02em]'>Registration fee · Sign your fee input</h3>
         <p className='mt-1 text-small text-muted'>
@@ -364,6 +404,12 @@ export function FeeFundingPanel ({ state }: { state: PoolState }): ReactNode {
           so the transaction can spend it. The transaction already contains every member’s input.
         </p>
       </div>
+
+      {prefill != null && (
+        <Notice tone='info' title='Fee signature loaded'>
+          Taken from your funding transaction. Review it below and publish it; nothing has been sent automatically.
+        </Notice>
+      )}
 
       <div className='rounded-2xl bg-surface-2 px-4'>
         <KeyValueList>
