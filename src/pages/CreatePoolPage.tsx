@@ -1,9 +1,9 @@
-import { Input, ProgressStepBar, Textarea } from 'dash-ui-kit/react'
+import { Input, Textarea } from 'dash-ui-kit/react'
 import { Button } from '../components/Button'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { Chip, Field, KeyValue, KeyValueList, Notice, PageHeader, Card } from '../components/ui'
+import { Card, Chip, cn, Field, KeyValue, KeyValueList, Notice, PageHeader } from '../components/ui'
 import { errorMessage, useToast } from '../components/Toast'
 import { backend } from '../data'
 import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
@@ -210,12 +210,24 @@ export function CreatePoolPage (): ReactNode {
 
       {draft != null && <div className='mb-4 text-small text-muted'>⏺ Draft saved — a refresh won't lose your progress</div>}
 
-      <div className='mb-6'>
-        <div className='mb-2 flex justify-between text-small'>
+      <div className='mb-6 flex flex-col gap-2'>
+        <div className='flex justify-between text-small'>
           <span className='font-bold'>{STEPS[step]}</span>
           <span className='text-muted'>Step {step + 1} of {STEPS.length}</span>
         </div>
-        <ProgressStepBar currentStep={step + 1} totalSteps={STEPS.length} />
+        <ol className='flex flex-wrap gap-2'>
+          {STEPS.map((label, i) => (
+            <li
+              key={label}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-tag font-bold',
+                i === step ? 'bg-brand text-white' : i < step ? 'bg-brand-soft text-brand-ink' : 'bg-surface-2 text-muted'
+              )}
+            >
+              {i + 1} · {label}
+            </li>
+          ))}
+        </ol>
       </div>
 
       <Card className='flex flex-col gap-5'>
@@ -389,7 +401,7 @@ export function CreatePoolPage (): ReactNode {
           </>
         )}
 
-        <div className='flex flex-wrap items-center justify-between gap-3 border-t border-line/70 pt-5'>
+        <div className='sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center justify-between gap-3 border-t border-line/70 bg-surface px-5 pt-4 pb-1 md:static md:mx-0 md:px-0 md:pt-5 md:pb-0'>
           <Button colorScheme='lightGray' size='md' onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>Back</Button>
           {step < STEPS.length - 1
             ? <Button colorScheme='brand' size='md' onClick={next} disabled={!stepValid(step)}>Continue</Button>

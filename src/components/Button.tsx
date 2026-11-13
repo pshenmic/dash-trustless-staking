@@ -4,5 +4,5 @@ import { cn } from './ui'
 
 /** dash-ui-kit Button without its forced Title Case: the brand guidelines use sentence case */
 export function Button ({ className, ...props }: ButtonProps): ReactNode {
-  return <KitButton {...props} className={cn('normal-case', className)} />
+  return <KitButton {...props} className={cn('rounded-[10px] font-bold normal-case', className)} />
 }

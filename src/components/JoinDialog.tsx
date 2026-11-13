@@ -123,7 +123,7 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
       title={`Join ${pool.name}`}
       maxWidth='xl'
       horizontalMargin={12}
-      className='max-h-[92dvh] overflow-y-auto !rounded-3xl dark:!border-line dark:!bg-surface'
+      className='max-h-[92dvh] overflow-y-auto !rounded-[20px] !border-0 !bg-surface dark:!bg-surface'
     >
       <div className='flex flex-col gap-5'>
         <p className='text-small text-muted'>
@@ -214,7 +214,7 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
           </Notice>
         )}
 
-        <div className='flex flex-wrap items-center gap-3'>
+        <div className='sticky bottom-0 -mx-6 flex flex-wrap items-center gap-3 border-t border-line/70 bg-surface px-6 pt-3 pb-1'>
           <Button colorScheme='brand' size='md' onClick={submit} disabled={join.isPending || activeIdentity == null}>
             {join.isPending ? 'Publishing…' : 'Join pool'}
           </Button>

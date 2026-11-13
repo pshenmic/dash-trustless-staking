@@ -14,55 +14,59 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Brand tokens from the Dash Brand Guidelines 2026 (slides 07–11).
- * Solid fallbacks of the 5% / 15% / 75% tints are used where the guidelines give them.
- * The "-ink" colors (darker mint/orange for text on light backgrounds) are not in the guidelines;
- * they exist only to keep small text readable.
+ * Look ported from the 2024 Trustless Pool Staking Figma: Dash blue on a pale canvas, white 20 px cards,
+ * soft shadows. The "-ink" colours are darker variants that keep small text readable on light tints.
  */
 :root {
-  --bg: #f6f8ff;          /* Hyperwave Blue 5% */
+  --bg: #e9eff8;
   --surface: #ffffff;
-  --surface-2: #f3f3f4;   /* Midnight Circuit 5% */
-  --fg: #0c1c33;          /* Midnight Circuit */
-  --muted: #495566;       /* Midnight Circuit 75% */
-  --line: #dbdde1;        /* Midnight Circuit 15% */
-  --brand: #4c7eff;       /* Hyperwave Blue */
-  --brand-hover: #3c65cc;
-  --brand-soft: #e4ecff;  /* Hyperwave Blue 15% */
-  --brand-ink: #3c65cc;
-  --mint: #60f6d2;        /* Mint Current */
-  --mint-soft: #e7fef8;
-  --mint-ink: #177a63;
-  --red: #cd2e00;
-  --red-soft: #f8e0d9;
-  --red-ink: #cd2e00;
-  --orange: #f98f12;
-  --orange-soft: #feeedc;
-  --orange-ink: #a85a00;
-  --shadow: 0 12px 40px -12px rgb(12 28 51 / 0.12);
+  --surface-2: #f4f6fa;
+  --fg: #0b1b2b;
+  --muted: #5b6b80;
+  --line: #e2e8f1;
+  --brand: #008de4;       /* Dash blue */
+  --brand-hover: #0074be;
+  --brand-soft: #e5f3fc;
+  --brand-ink: #0074be;
+  --mint: #19b36b;
+  --mint-soft: #e4f8ef;
+  --mint-ink: #127a4b;
+  --red: #d64545;
+  --red-soft: #fbe9e9;
+  --red-ink: #a83232;
+  --orange: #f5a623;
+  --orange-soft: #fff1df;
+  --orange-ink: #a86400;
+  --shadow: 0 10px 30px -20px rgb(13 32 60 / 0.35);
+
+  /* The kit's Button/Chip use these theme variables, so the brand has to be overridden where it is defined */
+  --color-dash-brand: #008de4;
+  --color-dash-brand-dim: #7fc4ef;
+  --color-dash-mint: #19b36b;
+  --color-dash-mint-hover: #149558;
   color-scheme: light;
 }
 
 .dark {
-  --bg: #0c1c33;
-  --surface: #0f213d;     /* Hyperwave Blue 5% on Midnight */
-  --surface-2: #18283d;
+  --bg: #0b1a2b;
+  --surface: #10233a;
+  --surface-2: #16293f;
   --fg: #ffffff;
-  --muted: #c2c6cc;       /* White 75% on Midnight */
-  --line: #303e51;        /* White 15% on Midnight */
-  --brand: #4c7eff;
-  --brand-hover: #799eff;
-  --brand-soft: #152b51;  /* Hyperwave Blue 15% on Midnight */
-  --brand-ink: #799eff;
-  --mint: #60f6d2;
-  --mint-soft: #183d4a;
-  --mint-ink: #60f6d2;
-  --red: #cd2e00;
-  --red-soft: #291f2b;
-  --red-ink: #da6240;
-  --orange: #f98f12;
-  --orange-soft: #2f2d2e;
-  --orange-ink: #fbab4d;
+  --muted: #a9b6c6;
+  --line: #263a52;
+  --brand: #008de4;
+  --brand-hover: #2aa3ee;
+  --brand-soft: #10314e;
+  --brand-ink: #4db4f0;
+  --mint: #19b36b;
+  --mint-soft: #12342a;
+  --mint-ink: #4ddb9a;
+  --red: #d64545;
+  --red-soft: #3a1e22;
+  --red-ink: #ef8f8f;
+  --orange: #f5a623;
+  --orange-soft: #3a2c14;
+  --orange-ink: #f7bf62;
   --shadow: 0 12px 40px -12px rgb(0 0 0 / 0.5);
   color-scheme: dark;
 }
@@ -109,6 +113,33 @@ body {
   line-height: 1.45;
   /* Brand body text is Manrope Medium (slide 14) */
   font-weight: 500;
+  /* The Figma paints white at the top of the page over a pale blue base */
+  background: radial-gradient(120% 70% at 50% 0%, #ffffff 0%, #eef3fa 45%, #e9eff8 100%);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background: var(--bg);
+}
+
+/* The kit dims every dialog with bg-black/80; the Figma look uses a lighter blue-grey scrim */
+.fixed.inset-0.z-50.bg-black\/80 {
+  background-color: rgb(11 27 43 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+/* Radix focuses the dialog itself; a focus ring around the whole sheet reads as a border */
+[role='dialog']:focus-visible {
+  outline: none;
+}
+
+/*
+ * The kit's dark variants follow prefers-color-scheme, while this app's theme is the .dark class.
+ * With a dark OS and the light app theme the dialog would otherwise paint white text on white.
+ */
+[role='dialog'] {
+  background-color: var(--surface);
+  color: var(--fg);
 }
 
 /* Brand type scale (slide 14): Manrope ExtraBold headlines with -3% tracking */

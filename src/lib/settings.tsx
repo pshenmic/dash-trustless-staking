@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import type { GridDensity } from './presentation'
 import type { Network } from './types'
 
 export interface Settings {
@@ -7,9 +8,11 @@ export interface Settings {
   dapiEndpoints: string[]
   /** Identities the pool creator doesn't want to select. Kept in this browser only. */
   banList: string[]
+  /** Pools-grid density; 'auto' follows the breakpoints */
+  grid: GridDensity
 }
 
-const DEFAULTS: Settings = { network: 'testnet', dapiEndpoints: [], banList: [] }
+const DEFAULTS: Settings = { network: 'testnet', dapiEndpoints: [], banList: [], grid: 'auto' }
 const STORAGE_KEY = 'dts:settings'
 
 function load (): Settings {

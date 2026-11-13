@@ -1,16 +1,24 @@
 import { Accordion } from 'dash-ui-kit/react'
 import { useEffect, type ReactNode } from 'react'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { Card, CodeBlock, Notice, PageHeader } from '../components/ui'
 
 const SECTIONS = [
   { id: 'how', title: 'How it works' },
+  { id: 'why', title: 'Why it’s trustless' },
   { id: 'identity', title: 'Your identity' },
   { id: 'extension', title: 'Logging in' },
   { id: 'signing', title: 'Signing with your wallet' },
   { id: 'leaving', title: 'Leaving a pool' },
   { id: 'faq', title: 'Risks and questions' },
   { id: 'glossary', title: 'Glossary' }
+]
+
+const GUARANTEES = [
+  { title: 'Your refund address is fixed forever', text: 'Set when you join. Dash consensus only ever refunds your coins to it.' },
+  { title: 'Leave any time', text: 'Dissolve on your own, without anyone’s permission. Early in the pool’s life you pay the penalty it states up front.' },
+  { title: 'Rewards paid by the protocol', text: 'Each block reward is split by share and sent straight to your address. Nobody handles your earnings.' },
+  { title: 'The creator can’t touch funds', text: 'The creator runs the node and votes. Changing keys takes every member’s signature.' }
 ]
 
 const FAQ = [
@@ -102,6 +110,17 @@ export function GuidePage (): ReactNode {
           <p>Pool statuses: <strong>Open</strong> (accepting joins), <strong>Signing</strong> (locked, collecting signatures), <strong>Formed</strong> (running), <strong>Error</strong> (PoSe-banned or revoked) and <strong>Dissolved</strong>.</p>
         </Section>
 
+        <Section id='why' title='Why it’s trustless'>
+          <dl className='flex flex-col gap-4'>
+            {GUARANTEES.map(g => (
+              <div key={g.title}>
+                <dt className='font-bold'>{g.title}</dt>
+                <dd className='text-muted'>{g.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </Section>
+
         <Section id='identity' title='Your identity'>
           <p>
             Every pool, join, signature and message is a document on Dash Platform, published by a Platform
@@ -172,6 +191,11 @@ export function GuidePage (): ReactNode {
             ))}
           </dl>
         </Section>
+
+        <p className='text-small text-muted'>
+          Network, theme and your local ban list live in{' '}
+          <Link to='/settings' className='font-bold text-brand-ink hover:underline'>Settings</Link>.
+        </p>
       </div>
     </div>
   )
