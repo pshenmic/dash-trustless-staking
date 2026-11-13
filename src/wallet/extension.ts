@@ -5,7 +5,7 @@
  */
 
 export interface WalletInfo {
-  currentIdentity: string | null
+  currentIdentity: string
   identities: string[]
 }
 
