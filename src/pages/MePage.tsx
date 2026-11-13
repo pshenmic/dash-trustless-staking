@@ -9,11 +9,11 @@ import { useMyActivity } from '../hooks/data'
 import { rewardSharePercent } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
 
-const ACTION_TEXT: Record<ActionKind, { title: string, cta: string, tab: string }> = {
-  consent: { title: 'Sign your consent', cta: 'Sign', tab: 'overview' },
-  funding: { title: 'Sign your coins', cta: 'Sign', tab: 'overview' },
-  lock: { title: 'Enough joins: select members and lock', cta: 'Select members', tab: 'members' },
-  broadcast: { title: 'All signatures in: broadcast the registration', cta: 'Broadcast', tab: 'overview' }
+const ACTION_TEXT: Record<ActionKind, { title: string, cta: string, query: string }> = {
+  consent: { title: 'Sign your consent', cta: 'Sign', query: 'view=sign' },
+  funding: { title: 'Sign your coins', cta: 'Sign', query: 'view=sign' },
+  lock: { title: 'Enough joins: select members and lock', cta: 'Select members', query: 'tab=members' },
+  broadcast: { title: 'All signatures in: broadcast the registration', cta: 'Broadcast', query: 'view=broadcast' }
 }
 
 export function MePage (): ReactNode {
@@ -50,12 +50,12 @@ export function MePage (): ReactNode {
                 : (
                   <ul className='flex flex-col gap-3'>
                     {data.actions.map(a => (
-                      <li key={`${a.kind}:${a.pool.id}`} className='flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-brand p-5 text-white'>
+                      <li key={`${a.kind}:${a.pool.id}`} className='flex flex-wrap items-center justify-between gap-3 rounded-[20px] bg-brand p-5 text-white'>
                         <div>
                           <div className='font-extrabold'>{ACTION_TEXT[a.kind].title}</div>
                           <div className='text-small text-white/80'>{a.pool.name}</div>
                         </div>
-                        <Link to={`/pools/${a.pool.id}?tab=${ACTION_TEXT[a.kind].tab}`}><Button colorScheme='mint' size='sm' className='font-bold'>{ACTION_TEXT[a.kind].cta}</Button></Link>
+                        <Link to={`/pools/${a.pool.id}?${ACTION_TEXT[a.kind].query}`}><Button colorScheme='mint' size='sm' className='font-bold'>{ACTION_TEXT[a.kind].cta}</Button></Link>
                       </li>
                     ))}
                   </ul>

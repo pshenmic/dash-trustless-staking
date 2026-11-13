@@ -27,7 +27,7 @@ export function AppShell (): ReactNode {
     <div className='flex min-h-dvh flex-col'>
       <Banners />
       <Header />
-      <main className='mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-16'>
+      <main className='mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-32 md:px-8 md:pt-10 md:pb-16'>
         <Outlet />
       </main>
       <Footer />
@@ -67,12 +67,12 @@ function Banners (): ReactNode {
 function Header (): ReactNode {
   const { settings } = useSettings()
   return (
-    <header className='sticky top-0 z-40 border-b border-line/60 bg-bg/85 backdrop-blur-md'>
+    <header className='sticky top-0 z-40 bg-bg/80 backdrop-blur-md'>
       <div className='mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 md:px-8'>
         <Link to='/' className='flex shrink-0 items-center gap-2.5' aria-label='Dash Trustless Staking home'>
-          <DashLogo size={22} color='var(--brand)' />
+          <DashLogo size={26} color='var(--brand)' />
           <span className='hidden text-[15px] leading-4 font-extrabold tracking-[-0.02em] sm:block'>
-            Trustless<br /><span className='text-brand-ink'>Staking</span>
+            Trustless<br /><span className='text-brand-ink'>Dash Staking</span>
           </span>
         </Link>
         <nav className='hidden items-center gap-1 md:flex' aria-label='Main'>
@@ -83,7 +83,7 @@ function Header (): ReactNode {
               end
               className={({ isActive }) => cn(
                 'rounded-full px-4 py-2 text-small font-semibold transition-colors',
-                isActive ? 'bg-brand-soft text-brand-ink' : 'text-muted hover:text-fg'
+                isActive ? 'bg-surface text-brand-ink shadow-card' : 'text-muted hover:text-fg'
               )}
             >
               {item.label}
@@ -91,7 +91,7 @@ function Header (): ReactNode {
           ))}
         </nav>
         <div className='ml-auto flex items-center gap-2'>
-          <span className='hidden rounded-full border border-line px-3 py-1 text-tag font-semibold text-muted capitalize sm:inline-block'>
+          <span className='hidden rounded-full bg-surface-2 px-3 py-1 text-tag font-semibold text-muted capitalize sm:inline-block'>
             {settings.network}
           </span>
           <ThemeToggle />
@@ -133,6 +133,7 @@ function ConnectButton (): ReactNode {
           ...identities.filter(id => id !== identity).map(id => ({ label: `Use ${shortId(id, 6)}`, onClick: () => selectIdentity(id) })),
           { label: 'Copy identity ID', onClick: copy },
           { label: 'My dashboard', to: '/me' },
+          { label: 'Settings', to: '/settings' },
           { label: 'Log out', onClick: logout }
         ]}
       />
@@ -218,16 +219,17 @@ function BottomNav (): ReactNode {
   return (
     <nav
       aria-label='Main'
-      className='fixed inset-x-0 bottom-0 z-40 border-t border-line/60 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden'
+      className='fixed inset-x-4 bottom-4 z-40 mx-auto max-w-md rounded-[22px] bg-surface/95 px-2 pt-2 shadow-card ring-1 ring-line/60 backdrop-blur-md md:hidden'
+      style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}
     >
-      <div className='grid grid-cols-5'>
-        {[...NAV, { to: '/settings', label: 'Settings', icon: GearIcon }].map(item => (
+      <div className='grid grid-cols-4'>
+        {NAV.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
             end
             className={({ isActive }) => cn(
-              'flex flex-col items-center gap-1 py-2.5 text-tag',
+              'flex flex-col items-center gap-0.5 py-1 text-[10px] font-semibold',
               isActive ? 'text-brand-ink' : 'text-muted'
             )}
           >
@@ -261,9 +263,6 @@ function UserIcon (): ReactNode {
 }
 function BookIcon (): ReactNode {
   return <Icon><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z' /><path d='M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5' /></Icon>
-}
-function GearIcon (): ReactNode {
-  return <Icon><circle cx='12' cy='12' r='3' /><path d='M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z' /></Icon>
 }
 function SunIcon (): ReactNode {
   return <Icon><circle cx='12' cy='12' r='4' /><path d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4' /></Icon>

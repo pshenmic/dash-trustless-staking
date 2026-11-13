@@ -19,22 +19,3 @@ export function poolRole (state: PoolState, me: string | null): PoolRole {
   }
 }
 
-/**
- * True while the signed-in user has a signing task in front of them. Those panels are wide
- * (transaction hex, commands, key fields) and belong on their own full-width surface, not in
- * the narrow pool-details sidebar.
- */
-export function hasSigningTask (state: PoolState, role: PoolRole): boolean {
-  if (state.status !== 'SIGNING' || role.me == null || state.lockProblems.length > 0) return false
-  if (state.stage === 'broadcast') return true
-
-  if (role.myMember != null) {
-    if (state.stage === 'consent' && role.myMember.consent == null) return true
-    if (state.stage === 'funding' && role.myMember.funding == null) return true
-  }
-
-  return state.stage === 'funding' &&
-    role.isCreator &&
-    state.pool.feePayer === 'creator' &&
-    state.feeFunding == null
-}

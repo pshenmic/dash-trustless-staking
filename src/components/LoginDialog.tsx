@@ -1,5 +1,6 @@
 import { Dialog, Input } from 'dash-ui-kit/react'
 import { useEffect, useState, type ReactNode } from 'react'
+import { getExtension, watchForExtension } from '../wallet/extension'
 import { useWallet } from '../wallet/WalletContext'
 import { Button } from './Button'
 import { errorMessage, useToast } from './Toast'
@@ -17,6 +18,7 @@ export function LoginDialog (): ReactNode {
   const [showPrivate, setShowPrivate] = useState(false)
   const [pending, setPending] = useState<'private' | 'extension' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [extensionMissing, setExtensionMissing] = useState(false)
 
   useEffect(() => {
     if (loginOpen) return
@@ -25,6 +27,22 @@ export function LoginDialog (): ReactNode {
     setShowPrivate(false)
     setError(null)
     setPending(null)
+    setExtensionMissing(false)
+  }, [loginOpen])
+
+  useEffect(() => {
+    if (!loginOpen) return
+    setExtensionMissing(false)
+    if (getExtension() != null) return
+    const stop = watchForExtension(() => setExtensionMissing(false))
+    // The content script can arrive after the dialog; don't flash an install link before it has a chance.
+    const timer = setTimeout(() => {
+      if (getExtension() == null) setExtensionMissing(true)
+    }, 1200)
+    return () => {
+      stop()
+      clearTimeout(timer)
+    }
   }, [loginOpen])
 
   const submit = async (): Promise<void> => {
@@ -82,6 +100,21 @@ export function LoginDialog (): ReactNode {
         >
           {showPrivate ? 'Hide Private Keys' : 'Login with Private Keys'}
         </Button>
+
+        {extensionMissing && (
+          <div className='rounded-2xl border border-line p-3 text-small'>
+            <p className='text-muted'>The Dash Platform Extension is not installed or enabled in this browser.</p>
+            <a
+              href='https://chromewebstore.google.com/detail/dash-platform-extension/odmphbcnlldggfhcpdjgnlhbehoicdnf?utm_source=dashtrustlessstaking'
+              target='_blank'
+              rel='noreferrer'
+              className='mt-1 inline-block font-bold text-brand-ink hover:underline'
+            >
+              Install Dash Platform Extension
+            </a>
+            <p className='mt-1 text-tag text-muted'>After installing, reload this page.</p>
+          </div>
+        )}
 
         {showPrivate && (
           <div className='flex flex-col gap-3 rounded-2xl border border-line p-3'>

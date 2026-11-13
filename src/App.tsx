@@ -4,10 +4,10 @@ import { ChatPage } from './pages/ChatPage'
 import { CreatePoolPage } from './pages/CreatePoolPage'
 import { CreatorPage } from './pages/CreatorPage'
 import { GuidePage } from './pages/GuidePage'
-import { HomePage } from './pages/HomePage'
 import { MePage } from './pages/MePage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { PoolPage } from './pages/PoolPage'
+import { PoolSheet } from './pages/PoolSheet'
+import { PoolsLayout } from './pages/PoolsLayout'
 import { PoolsPage } from './pages/PoolsPage'
 import { SettingsPage } from './pages/SettingsPage'
 
@@ -16,10 +16,9 @@ export const router = createHashRouter([
   {
     element: <AppShell />,
     children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/pools', element: <PoolsPage /> },
+      { path: '/', element: <PoolsPage /> },
+      { path: '/pools', element: <PoolsLayout />, children: [{ index: true }, { path: ':poolId', element: <PoolSheet /> }] },
       { path: '/pools/new', element: <CreatePoolPage /> },
-      { path: '/pools/:poolId', element: <PoolPage /> },
       { path: '/me', element: <MePage /> },
       { path: '/creators/:identityId', element: <CreatorPage /> },
       { path: '/chat', element: <ChatPage /> },

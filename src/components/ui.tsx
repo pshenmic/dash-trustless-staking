@@ -30,7 +30,7 @@ export function IdentifierValue ({ value, href, label }: { value: string, href?:
 
 export function Card ({ children, className, padded = true }: { children: ReactNode, className?: string, padded?: boolean }): ReactNode {
   return (
-    <div className={cn('rounded-3xl border border-line/60 bg-surface shadow-card', padded && 'p-5 md:p-6', className)}>
+    <div className={cn('rounded-[20px] border-0 bg-surface shadow-card', padded && 'p-5 md:p-6', className)}>
       {children}
     </div>
   )
@@ -182,7 +182,7 @@ export function Chip ({ active, children, onClick }: { active: boolean, children
       aria-pressed={active}
       className={cn(
         'rounded-full px-4 py-2 text-small font-semibold transition-colors',
-        active ? 'bg-brand text-white' : 'bg-surface text-fg border border-line hover:border-brand/60'
+        active ? 'bg-surface text-brand-ink shadow-card ring-1 ring-brand/20' : 'bg-surface-2 text-muted hover:text-fg'
       )}
     >
       {children}

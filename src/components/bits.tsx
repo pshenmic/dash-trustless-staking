@@ -17,8 +17,8 @@ export function Dash ({ duffs, className, unit = true }: { duffs: Duffs, classNa
 }
 
 const STATUS_STYLE: Record<PoolStatus | 'LOCKED', { label: string, className: string, dot: string }> = {
-  NEW: { label: 'Open', className: 'bg-brand-soft text-brand-ink', dot: 'bg-brand' },
-  LOCKED: { label: 'Locked', className: 'bg-surface-2 text-fg', dot: 'bg-muted' },
+  NEW: { label: 'Open', className: 'bg-orange-soft text-orange-ink', dot: 'bg-orange' },
+  LOCKED: { label: 'Locked', className: 'bg-brand-soft text-brand-ink', dot: 'bg-brand' },
   SIGNING: { label: 'Signing', className: 'bg-orange-soft text-orange-ink', dot: 'bg-orange' },
   REGISTERED: { label: 'Registered', className: 'bg-brand-soft text-brand-ink', dot: 'bg-brand' },
   FORMED: { label: 'Formed', className: 'bg-mint-soft text-mint-ink', dot: 'bg-mint' },
@@ -68,7 +68,7 @@ export function IdentityChip ({ id, link = false, size = 'md', suffix }: { id: s
 export function FillBar ({ joined, className }: { joined: Duffs, className?: string }): ReactNode {
   const pct = Math.min(100, (joined / COLLATERAL) * 100)
   return (
-    <div className={cn('h-2 overflow-hidden rounded-full bg-brand-soft', className)} role='progressbar' aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+    <div className={cn('h-1.5 overflow-hidden rounded-full bg-brand-soft', className)} role='progressbar' aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
       <div className={cn('h-full rounded-full transition-[width]', pct >= 100 ? 'bg-mint' : 'bg-brand')} style={{ width: `${pct}%` }} />
     </div>
   )
