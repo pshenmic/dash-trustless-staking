@@ -32,7 +32,7 @@
     "cbor2": "^2.4.1",
     "country-flag-icons": "^1.6.20",
     "dash-core-sdk": "1.1.6-dev.2",
-    "dash-platform-sdk": "1.6.1",
+    "dash-platform-sdk": "1.6.2",
     "dash-ui-kit": "^2.1.5",
     "pshenmic-dpp": "2.0.1-dev.6",
     "react": "^19.3.0",
