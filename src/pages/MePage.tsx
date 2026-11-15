@@ -10,10 +10,10 @@ import { rewardSharePercent } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
 
 const ACTION_TEXT: Record<ActionKind, { title: string, cta: string, tab: string }> = {
-  consent: { title: 'Sign your consent', cta: 'Sign', tab: 'overview' },
-  funding: { title: 'Sign your coins', cta: 'Sign', tab: 'overview' },
+  consent: { title: 'Sign your consent', cta: 'Sign', tab: 'details' },
+  funding: { title: 'Sign your coins', cta: 'Sign', tab: 'details' },
   lock: { title: 'Enough joins: select members and lock', cta: 'Select members', tab: 'members' },
-  broadcast: { title: 'All signatures in: broadcast the registration', cta: 'Broadcast', tab: 'overview' }
+  broadcast: { title: 'All signatures in: broadcast the registration', cta: 'Broadcast', tab: 'details' }
 }
 
 export function MePage (): ReactNode {

@@ -14,7 +14,7 @@ function currentStep (state: PoolState): number {
   return 3
 }
 
-export function OverviewTab ({ state }: { state: PoolState }): ReactNode {
+export function DetailsTab ({ state }: { state: PoolState }): ReactNode {
   const { pool } = state
   const step = currentStep(state)
   const members = Math.max(state.members.length, 2)
