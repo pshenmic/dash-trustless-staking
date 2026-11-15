@@ -106,6 +106,13 @@ const platform: PlatformSource = {
     await latency()
     return state.joins.filter(j => j.ownerId === ownerId)
   },
+  async listJoinsByPools (poolIds) {
+    await latency()
+    const ids = new Set(poolIds)
+    return state.joins
+      .filter(j => ids.has(j.poolId))
+      .sort((a, b) => a.poolId.localeCompare(b.poolId) || a.createdAt - b.createdAt)
+  },
   async listLocks (poolIds) {
     await latency()
     const ids = new Set(poolIds)

@@ -137,15 +137,33 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   type DocumentType = keyof typeof decoders
   type Decoded<T extends DocumentType> = ReturnType<typeof decoders[T]>
 
-  async function query<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy): Promise<Array<Decoded<T>>> {
-    const docs = await sdk.documents.query(contractId, type, where as never, orderBy as never, PAGE) as unknown as RawDocument[]
-    return docs.flatMap(doc => {
+  async function rawPage<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy, startAfter?: string): Promise<RawDocument[]> {
+    return await sdk.documents.query(contractId, type, where as never, orderBy as never, PAGE, undefined, startAfter as never) as unknown as RawDocument[]
+  }
+
+  const decode = <T extends DocumentType>(type: T, docs: RawDocument[]): Array<Decoded<T>> =>
+    docs.flatMap(doc => {
       try {
         return [decoders[type](doc) as Decoded<T>]
       } catch {
         return [] // not a document this app can use
       }
     })
+
+  async function query<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy): Promise<Array<Decoded<T>>> {
+    return decode(type, await rawPage(type, where, orderBy))
+  }
+
+  /** Every matching document: `startAfter` continues past the last one until a page comes back short */
+  async function queryAll<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy): Promise<Array<Decoded<T>>> {
+    const all: Array<Decoded<T>> = []
+    let startAfter: string | undefined
+    for (;;) {
+      const page = await rawPage(type, where, orderBy, startAfter)
+      all.push(...decode(type, page))
+      if (page.length < PAGE) return all
+      startAfter = page[page.length - 1].id.base58()
+    }
   }
 
   /** Documents of one parent (pool or lock), oldest first, over a `parent + $createdAt` index */
@@ -173,7 +191,7 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   const usernames = new Map<string, Promise<string | null>>()
 
   return {
-    listPools: async () => await query('pool', [['$createdAt', '>', 0]], [['$createdAt', 'desc']]),
+    listPools: async () => await queryAll('pool', [['$createdAt', '>', 0]], [['$createdAt', 'desc']]),
     getPool: async id => (await query('pool', [['$id', '==', id]]))[0] ?? null,
     listPoolsByOwner: async ownerId => (await query('pool', [['$ownerId', '==', ownerId]])).sort((a, b) => b.createdAt - a.createdAt),
     listPoolsByOperatorKey: async operatorPubKey => await query(
@@ -181,7 +199,13 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     ),
     listJoins: async poolId => await byParent('join', 'poolId', poolId),
     listJoinsByOwner: async ownerId => await query('join', [['$ownerId', '==', ownerId]]),
-    listLocks: async poolIds => (await Promise.all(poolIds.map(async id => await query('lock', [['poolId', '==', id]])))).flat(),
+    // `in` is a range predicate, so the orderBy has to lead with poolId (index poolId + $createdAt)
+    listJoinsByPools: async poolIds => poolIds.length === 0
+      ? []
+      : await queryAll('join', [['poolId', 'in', poolIds]], [['poolId', 'asc'], ['$createdAt', 'asc']]),
+    listLocks: async poolIds => poolIds.length === 0
+      ? []
+      : await queryAll('lock', [['poolId', 'in', poolIds]], [['poolId', 'asc']]),
     listConsents: async lockId => await query('consent', [['lockId', '==', lockId]]),
     listFundings: async lockId => await query('funding', [['lockId', '==', lockId]]),
     listFeeFundings: async lockId => await query('feeFunding', [['lockId', '==', lockId]]),

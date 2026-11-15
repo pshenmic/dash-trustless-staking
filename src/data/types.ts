@@ -21,6 +21,8 @@ export interface PlatformSource {
   listPoolsByOperatorKey: (operatorPubKey: string) => Promise<Pool[]>
   listJoins: (poolId: string) => Promise<Join[]>
   listJoinsByOwner: (ownerId: string) => Promise<Join[]>
+  /** Joins of several pools in one query (index poolId + $createdAt), oldest first */
+  listJoinsByPools: (poolIds: string[]) => Promise<Join[]>
   /** Locks for the given pools (index poolId + $ownerId) */
   listLocks: (poolIds: string[]) => Promise<Lock[]>
   listConsents: (lockId: string) => Promise<Consent[]>
