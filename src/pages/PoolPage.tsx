@@ -4,10 +4,10 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { IdentityChip, StatusBadge } from '../components/bits'
 import { Chat } from '../components/Chat'
 import { ActionPanel } from '../components/pool/ActionPanel'
-import { ActivityTab } from '../components/pool/ActivityTab'
+import { poolEvents } from '../components/pool/activity'
+import { DetailsTab } from '../components/pool/DetailsTab'
 import { FeedbackTab } from '../components/pool/FeedbackTab'
 import { MembersTab } from '../components/pool/MembersTab'
-import { OverviewTab } from '../components/pool/OverviewTab'
 import { PrivateChat } from '../components/pool/PrivateChat'
 import { hasSigningTask, poolRole } from '../components/pool/role'
 import { SystemTab } from '../components/pool/SystemTab'
@@ -16,7 +16,7 @@ import { usePoolState } from '../hooks/data'
 import { relativeTime } from '../lib/format'
 import { useWallet } from '../wallet/WalletContext'
 
-const TABS = ['overview', 'members', 'activity', 'chat', 'private', 'feedback', 'system'] as const
+const TABS = ['activity', 'details', 'members', 'private', 'feedback', 'system'] as const
 type Tab = typeof TABS[number]
 
 export function PoolPage (): ReactNode {
@@ -28,9 +28,10 @@ export function PoolPage (): ReactNode {
   const role = state == null ? null : poolRole(state, activeIdentity)
   const myMember = role?.myMember ?? null
   const signingFocus = state != null && role != null && hasSigningTask(state, role)
-  const requested: Tab = TABS.includes(params.get('tab') as Tab) ? params.get('tab') as Tab : 'overview'
-  // The System tab only exists for share owners: a stale or hand-typed link falls back to Overview
-  const tab: Tab = requested === 'system' && myMember == null ? 'overview' : requested
+  const requested = params.get('tab') === 'overview' ? 'details' : params.get('tab')
+  const requestedTab: Tab = TABS.includes(requested as Tab) ? requested as Tab : 'activity'
+  // The System tab only exists for share owners: a stale or hand-typed link falls back to Activity
+  const tab: Tab = requestedTab === 'system' && myMember == null ? 'activity' : requestedTab
   const setTab = (value: string): void => setParams(p => { p.set('tab', value); return p }, { replace: true })
 
   useEffect(() => { setDetailsOpen(false) }, [poolId])
@@ -55,10 +56,9 @@ export function PoolPage (): ReactNode {
         listClassName='overflow-x-auto'
         contentClassName='pt-6'
         items={[
-          { value: 'overview', label: 'Overview', content: <OverviewTab state={state} /> },
+          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} events={poolEvents(state)} highlight={[pool.ownerId]} /> },
+          { value: 'details', label: 'Details', content: <DetailsTab state={state} /> },
           { value: 'members', label: `Members · ${state.lock == null ? state.joins.length : state.members.length}`, content: <MembersTab state={state} /> },
-          { value: 'activity', label: 'Activity', content: <ActivityTab state={state} /> },
-          { value: 'chat', label: 'Chat', content: <Chat channel={pool.id} highlight={[pool.ownerId]} /> },
           { value: 'private', label: 'Private chat', content: <PrivateChat state={state} /> },
           { value: 'feedback', label: 'Feedback', content: <FeedbackTab state={state} /> },
           ...(myMember == null ? [] : [{ value: 'system', label: 'System', content: <SystemTab state={state} member={myMember} /> }])
@@ -96,7 +96,7 @@ export function PoolPage (): ReactNode {
                   <button
                     type='button'
                     className='text-small font-bold text-brand-ink hover:underline'
-                    onClick={() => setDetailsOpen(true)}
+                    onClick={() => { setTab('details'); setDetailsOpen(true) }}
                   >
                     View pool details
                   </button>
