@@ -65,21 +65,19 @@ export function createLiveChain (dapiUrls: string[] = []): ChainSource {
 
     void (async () => {
       try {
-        for await (const response of sdk.subscribeToMasternodeList().responses) {
+        for await (const response of await sdk.subscribeToMasternodeList()) {
           const bytes = response.masternodeListDiff
           if (bytes == null || bytes.byteLength === 0) continue
           masternodes.apply(parseMnListDiff(decode(bytes) as Record<string, unknown>))
-          if (masternodes.needsResync) {
-            subscribed = false
-            subscribe()
-            return
-          }
+          if (masternodes.needsResync) break
         }
       } catch {
-        subscribed = false
-        await new Promise(resolve => setTimeout(resolve, RESUBSCRIBE_DELAY_MS))
-        subscribe()
+        // The stream failed; reopen it below
       }
+      // A stream that ends, cleanly or not, must reopen: leaving `subscribed` set freezes the list
+      subscribed = false
+      await new Promise(resolve => setTimeout(resolve, RESUBSCRIBE_DELAY_MS))
+      subscribe()
     })()
   }
 

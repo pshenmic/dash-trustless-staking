@@ -117,7 +117,7 @@ no way for the creator to fill in the gap, and a spent input simply makes the br
 
 ## Using the app
 
-![A pool page: terms, the registration progress bar, and the action panel](docs/screenshots/pool.png)
+![A pool page: one activity feed with chat messages and lifecycle events, the pool details in their own tab, and the action panel](docs/screenshots/pool.png)
 
 1. **Log in.** Dash Platform Extension (preferred) or two keys of the same Platform identity — an
    AUTHENTICATION key to sign your actions and an ENCRYPTION key to open the private chat. Private-key
