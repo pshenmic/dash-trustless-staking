@@ -72,3 +72,5 @@ Thumbs.db
 .env.production
 
 .qwen
+.superpowers
+docs/superpowers

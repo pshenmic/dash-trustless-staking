@@ -103,10 +103,11 @@ export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePool
   }
 }
 
-export async function fetchPoolState (poolId: string): Promise<PoolState | null> {
+export async function fetchPoolState (poolId: string, preloaded?: Pool | null): Promise<PoolState | null> {
+  if (preloaded === null) return null
   // joins, locks and height are keyed by poolId, so they don't need to wait for the pool document
   const [pool, allJoins, locks, height] = await Promise.all([
-    platform.getPool(poolId),
+    preloaded ?? platform.getPool(poolId),
     platform.listJoins(poolId),
     platform.listLocks([poolId]),
     chain.getBestBlockHeight()

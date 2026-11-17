@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { IdentityChip, StatusBadge } from '../components/bits'
 import { Chat } from '../components/Chat'
-import { ActionPanel } from '../components/pool/ActionPanel'
+import { ActionPanel, JoinProgress } from '../components/pool/ActionPanel'
 import { poolEvents } from '../components/pool/activity'
 import { DetailsTab } from '../components/pool/DetailsTab'
 import { FeedbackTab } from '../components/pool/FeedbackTab'
@@ -12,7 +12,7 @@ import { PrivateChat } from '../components/pool/PrivateChat'
 import { hasSigningTask, poolRole } from '../components/pool/role'
 import { SystemTab } from '../components/pool/SystemTab'
 import { Card, EmptyState, Loading } from '../components/ui'
-import { usePoolState } from '../hooks/data'
+import { usePoolDocument, usePoolPreview, usePoolState } from '../hooks/data'
 import { relativeTime } from '../lib/format'
 import { useWallet } from '../wallet/WalletContext'
 
@@ -21,7 +21,10 @@ type Tab = typeof TABS[number]
 
 export function PoolPage (): ReactNode {
   const { poolId = '' } = useParams()
-  const { data: state, isLoading, error } = usePoolState(poolId)
+  const preview = usePoolPreview(poolId)
+  const { data: document } = usePoolDocument(poolId)
+  const { data, error } = usePoolState(poolId)
+  const state = data ?? null
   const { activeIdentity } = useWallet()
   const [params, setParams] = useSearchParams()
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -36,9 +39,10 @@ export function PoolPage (): ReactNode {
 
   useEffect(() => { setDetailsOpen(false) }, [poolId])
 
-  if (isLoading) return <Loading label='Loading pool…' />
+  // Error and not-found come before any preview rendering, so a stale preview never masks them.
+  // data === null means settled-and-absent; undefined means still loading.
   if (error != null) return <EmptyState title='Could not load this pool'>{String(error)}</EmptyState>
-  if (state == null) {
+  if (data === null) {
     return (
       <EmptyState title='Pool not found' action={<Link to='/pools' className='font-bold text-brand-ink'>Back to pools</Link>}>
         No pool document has this ID.
@@ -46,7 +50,11 @@ export function PoolPage (): ReactNode {
     )
   }
 
-  const { pool } = state
+  const pool = state?.pool ?? document ?? preview?.pool ?? null
+  if (pool == null) return <Loading label='Loading pool…' />
+
+  const badgeStatus = state?.status ?? preview?.listStatus
+  const memberCount = state != null ? (state.lock == null ? state.joins.length : state.members.length) : preview?.joinCount ?? '…'
   const details = (
     <Card>
       <Tabs
@@ -56,17 +64,25 @@ export function PoolPage (): ReactNode {
         listClassName='overflow-x-auto'
         contentClassName='pt-6'
         items={[
-          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} events={poolEvents(state)} highlight={[pool.ownerId]} /> },
-          { value: 'details', label: 'Details', content: <DetailsTab state={state} /> },
-          { value: 'members', label: `Members · ${state.lock == null ? state.joins.length : state.members.length}`, content: <MembersTab state={state} /> },
-          { value: 'private', label: 'Private chat', content: <PrivateChat state={state} /> },
-          { value: 'feedback', label: 'Feedback', content: <FeedbackTab state={state} /> },
-          ...(myMember == null ? [] : [{ value: 'system', label: 'System', content: <SystemTab state={state} member={myMember} /> }])
+          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} events={state != null ? poolEvents(state) : []} highlight={[pool.ownerId]} /> },
+          { value: 'details', label: 'Details', content: state != null ? <DetailsTab state={state} /> : <Loading /> },
+          { value: 'members', label: `Members · ${memberCount}`, content: state != null ? <MembersTab state={state} /> : <Loading /> },
+          { value: 'private', label: 'Private chat', content: state != null ? <PrivateChat state={state} /> : <Loading /> },
+          { value: 'feedback', label: 'Feedback', content: state != null ? <FeedbackTab state={state} /> : <Loading /> },
+          ...(myMember != null && state != null ? [{ value: 'system', label: 'System', content: <SystemTab state={state} member={myMember} /> }] : [])
         ]}
       />
     </Card>
   )
-  const actions = <ActionPanel state={state} onShowMembers={() => setTab('members')} />
+  const actions = state != null
+    ? <ActionPanel state={state} onShowMembers={() => setTab('members')} />
+    : (
+      <Card>
+        {preview != null && preview.lock == null
+          ? <JoinProgress total={preview.joinedTotal} />
+          : <Loading label='Loading actions…' />}
+      </Card>
+      )
 
   return (
     <div>
@@ -75,7 +91,7 @@ export function PoolPage (): ReactNode {
       <header className='mt-4 mb-8 flex flex-col gap-4'>
         <div className='flex flex-wrap items-center gap-3'>
           <h1 className='text-title'>{pool.name}</h1>
-          <StatusBadge status={state.status} />
+          {badgeStatus != null && <StatusBadge status={badgeStatus} />}
         </div>
         <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-muted'>
           <span className='inline-flex items-center gap-2'>by <IdentityChip id={pool.ownerId} size='sm' link /></span>
