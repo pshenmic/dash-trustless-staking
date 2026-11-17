@@ -49,6 +49,7 @@ export function useUsername (identityId: string): string | null {
   const { data } = useQuery({
     queryKey: ['username', identityId],
     queryFn: async () => await backend.platform.getUsername(identityId),
+    enabled: identityId !== '',
     staleTime: Infinity
   })
   return data ?? null

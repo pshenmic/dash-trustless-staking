@@ -104,14 +104,14 @@ export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePool
 }
 
 export async function fetchPoolState (poolId: string): Promise<PoolState | null> {
-  const pool = await platform.getPool(poolId)
-  if (pool == null) return null
-
-  const [allJoins, locks, height] = await Promise.all([
-    platform.listJoins(pool.id),
-    platform.listLocks([pool.id]),
+  // joins, locks and height are keyed by poolId, so they don't need to wait for the pool document
+  const [pool, allJoins, locks, height] = await Promise.all([
+    platform.getPool(poolId),
+    platform.listJoins(poolId),
+    platform.listLocks([poolId]),
     chain.getBestBlockHeight()
   ])
+  if (pool == null) return null
   const joins = allJoins.filter(j => joinProblems(j, pool).length === 0)
   const lock = findPoolLock(pool, locks)
 

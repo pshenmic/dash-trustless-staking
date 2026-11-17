@@ -21,6 +21,9 @@ import type { PlatformSource } from '../types'
 /** Signs and broadcasts a state transition for the identity that owns the document */
 export type Signer = (stateTransition: { bytes: () => Uint8Array }) => Promise<void>
 
+/** The contract instance `documents.query` accepts instead of an id (dash-platform-sdk#119) */
+type DataContract = Awaited<ReturnType<DashPlatformSDK['dataContracts']['getDataContractByIdentifier']>>
+
 interface RawDocument {
   id: { base58: () => string }
   ownerId: { base58: () => string }
@@ -32,6 +35,8 @@ type Where = Array<[string, string, unknown]>
 type OrderBy = Array<[string, 'asc' | 'desc']>
 
 const PAGE = 100
+const DPNS_CONTRACT_ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec'
+const NAME_BATCH = 25
 const CONFIRM_TIMEOUT_MS = 45_000
 
 const asBytes = (value: unknown): Uint8Array => {
@@ -137,8 +142,12 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   type DocumentType = keyof typeof decoders
   type Decoded<T extends DocumentType> = ReturnType<typeof decoders[T]>
 
+  // Fetched once and reused: without an instance the SDK refetches the contract before every query
+  let contract: Promise<DataContract> | null = null
+  const dataContract = async (): Promise<DataContract> => (contract ??= sdk.dataContracts.getDataContractByIdentifier(contractId))
+
   async function rawPage<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy, startAfter?: string): Promise<RawDocument[]> {
-    return await sdk.documents.query(contractId, type, where as never, orderBy as never, PAGE, undefined, startAfter as never) as unknown as RawDocument[]
+    return await sdk.documents.query(await dataContract(), type, where as never, orderBy as never, PAGE, undefined, startAfter as never) as unknown as RawDocument[]
   }
 
   const decode = <T extends DocumentType>(type: T, docs: RawDocument[]): Array<Decoded<T>> =>
@@ -189,6 +198,54 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   }
 
   const usernames = new Map<string, Promise<string | null>>()
+  let queuedNames: Array<{ id: string, resolve: (name: string | null) => void }> = []
+  let namesFlush: ReturnType<typeof setTimeout> | null = null
+
+  /** DPNS indexes `records.identity`, so one `in` query resolves a whole render's worth of names */
+  const fetchNames = async (ids: string[]): Promise<Map<string, string>> => {
+    const names = new Map<string, string>()
+    for (let i = 0; i < ids.length; i += NAME_BATCH) {
+      let startAfter: string | undefined
+      const chunk = ids.slice(i, i + NAME_BATCH)
+      for (;;) {
+        // `in` is a range predicate: the orderBy has to lead with the same field
+        const page = await sdk.documents.query(DPNS_CONTRACT_ID, 'domain', [['records.identity', 'in', chunk]] as never, [['records.identity', 'asc']] as never, PAGE, undefined, startAfter as never) as unknown as RawDocument[]
+        for (const doc of page) {
+          const records = doc.properties.records as { identity?: unknown } | undefined
+          const label = doc.properties.label
+          // An identity can hold several names; the first one in index order is the one shown
+          if (records?.identity != null && typeof label === 'string' && !names.has(asId(records.identity))) {
+            names.set(asId(records.identity), `${label}.dash`)
+          }
+        }
+        if (page.length < PAGE) break
+        startAfter = page[page.length - 1].id.base58()
+      }
+    }
+    return names
+  }
+
+  const flushNames = (): void => {
+    const batch = queuedNames
+    queuedNames = []
+    namesFlush = null
+    // One identifier that is not a 32-byte base58 id fails the whole `in` query, so drop it here
+    const usable: typeof batch = []
+    for (const entry of batch) {
+      let size = 0
+      try {
+        size = base58.decode(entry.id).length
+      } catch {
+        size = 0
+      }
+      if (size === 32) usable.push(entry)
+      else entry.resolve(null)
+    }
+    if (usable.length === 0) return
+    void fetchNames(usable.map(entry => entry.id))
+      .then(names => usable.forEach(entry => entry.resolve(names.get(entry.id) ?? null)))
+      .catch(() => usable.forEach(entry => entry.resolve(null)))
+  }
 
   return {
     listPools: async () => await queryAll('pool', [['$createdAt', '>', 0]], [['$createdAt', 'desc']]),
@@ -224,14 +281,14 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     },
 
     async getUsername (identityId) {
+      if (identityId === '') return null
       let pending = usernames.get(identityId)
       if (pending == null) {
-        pending = sdk.names.searchByIdentity(identityId)
-          .then(docs => {
-            const label = (docs[0] as unknown as RawDocument | undefined)?.properties.label
-            return typeof label === 'string' ? `${label}.dash` : null
-          })
-          .catch(() => null)
+        // Chips render together, so their lookups coalesce into one DPNS query per tick
+        pending = new Promise<string | null>(resolve => {
+          queuedNames.push({ id: identityId, resolve })
+          if (namesFlush == null) namesFlush = setTimeout(flushNames, 0)
+        })
         usernames.set(identityId, pending)
       }
       return await pending
