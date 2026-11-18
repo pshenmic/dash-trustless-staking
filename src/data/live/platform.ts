@@ -1,5 +1,8 @@
 import { base58, base64 } from '@scure/base'
 import type { DashPlatformSDK } from 'dash-platform-sdk'
+import { DataContractWASM } from 'pshenmic-dpp'
+import schema from '../../../schema.json'
+import { contractNonce, contractOwner } from '../../config'
 import { addressToKeyId, addressToScript, keyIdToAddress, scriptToAddress } from '../../lib/address'
 import { ByteReader, compactSize, concatBytes, fromHex, toHex } from '../../lib/bytes'
 import { isCountryCode } from '../../lib/countries'
@@ -142,9 +145,15 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   type DocumentType = keyof typeof decoders
   type Decoded<T extends DocumentType> = ReturnType<typeof decoders[T]>
 
-  // Fetched once and reused: without an instance the SDK refetches the contract before every query
-  let contract: Promise<DataContract> | null = null
-  const dataContract = async (): Promise<DataContract> => (contract ??= sdk.dataContracts.getDataContractByIdentifier(contractId))
+  // Built from the published schema at init, so queries skip the getDataContract round-trip entirely.
+  // The id is deterministic in owner + creation nonce; a different configured contract falls back to fetching.
+  const localContract = new DataContractWASM(contractOwner, contractNonce, schema, undefined, undefined, true)
+  localContract.version = 2 // the deployed contract version
+  let fetched: Promise<DataContract> | null = null
+  const dataContract = async (): Promise<DataContract> =>
+    localContract.id.base58() === contractId
+      ? localContract
+      : await (fetched ??= sdk.dataContracts.getDataContractByIdentifier(contractId))
 
   async function rawPage<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy, startAfter?: string): Promise<RawDocument[]> {
     return await sdk.documents.query(await dataContract(), type, where as never, orderBy as never, PAGE, undefined, startAfter as never) as unknown as RawDocument[]
