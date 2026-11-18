@@ -1701,10 +1701,10 @@ csstype@^3.2.2:
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz"
   integrity sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==
 
-dash-core-sdk@1.1.6-dev.2:
-  version "1.1.6-dev.2"
-  resolved "https://registry.yarnpkg.com/dash-core-sdk/-/dash-core-sdk-1.1.6-dev.2.tgz#b6f52cd107adfa3d5eccbf2732e62c372beaa54c"
-  integrity sha512-Zd/EEmY78AKeaGJs0U+IfaR70F5XAjPi8y6byvEfWEqIVjCjiS3zpc1PD1sExMmwdygaLegugVnfbfGaAZi7pg==
+dash-core-sdk@1.1.6:
+  version "1.1.6"
+  resolved "https://registry.yarnpkg.com/dash-core-sdk/-/dash-core-sdk-1.1.6.tgz#a249216a089694a0613098aa95a181ea733b3762"
+  integrity sha512-fUvKKAnScQInMoPkpjbYd4NOaLjDbMuRvQh+hAlDeVyUoUI4jCzmgHY5+7otwDiXW3FRAXlrfiB/4HgWlqQgzA==
   dependencies:
     "@dashevo/x11-hash-js" "^1.0.2"
     "@noble/curves" "^2.0.1"
@@ -1722,10 +1722,10 @@ dash-core-sdk@1.1.6-dev.2:
     typescript "^5.9.2"
     ws "^8.18.3"
 
-dash-platform-sdk@1.6.2:
-  version "1.6.2"
-  resolved "https://registry.yarnpkg.com/dash-platform-sdk/-/dash-platform-sdk-1.6.2.tgz#338b4e99584a54c52767ef020de82cb36d697c4a"
-  integrity sha512-dWC+C0rD09hkf4foRy0yoDdtmc/ifmPALm3sKIRRk+s+zJVc2lmdJKaipsgz9kqrU8AODtYaTLY8xjowu14YVg==
+dash-platform-sdk@1.6.3:
+  version "1.6.3"
+  resolved "https://registry.yarnpkg.com/dash-platform-sdk/-/dash-platform-sdk-1.6.3.tgz#b88cf0d8c67e7e554bdacb8b3645ad4d87d13a4d"
+  integrity sha512-v00Hwi2P+QZp+88lxmFE+CkbI6jvjy808w0CN6yOn/vlJ4W95071cHt/DnsB/wB9iDDMPwBMzqm79cB4TXsjOA==
   dependencies:
     "@bufbuild/protobuf" "^2.6.0"
     "@protobuf-ts/grpcweb-transport" "^2.11.1"

@@ -24,13 +24,16 @@ export interface PoolSummary {
 /** Everything the pools list needs, from Platform only */
 export async function fetchPoolSummaries (): Promise<PoolSummary[]> {
   const pools = await platform.listPools()
-  const [locks, joinLists] = await Promise.all([
-    platform.listLocks(pools.map(p => p.id)),
-    Promise.all(pools.map(async p => await platform.listJoins(p.id)))
+  const poolIds = pools.map(p => p.id)
+  const [locks, allJoins] = await Promise.all([
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
   ])
-  return pools.map((pool, i) => {
+  return pools.map(pool => {
     const lock = findPoolLock(pool, locks)
-    const joins = joinLists[i].filter(j => joinProblems(j, pool).length === 0)
+    const joins = allJoins
+      .filter(j => j.poolId === pool.id)
+      .filter(j => joinProblems(j, pool).length === 0)
     const counted = lock == null ? joins : joins.filter(j => lock.joinIds.includes(j.id))
     return {
       pool,
@@ -100,15 +103,16 @@ export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePool
   }
 }
 
-export async function fetchPoolState (poolId: string): Promise<PoolState | null> {
-  const pool = await platform.getPool(poolId)
-  if (pool == null) return null
-
-  const [allJoins, locks, height] = await Promise.all([
-    platform.listJoins(pool.id),
-    platform.listLocks([pool.id]),
+export async function fetchPoolState (poolId: string, preloaded?: Pool | null): Promise<PoolState | null> {
+  if (preloaded === null) return null
+  // joins, locks and height are keyed by poolId, so they don't need to wait for the pool document
+  const [pool, allJoins, locks, height] = await Promise.all([
+    preloaded ?? platform.getPool(poolId),
+    platform.listJoins(poolId),
+    platform.listLocks([poolId]),
     chain.getBestBlockHeight()
   ])
+  if (pool == null) return null
   const joins = allJoins.filter(j => joinProblems(j, pool).length === 0)
   const lock = findPoolLock(pool, locks)
 

@@ -51,6 +51,25 @@ function ConnectPrompt (): ReactNode {
   )
 }
 
+/** The "Joined so far" numbers, renderable before the full pool state arrives */
+export function JoinProgress ({ total }: { total: number }): ReactNode {
+  return (
+    <div>
+      <div className='text-small text-muted'>Joined so far</div>
+      <div className='mt-1 flex items-baseline gap-1.5'>
+        <Dash duffs={total} className='text-[28px] leading-8 font-extrabold tracking-[-0.03em]' />
+        <span className='text-muted'>of 1000</span>
+      </div>
+      <FillBar joined={total} className='mt-3' />
+      <div className='mt-2 text-small text-muted'>
+        {total < COLLATERAL
+          ? `${formatDash(COLLATERAL - total)} more needed before the creator can lock`
+          : 'Enough joins: the creator can select members and lock'}
+      </div>
+    </div>
+  )
+}
+
 function NewActions ({ state, onShowMembers }: { state: PoolState, onShowMembers: () => void }): ReactNode {
   const { activeIdentity } = useWallet()
   const role = poolRole(state, activeIdentity)
@@ -59,19 +78,7 @@ function NewActions ({ state, onShowMembers }: { state: PoolState, onShowMembers
 
   return (
     <>
-      <div>
-        <div className='text-small text-muted'>Joined so far</div>
-        <div className='mt-1 flex items-baseline gap-1.5'>
-          <Dash duffs={total} className='text-[28px] leading-8 font-extrabold tracking-[-0.03em]' />
-          <span className='text-muted'>of 1000</span>
-        </div>
-        <FillBar joined={total} className='mt-3' />
-        <div className='mt-2 text-small text-muted'>
-          {total < COLLATERAL
-            ? `${formatDash(COLLATERAL - total)} more needed before the creator can lock`
-            : 'Enough joins: the creator can select members and lock'}
-        </div>
-      </div>
+      <JoinProgress total={total} />
 
       {role.isCreator && (
         <div className='flex flex-col gap-2'>
