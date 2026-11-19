@@ -1,5 +1,5 @@
-import { base58 } from '@scure/base'
 import type { Join, Network, Vote, VoteOutcome } from './types'
+import { compareDocumentIds } from './documentId'
 
 /*
  * The governance voting rules shared by the dapp, the operator watcher and any auditor
@@ -14,20 +14,13 @@ export const SUPERBLOCK_PARAMS: Record<Network, { cycle: number, maturityWindow:
   mainnet: { cycle: 16616, maturityWindow: 1662, startBlock: 614820 }
 }
 
-/** Byte-wise lexicographic order of decoded document ids — base58 string order can disagree */
-function idLess (a: string, b: string): boolean {
-  const x = base58.decode(a), y = base58.decode(b)
-  for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] < y[i]
-  return x.length < y.length
-}
-
 /** Latest choice per (proposalHash, ownerId): greatest createdAt, equal timestamps → greater id bytes */
 export function latestChoices (votes: Vote[]): Vote[] {
   const latest = new Map<string, Vote>()
   for (const v of votes) {
     const key = `${v.proposalHash}:${v.ownerId}`
     const current = latest.get(key)
-    if (current == null || v.createdAt > current.createdAt || (v.createdAt === current.createdAt && idLess(current.id, v.id))) {
+    if (current == null || v.createdAt > current.createdAt || (v.createdAt === current.createdAt && compareDocumentIds(current.id, v.id) < 0)) {
       latest.set(key, v)
     }
   }

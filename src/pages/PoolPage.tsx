@@ -1,5 +1,5 @@
 import { Tabs } from 'dash-ui-kit/react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { IdentityChip, StatusBadge } from '../components/bits'
 import { Chat } from '../components/Chat'
@@ -11,11 +11,14 @@ import { GovernanceTab } from '../components/pool/GovernanceTab'
 import { MembersTab } from '../components/pool/MembersTab'
 import { PrivateChat } from '../components/pool/PrivateChat'
 import { hasSigningTask, poolRole } from '../components/pool/role'
+import { SinceLastVisit } from '../components/pool/SinceLastVisit'
 import { SystemTab } from '../components/pool/SystemTab'
 import { Card, EmptyState, Loading } from '../components/ui'
 import { usePoolDocument, usePoolPreview, usePoolState, useVotes } from '../hooks/data'
+import { useSeen } from '../hooks/useSeen'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { relativeTime } from '../lib/format'
+import { changesSince, type PoolChanges } from '../lib/seen'
 import { useWallet } from '../wallet/WalletContext'
 
 const TABS = ['activity', 'details', 'members', 'private', 'feedback', 'governance', 'system'] as const
@@ -31,16 +34,32 @@ export function PoolPage (): ReactNode {
   const poolForGate = state?.pool ?? document ?? preview?.pool ?? null
   const hosted = poolForGate?.votingAddress === HOSTING_VOTING_ADDRESS
   const votes = useVotes(poolId, hosted)
+  const { lastSeen, markSeen } = useSeen(poolId)
   const [params, setParams] = useSearchParams()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const role = state == null ? null : poolRole(state, activeIdentity)
   const myMember = role?.myMember ?? null
   const signingFocus = state != null && role != null && hasSigningTask(state, role)
+  const memberTotal = state == null ? 0 : (state.lock == null ? state.joins.length : state.members.length)
+  // Freeze the diff at arrival: a signature that lands while the page is open is visible live in the
+  // feed and the status badge, and must not make a "since your last visit" banner appear 20 s later.
+  const arrival = useRef<{ poolId: string, changes: PoolChanges | null | undefined }>({ poolId, changes: undefined })
+  if (arrival.current.poolId !== poolId) arrival.current = { poolId, changes: undefined }
+  if (state != null && arrival.current.changes === undefined) {
+    arrival.current.changes = changesSince(lastSeen, { status: state.status, consents: state.consentCount, fundings: state.fundingCount, members: memberTotal })
+  }
+  const changes = arrival.current.changes ?? null
+  // Keep "last seen" at the state currently on screen; the diff above is computed against the mount value
+  useEffect(() => {
+    if (state == null) return
+    markSeen({ status: state.status, consents: state.consentCount, fundings: state.fundingCount, members: memberTotal })
+  }, [markSeen, state, memberTotal])
   const requested = params.get('tab') === 'overview' ? 'details' : params.get('tab')
   const requestedTab: Tab = TABS.includes(requested as Tab) ? requested as Tab : 'activity'
-  // The System tab only exists for share owners; Governance for registered pools (the tab itself
-  // splits on the voting address). A stale or hand-typed link to either falls back to Activity.
-  const governance = state != null && state.lock != null && (state.status === 'REGISTERED' || state.status === 'FORMED')
+  // The System tab only exists for share owners; Governance for any locked pool — choices are Platform
+  // documents, so members can record them while the registration is still waiting for a block. The tab
+  // itself splits on the voting address. A stale or hand-typed link to either falls back to Activity.
+  const governance = state != null && state.lock != null
   const tab: Tab = (requestedTab === 'system' && myMember == null) || (requestedTab === 'governance' && !governance) ? 'activity' : requestedTab
   const setTab = (value: string): void => setParams(p => { p.set('tab', value); return p }, { replace: true })
 
@@ -71,7 +90,7 @@ export function PoolPage (): ReactNode {
         listClassName='overflow-x-auto'
         contentClassName='pt-6'
         items={[
-          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} events={state != null ? [...poolEvents(state), ...(hosted ? voteEvents(votes.data ?? [], state.members.map(m => m.join)) : [])] : []} highlight={[pool.ownerId]} /> },
+          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} since={lastSeen?.at} events={state != null ? [...poolEvents(state), ...(hosted ? voteEvents(votes.data ?? [], state.members.map(m => m.join)) : [])] : []} highlight={[pool.ownerId]} /> },
           { value: 'details', label: 'Details', content: state != null ? <DetailsTab state={state} /> : <Loading /> },
           { value: 'members', label: `Members · ${memberCount}`, content: state != null ? <MembersTab state={state} /> : <Loading /> },
           { value: 'private', label: 'Private chat', content: state != null ? <PrivateChat state={state} /> : <Loading /> },
@@ -108,6 +127,8 @@ export function PoolPage (): ReactNode {
         </div>
         {pool.description !== '' && <p className='max-w-2xl text-muted'>{pool.description}</p>}
       </header>
+
+      {changes != null && <SinceLastVisit changes={changes} />}
 
       {signingFocus
         ? (
