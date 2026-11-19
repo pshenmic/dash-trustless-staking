@@ -285,8 +285,11 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     listFeedback: async poolId => (await byParent('feedback', 'poolId', poolId)).reverse(),
     listChatKeys: async lockId => await byParent('chatKey', 'lockId', lockId),
     listPrivateMessages: async lockId => await byParent('privateMessage', 'lockId', lockId),
+    // No `$createdAt > 0` range here: Drive only accepts that range when the orderBy reaches
+    // $createdAt without a gap, and `poolProposal` has proposalHash in between. Every document has a
+    // $createdAt anyway, so filtering on it adds nothing — verified against the v3 contract.
     listVotes: async poolId => await queryAll('vote',
-      [['poolId', '==', poolId], ['$createdAt', '>', 0]],
+      [['poolId', '==', poolId]],
       [['poolId', 'asc'], ['proposalHash', 'asc'], ['$createdAt', 'asc']]),
     listVotesByProposal: async proposalHash => await queryAll('vote',
       [['proposalHash', '==', fromHex(proposalHash)], ['$createdAt', '>', 0]],
