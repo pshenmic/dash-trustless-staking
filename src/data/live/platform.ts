@@ -7,7 +7,7 @@ import { addressToKeyId, addressToScript, keyIdToAddress, scriptToAddress } from
 import { ByteReader, compactSize, concatBytes, fromHex, toHex } from '../../lib/bytes'
 import { isCountryCode } from '../../lib/countries'
 import type {
-  ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Network, Outpoint, Pool, PrivateMessage
+  ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Network, Outpoint, Pool, PrivateMessage, Vote
 } from '../../lib/types'
 import type { PlatformSource } from '../types'
 
@@ -140,7 +140,13 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     feedback: (doc: RawDocument): Feedback => ({ ...base(doc), poolId: asId(doc.properties.poolId), rating: asNumber(doc.properties.rating), text: String(doc.properties.text ?? '') }),
     message: (doc: RawDocument): Message => ({ ...base(doc), channel: String(doc.properties.channel), text: String(doc.properties.text) }),
     chatKey: (doc: RawDocument): ChatKey => ({ ...base(doc), lockId: asId(doc.properties.lockId), envelopes: toHex(asBytes(doc.properties.envelopes)) }),
-    privateMessage: (doc: RawDocument): PrivateMessage => ({ ...base(doc), lockId: asId(doc.properties.lockId), payload: toHex(asBytes(doc.properties.payload)) })
+    privateMessage: (doc: RawDocument): PrivateMessage => ({ ...base(doc), lockId: asId(doc.properties.lockId), payload: toHex(asBytes(doc.properties.payload)) }),
+    vote: (doc: RawDocument): Vote => {
+      const p = doc.properties
+      const outcome = asNumber(p.outcome)
+      if (outcome !== 1 && outcome !== 2 && outcome !== 3) throw new Error('outcome must be 1, 2 or 3')
+      return { ...base(doc), poolId: asId(p.poolId), proposalHash: toHex(asBytes(p.proposalHash)), outcome }
+    }
   }
   type DocumentType = keyof typeof decoders
   type Decoded<T extends DocumentType> = ReturnType<typeof decoders[T]>
@@ -148,7 +154,7 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   // Built from the published schema at init, so queries skip the getDataContract round-trip entirely.
   // The id is deterministic in owner + creation nonce; a different configured contract falls back to fetching.
   const localContract = new DataContractWASM(contractOwner, contractNonce, schema, undefined, undefined, true)
-  localContract.version = 2 // the deployed contract version
+  localContract.version = 3 // the deployed contract version
   let fetched: Promise<DataContract> | null = null
   const dataContract = async (): Promise<DataContract> =>
     localContract.id.base58() === contractId
@@ -279,6 +285,15 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     listFeedback: async poolId => (await byParent('feedback', 'poolId', poolId)).reverse(),
     listChatKeys: async lockId => await byParent('chatKey', 'lockId', lockId),
     listPrivateMessages: async lockId => await byParent('privateMessage', 'lockId', lockId),
+    listVotes: async poolId => await queryAll('vote',
+      [['poolId', '==', poolId], ['$createdAt', '>', 0]],
+      [['poolId', 'asc'], ['proposalHash', 'asc'], ['$createdAt', 'asc']]),
+    listVotesByProposal: async proposalHash => await queryAll('vote',
+      [['proposalHash', '==', fromHex(proposalHash)], ['$createdAt', '>', 0]],
+      [['proposalHash', 'asc'], ['$createdAt', 'asc']]),
+    listRecentVotes: async (limit = 100) => decode('vote',
+      await sdk.documents.query(await dataContract(), 'vote', [['$createdAt', '>', 0]] as never, [['$createdAt', 'desc']] as never, limit) as unknown as RawDocument[]),
+    listAllVotes: async () => await queryAll('vote', [['$createdAt', '>', 0]], [['$createdAt', 'asc']]),
 
     async getEncryptionKeys (identityId) {
       const keys = await sdk.identities.getIdentityPublicKeys(identityId)
@@ -351,6 +366,9 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     }),
     sendPrivateMessage: async (identity, message) => await publish(identity, 'privateMessage', {
       lockId: idBytes(message.lockId), payload: fromHex(message.payload)
+    }),
+    createVote: async (identity, vote) => await publish(identity, 'vote', {
+      poolId: idBytes(vote.poolId), proposalHash: fromHex(vote.proposalHash), outcome: vote.outcome
     })
   }
 }

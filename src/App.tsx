@@ -4,6 +4,7 @@ import { ChatPage } from './pages/ChatPage'
 import { CreatePoolPage } from './pages/CreatePoolPage'
 import { CreatorPage } from './pages/CreatorPage'
 import { GuidePage } from './pages/GuidePage'
+import { GovernancePage } from './pages/GovernancePage'
 import { HomePage } from './pages/HomePage'
 import { MePage } from './pages/MePage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -23,6 +24,7 @@ export const router = createHashRouter([
       { path: '/me', element: <MePage /> },
       { path: '/creators/:identityId', element: <CreatorPage /> },
       { path: '/chat', element: <ChatPage /> },
+      { path: '/governance', element: <GovernancePage /> },
       { path: '/guide', element: <GuidePage /> },
       { path: '/settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> }

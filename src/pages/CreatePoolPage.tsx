@@ -8,7 +8,7 @@ import { errorMessage, useToast } from '../components/Toast'
 import { backend } from '../data'
 import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
 import { useHostingOptions, useWrite } from '../hooks/data'
-import { buildHostingProvider } from '../hosting'
+import { buildHostingProvider, HOSTING_VOTING_ADDRESS } from '../hosting'
 import { COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, formatDash, parseDash } from '../lib/format'
 import { memberFeeShares, isBlsPublicKey, validatePoolTerms, type PoolTermsInput } from '../lib/rules'
@@ -90,6 +90,7 @@ export function CreatePoolPage (): ReactNode {
   const [form, setForm] = useState(() => ({
     name: '', description: '', service: '', operatorPubKey: '', votingAddress: '',
     operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5', fee: '', feePayer: 'creator',
+    allowVoting: 'true',
     // Old drafts predate the fee fields; keep their values and fill the new ones with defaults
     ...(draft?.form ?? {})
   }))
@@ -103,8 +104,11 @@ export function CreatePoolPage (): ReactNode {
     // Only a third-party operator's key carries a location; custom pools leave it out
     location: provider != null ? selectedKey?.country ?? '' : '',
     operatorPubKey: form.operatorPubKey.trim().toLowerCase(),
-    // A third-party operator votes with their own key for the chosen operator key
-    votingAddress: provider != null ? selectedKey?.votingAddress ?? '' : form.votingAddress.trim(),
+    // A third-party operator votes with their own key for the chosen operator key; a custom operator
+    // either uses the shared voting address (members vote in the app) or their own
+    votingAddress: provider != null
+      ? selectedKey?.votingAddress ?? ''
+      : form.allowVoting === 'false' ? form.votingAddress.trim() : HOSTING_VOTING_ADDRESS,
     // A third-party operator's key fixes the fee; only a custom operator sets their own
     operatorReward: provider != null ? selectedKey?.operatorReward ?? NaN : Math.round(Number(form.operatorReward) * 100),
     earlyPeriodBlocks: form.earlyPeriodBlocks.trim() === '' ? NaN : Number(form.earlyPeriodBlocks),
@@ -115,6 +119,8 @@ export function CreatePoolPage (): ReactNode {
   }
   if (provider == null && (form.operatorReward.trim() === '' || !Number.isFinite(Number(form.operatorReward)))) terms.operatorReward = NaN
   const errors = validatePoolTerms(terms, network, strict)
+  // The shared voting address is system-provided, not user input: no shape check while the box is ticked
+  if (provider == null && form.allowVoting !== 'false') delete errors.votingAddress
 
   // A key a masternode already holds would make the registration fail; other pools only get a warning
   const keyUsage = useQuery({
@@ -249,7 +255,7 @@ export function CreatePoolPage (): ReactNode {
                   </Field>
                   {keyUsage.data != null && <OperatorKeyNotice usage={keyUsage.data} creating />}
                   <Notice tone='info'>
-                    You run this node, so you hold the operator key and the voting key. The operator key also controls
+                    You run this node, so you hold the operator key{form.allowVoting === 'false' ? ' and the voting key' : '; the voting key is held by the shared voting service'}. The operator key also controls
                     the node’s address and your payout address. Members can’t change either key without everyone
                     signing, and neither key can move anyone’s coins.
                   </Notice>
@@ -262,9 +268,23 @@ export function CreatePoolPage (): ReactNode {
                   >
                     <Input id='pool-service' value={form.service} onChange={e => set('service')(e.target.value)} placeholder='203.0.113.10:9999' spellCheck={false} />
                   </Field>
-                  <Field label='Voting address' error={show('votingAddress')} hint='A P2PKH address whose key votes on governance proposals' htmlFor='pool-voting'>
-                    <Input id='pool-voting' value={form.votingAddress} onChange={e => set('votingAddress')(e.target.value)} placeholder='y…' spellCheck={false} />
-                  </Field>
+                  <label className='flex items-start gap-3 text-small'>
+                    <input
+                      type='checkbox'
+                      className='mt-1'
+                      checked={form.allowVoting !== 'false'}
+                      onChange={e => set('allowVoting')(e.target.checked ? 'true' : 'false')}
+                    />
+                    <span>
+                      <span className='font-bold'>Allow members to vote</span>
+                      <span className='block text-tag text-muted'>Use the shared voting address so members can record governance choices in the app. With your own voting address, the pool can’t take part in shared voting.</span>
+                    </span>
+                  </label>
+                  {form.allowVoting === 'false' && (
+                    <Field label='Voting address' error={show('votingAddress')} hint='A P2PKH address whose key votes on governance proposals' htmlFor='pool-voting'>
+                      <Input id='pool-voting' value={form.votingAddress} onChange={e => set('votingAddress')(e.target.value)} placeholder='y…' spellCheck={false} />
+                    </Field>
+                  )}
                   <Field label='Operator fee' error={show('operatorReward')} hint='Your cut of each masternode reward, before members are paid' htmlFor='pool-reward'>
                     <Input id='pool-reward' inputMode='decimal' value={form.operatorReward} onChange={e => set('operatorReward')(e.target.value)} prefix='%' />
                   </Field>
@@ -370,7 +390,12 @@ export function CreatePoolPage (): ReactNode {
               <KeyValue label='Masternode IP:PORT'>
                 {terms.service !== '' ? <span className='font-mono'>{terms.service}</span> : provider != null ? `Set by ${provider.name} after registration` : 'Set after registration'}
               </KeyValue>
-              <KeyValue label='Voting address'><span className='font-mono text-small break-all'>{terms.votingAddress}</span></KeyValue>
+              <KeyValue
+                label='Voting address'
+                hint={provider == null && form.allowVoting !== 'false' ? 'Shared voting address — members record governance choices in the app' : undefined}
+              >
+                <span className='font-mono text-small break-all'>{terms.votingAddress}</span>
+              </KeyValue>
               <KeyValue label='Operator fee'>{formatBasisPoints(terms.operatorReward)}</KeyValue>
               <KeyValue
                 label='Registration fee'

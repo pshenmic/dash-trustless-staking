@@ -1,4 +1,4 @@
-import type { ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Pool, PrivateMessage } from '../../lib/types'
+import type { ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Pool, PrivateMessage, Vote } from '../../lib/types'
 import { randomBase58, seededRandom } from './mockHash'
 
 export interface MockChainState {
@@ -24,13 +24,14 @@ export interface MockState {
   feedback: Feedback[]
   chatKeys: ChatKey[]
   privateMessages: PrivateMessage[]
+  votes: Vote[]
   /** Identities without an encryption key: they can join, but not read private chats */
   noEncryptionKey: string[]
   usernames: Record<string, string>
   chain: MockChainState
 }
 
-export const MOCK_STATE_VERSION = 11
+export const MOCK_STATE_VERSION = 12
 
 const NAMES = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'grace', 'heidi', 'ivan', 'judy', 'nodeops', 'oscar'] as const
 
@@ -57,6 +58,7 @@ export function createFixtures (now = Date.now()): MockState {
     feedback: [],
     chatKeys: [],
     privateMessages: [],
+    votes: [],
     // Two identities without an encryption key, to try the "joined without a key" case
     noEncryptionKey: [identities.frank, identities.oscar],
     usernames: Object.fromEntries(NAMES.map(n => [identities[n], `${n}.dash`])),

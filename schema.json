@@ -612,5 +612,98 @@
       }
     ],
     "additionalProperties": false
+  },
+  "vote": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "description": "A member's choice on a governance proposal. Immutable: changing a choice publishes a new document; the latest per member counts, weighted by stake, an exact tie abstains.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "proposalHash": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 1,
+        "description": "Dash Core governance object hash of the proposal"
+      },
+      "outcome": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 3,
+        "position": 2,
+        "description": "Core vote_outcome_t: 1 YES, 2 NO, 3 ABSTAIN"
+      }
+    },
+    "required": [
+      "poolId",
+      "proposalHash",
+      "outcome",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolProposal",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "proposalHash": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "proposalCreatedAt",
+        "properties": [
+          {
+            "proposalHash": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "createdAt",
+        "properties": [
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
   }
 }

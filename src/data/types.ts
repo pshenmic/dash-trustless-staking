@@ -1,6 +1,6 @@
 import type {
   ChainTx, ChatKey, Consent, Duffs, EncryptionKey, Feedback, Funding, Join, Lock, MasternodeEntry, Message, Outpoint,
-  Pool, Prevout, PrivateMessage
+  Pool, Prevout, PrivateMessage, Vote
 } from '../lib/types'
 import type { DissolutionContext, DissolutionVerdict } from '../lib/dissolution'
 
@@ -33,6 +33,14 @@ export interface PlatformSource {
   listFeedback: (poolId: string) => Promise<Feedback[]>
   listChatKeys: (lockId: string) => Promise<ChatKey[]>
   listPrivateMessages: (lockId: string) => Promise<PrivateMessage[]>
+  /** Vote documents of a pool, oldest first (index poolId + proposalHash + $createdAt) */
+  listVotes: (poolId: string) => Promise<Vote[]>
+  /** Vote documents on a proposal across all pools, oldest first (index proposalHash + $createdAt) */
+  listVotesByProposal: (proposalHash: string) => Promise<Vote[]>
+  /** Most recent vote documents across all pools, newest first (index $createdAt) */
+  listRecentVotes: (limit?: number) => Promise<Vote[]>
+  /** Every vote document across all pools, oldest first (index $createdAt) */
+  listAllVotes: () => Promise<Vote[]>
   /**
    * Identity keys others can encrypt to: enabled ECDSA_SECP256K1 keys with the ENCRYPTION or DECRYPTION
    * purpose, whose full public key is on Platform
@@ -52,6 +60,7 @@ export interface PlatformSource {
   createFeedback: (identity: string, data: NewDocument<Feedback>) => Promise<Feedback>
   createChatKey: (identity: string, data: NewDocument<ChatKey>) => Promise<ChatKey>
   sendPrivateMessage: (identity: string, data: NewDocument<PrivateMessage>) => Promise<PrivateMessage>
+  createVote: (identity: string, data: NewDocument<Vote>) => Promise<Vote>
 }
 
 export interface ChainSource {

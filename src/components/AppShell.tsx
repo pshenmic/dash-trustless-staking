@@ -16,6 +16,7 @@ const NAV = [
   { to: '/pools', label: 'Pools', icon: PoolsIcon },
   { to: '/pools/new', label: 'Create', icon: PlusIcon },
   { to: '/me', label: 'My dashboard', short: 'Me', icon: UserIcon },
+  { to: '/governance', label: 'Governance', short: 'Votes', icon: VoteIcon },
   { to: '/guide', label: 'Guide', icon: BookIcon }
 ]
 
@@ -220,7 +221,7 @@ function BottomNav (): ReactNode {
       aria-label='Main'
       className='fixed inset-x-0 bottom-0 z-40 border-t border-line/60 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden'
     >
-      <div className='grid grid-cols-5'>
+      <div className='grid grid-cols-6'>
         {[...NAV, { to: '/settings', label: 'Settings', icon: GearIcon }].map(item => (
           <NavLink
             key={item.to}
@@ -261,6 +262,9 @@ function UserIcon (): ReactNode {
 }
 function BookIcon (): ReactNode {
   return <Icon><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z' /><path d='M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5' /></Icon>
+}
+function VoteIcon (): ReactNode {
+  return <Icon><path d='M5 12l4 4L19 6' /><path d='M3 20h18' /></Icon>
 }
 function GearIcon (): ReactNode {
   return <Icon><circle cx='12' cy='12' r='3' /><path d='M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z' /></Icon>

@@ -4,19 +4,21 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { IdentityChip, StatusBadge } from '../components/bits'
 import { Chat } from '../components/Chat'
 import { ActionPanel, JoinProgress } from '../components/pool/ActionPanel'
-import { poolEvents } from '../components/pool/activity'
+import { poolEvents, voteEvents } from '../components/pool/activity'
 import { DetailsTab } from '../components/pool/DetailsTab'
 import { FeedbackTab } from '../components/pool/FeedbackTab'
+import { GovernanceTab } from '../components/pool/GovernanceTab'
 import { MembersTab } from '../components/pool/MembersTab'
 import { PrivateChat } from '../components/pool/PrivateChat'
 import { hasSigningTask, poolRole } from '../components/pool/role'
 import { SystemTab } from '../components/pool/SystemTab'
 import { Card, EmptyState, Loading } from '../components/ui'
-import { usePoolDocument, usePoolPreview, usePoolState } from '../hooks/data'
+import { usePoolDocument, usePoolPreview, usePoolState, useVotes } from '../hooks/data'
+import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { relativeTime } from '../lib/format'
 import { useWallet } from '../wallet/WalletContext'
 
-const TABS = ['activity', 'details', 'members', 'private', 'feedback', 'system'] as const
+const TABS = ['activity', 'details', 'members', 'private', 'feedback', 'governance', 'system'] as const
 type Tab = typeof TABS[number]
 
 export function PoolPage (): ReactNode {
@@ -26,6 +28,9 @@ export function PoolPage (): ReactNode {
   const { data, error } = usePoolState(poolId)
   const state = data ?? null
   const { activeIdentity } = useWallet()
+  const poolForGate = state?.pool ?? document ?? preview?.pool ?? null
+  const hosted = poolForGate?.votingAddress === HOSTING_VOTING_ADDRESS
+  const votes = useVotes(poolId, hosted)
   const [params, setParams] = useSearchParams()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const role = state == null ? null : poolRole(state, activeIdentity)
@@ -33,8 +38,10 @@ export function PoolPage (): ReactNode {
   const signingFocus = state != null && role != null && hasSigningTask(state, role)
   const requested = params.get('tab') === 'overview' ? 'details' : params.get('tab')
   const requestedTab: Tab = TABS.includes(requested as Tab) ? requested as Tab : 'activity'
-  // The System tab only exists for share owners: a stale or hand-typed link falls back to Activity
-  const tab: Tab = requestedTab === 'system' && myMember == null ? 'activity' : requestedTab
+  // The System tab only exists for share owners; Governance for registered pools (the tab itself
+  // splits on the voting address). A stale or hand-typed link to either falls back to Activity.
+  const governance = state != null && state.lock != null && (state.status === 'REGISTERED' || state.status === 'FORMED')
+  const tab: Tab = (requestedTab === 'system' && myMember == null) || (requestedTab === 'governance' && !governance) ? 'activity' : requestedTab
   const setTab = (value: string): void => setParams(p => { p.set('tab', value); return p }, { replace: true })
 
   useEffect(() => { setDetailsOpen(false) }, [poolId])
@@ -64,11 +71,12 @@ export function PoolPage (): ReactNode {
         listClassName='overflow-x-auto'
         contentClassName='pt-6'
         items={[
-          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} events={state != null ? poolEvents(state) : []} highlight={[pool.ownerId]} /> },
+          { value: 'activity', label: 'Activity', content: <Chat channel={pool.id} events={state != null ? [...poolEvents(state), ...(hosted ? voteEvents(votes.data ?? [], state.members.map(m => m.join)) : [])] : []} highlight={[pool.ownerId]} /> },
           { value: 'details', label: 'Details', content: state != null ? <DetailsTab state={state} /> : <Loading /> },
           { value: 'members', label: `Members · ${memberCount}`, content: state != null ? <MembersTab state={state} /> : <Loading /> },
           { value: 'private', label: 'Private chat', content: state != null ? <PrivateChat state={state} /> : <Loading /> },
           { value: 'feedback', label: 'Feedback', content: state != null ? <FeedbackTab state={state} /> : <Loading /> },
+          ...(governance && state != null ? [{ value: 'governance', label: 'Governance', content: <GovernanceTab state={state} /> }] : []),
           ...(myMember != null && state != null ? [{ value: 'system', label: 'System', content: <SystemTab state={state} member={myMember} /> }] : [])
         ]}
       />
