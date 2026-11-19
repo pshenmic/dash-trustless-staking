@@ -154,7 +154,7 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   // Built from the published schema at init, so queries skip the getDataContract round-trip entirely.
   // The id is deterministic in owner + creation nonce; a different configured contract falls back to fetching.
   const localContract = new DataContractWASM(contractOwner, contractNonce, schema, undefined, undefined, true)
-  localContract.version = 2 // the deployed contract version
+  localContract.version = 3 // the deployed contract version
   let fetched: Promise<DataContract> | null = null
   const dataContract = async (): Promise<DataContract> =>
     localContract.id.base58() === contractId
