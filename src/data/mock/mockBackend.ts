@@ -1,10 +1,11 @@
 import { BLOCK_TIME_SECONDS } from '../../lib/consensus'
-import type { BaseDocument, Outpoint, Pool } from '../../lib/types'
+import type { BaseDocument, Join, Lock, Outpoint, Pool, Vote, VoteOutcome } from '../../lib/types'
+import { HOSTING_VOTING_ADDRESS } from '../../hosting'
 import { outpointKey, type Backend, type ChainSource, type NewDocument, type PlatformSource } from '../types'
 import { createFixtures, MOCK_STATE_VERSION, type MockState } from './fixtures'
 import { mockChatCrypto, mockEncryptionKey } from './mockChat'
-import { randomBase58, seededRandom } from './mockHash'
-import { MOCK_DISSOLVE_PREFIX, MOCK_REGISTRATION_PREFIX, mockTxBuilder } from './mockTxBuilder'
+import { mockHash, mockSignature, randomBase58, seededRandom } from './mockHash'
+import { MOCK_DISSOLVE_PREFIX, MOCK_REGISTRATION_PREFIX, mockConsentHash, mockProTxHash, mockScriptSigs, mockTxBuilder } from './mockTxBuilder'
 
 /*
  * In-memory Platform + DAPI stand-in. State is kept in localStorage so flows survive reloads;
@@ -51,6 +52,57 @@ export function mockRegisterOutput (outpoint: Outpoint, value: number): void {
 
 export function mockUsernames (): Record<string, string> {
   return state.usernames
+}
+
+const QUICK_SHARE = 200 * 100_000_000
+const QUICK_FEE = 20_000
+
+/** One-click running 5-member hosted pool for testing; the owner (if logged in) is a member and creator */
+export function createQuickPool (ownerId: string | null): Pool {
+  const others = Object.keys(state.usernames).filter(id => id !== ownerId)
+  const members = ownerId != null ? [ownerId, ...others.slice(0, 4)] : others.slice(0, 5)
+  const creator = ownerId ?? members[0]
+  const pool: Pool = {
+    id: randomBase58(idRandom, 44), ownerId: creator, createdAt: Date.now(),
+    name: `Test pool ${state.pools.length + 1}`, description: 'Quick mock pool for testing.',
+    operatorPubKey: mockHash(`op:${randomBase58(idRandom, 8)}`, 48), votingAddress: HOSTING_VOTING_ADDRESS,
+    operatorReward: 500, earlyPeriodBlocks: 17280, earlyPenalty: 5 * 100_000_000, fee: QUICK_FEE, feePayer: 'members'
+  }
+  const feeShare = Math.floor(QUICK_FEE / members.length)
+  const joins: Join[] = members.map((m, i) => {
+    const input = { txid: mockHash(`in:${pool.id}:${m}`, 32), vout: 0 }
+    state.chain.outputs[outpointKey(input)] = QUICK_SHARE + feeShare + 1000
+    return {
+      id: randomBase58(idRandom, 44), ownerId: m, createdAt: Date.now(), poolId: pool.id, amount: QUICK_SHARE,
+      ownerAddress: `yOwner${i}`, refundAddress: `yRefund${i}`, inputs: [input], changeAddress: `yChange${i}`
+    }
+  })
+  const lock: Lock = { id: randomBase58(idRandom, 44), ownerId: creator, createdAt: Date.now(), poolId: pool.id, joinIds: joins.map(j => j.id) }
+  const consentHash = mockConsentHash(pool, joins)
+  joins.forEach((j, i) => {
+    state.consents.push({ id: randomBase58(idRandom, 44), ownerId: j.ownerId, createdAt: Date.now(), lockId: lock.id, signature: mockSignature(`${consentHash}:${i}`) })
+    state.fundings.push({ id: randomBase58(idRandom, 44), ownerId: j.ownerId, createdAt: Date.now(), lockId: lock.id, scriptSigs: mockScriptSigs(`${consentHash}:${i}`, j.inputs.length) })
+  })
+  const proTxHash = mockProTxHash(consentHash)
+  state.chain.txHeights[proTxHash] = currentHeight()
+  state.chain.masternodes[proTxHash] = { isValid: true, service: '1.2.3.4:19999', operatorPubKey: pool.operatorPubKey }
+  state.pools.push(pool)
+  state.joins.push(...joins)
+  state.locks.push(lock)
+  save()
+  return pool
+}
+
+/** One-click test votes: a fresh proposal with a mixed choice from every locked member */
+export function createTestVotes (poolId: string): Vote[] {
+  const lock = state.locks.find(l => l.poolId === poolId)
+  if (lock == null) return []
+  const joins = state.joins.filter(j => lock.joinIds.includes(j.id))
+  const proposalHash = mockHash(`proposal:${Date.now()}:${randomBase58(idRandom, 8)}`, 32)
+  const outcomes: VoteOutcome[] = [1, 2, 3]
+  const votes = joins.map(j => create(state.votes, j.ownerId, { poolId, proposalHash, outcome: outcomes[Math.floor(Math.random() * outcomes.length)] }))
+  save()
+  return votes
 }
 
 const latency = async (): Promise<void> => await new Promise(resolve => setTimeout(resolve, 120 + Math.random() * 200))
@@ -146,6 +198,22 @@ const platform: PlatformSource = {
     await latency()
     return state.privateMessages.filter(m => m.lockId === lockId).sort((a, b) => a.createdAt - b.createdAt)
   },
+  async listVotes (poolId) {
+    await latency()
+    return state.votes.filter(v => v.poolId === poolId).sort((a, b) => a.createdAt - b.createdAt)
+  },
+  async listVotesByProposal (proposalHash) {
+    await latency()
+    return state.votes.filter(v => v.proposalHash === proposalHash).sort((a, b) => a.createdAt - b.createdAt)
+  },
+  async listRecentVotes (limit = 100) {
+    await latency()
+    return [...state.votes].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit)
+  },
+  async listAllVotes () {
+    await latency()
+    return [...state.votes].sort((a, b) => a.createdAt - b.createdAt)
+  },
   async getEncryptionKeys (identityId) {
     await latency()
     return state.noEncryptionKey.includes(identityId) ? [] : [mockEncryptionKey(identityId)]
@@ -200,6 +268,10 @@ const platform: PlatformSource = {
   async sendPrivateMessage (identity, data) {
     await latency()
     return create(state.privateMessages, identity, data)
+  },
+  async createVote (identity, data) {
+    await latency()
+    return create(state.votes, identity, data)
   }
 }
 

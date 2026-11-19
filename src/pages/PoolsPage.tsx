@@ -1,13 +1,15 @@
 import { Input, Select } from 'dash-ui-kit/react'
 import { Button } from '../components/Button'
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { PoolCard } from '../components/PoolCard'
 import { Chip, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { useQuery } from '@tanstack/react-query'
 import { backend } from '../data'
-import { usePoolSummaries } from '../hooks/data'
+import { createQuickPool } from '../data/mock/mockBackend'
+import { usePoolSummaries, useWrite } from '../hooks/data'
 import { isBlsPublicKey } from '../lib/rules'
+import { useWallet } from '../wallet/WalletContext'
 import type { PoolSummary } from '../data/queries'
 
 type Filter = 'all' | 'NEW' | 'LOCKED'
@@ -21,6 +23,9 @@ const SORTS: Record<Sort, (a: PoolSummary, b: PoolSummary) => number> = {
 
 export function PoolsPage (): ReactNode {
   const { data, isLoading, error } = usePoolSummaries()
+  const navigate = useNavigate()
+  const { activeIdentity } = useWallet()
+  const quickPool = useWrite(async () => createQuickPool(activeIdentity))
   const [filter, setFilter] = useState<Filter>('NEW')
   const [sort, setSort] = useState<Sort>('newest')
   const [query, setQuery] = useState('')
@@ -58,7 +63,21 @@ export function PoolsPage (): ReactNode {
       <PageHeader
         title='Pools'
         subtitle='Each pool is one shared masternode. Join an open pool, or open your own.'
-        actions={<Link to='/pools/new'><Button colorScheme='brand' size='md'>Create a pool</Button></Link>}
+        actions={
+          <div className='flex flex-wrap gap-2'>
+            {backend.mode === 'mock' && (
+              <Button
+                colorScheme='mint'
+                size='md'
+                disabled={quickPool.isPending}
+                onClick={() => quickPool.mutate(undefined, { onSuccess: pool => navigate(`/pools/${pool.id}`) })}
+              >
+                {quickPool.isPending ? 'Creating…' : 'Quick test pool'}
+              </Button>
+            )}
+            <Link to='/pools/new'><Button colorScheme='brand' size='md'>Create a pool</Button></Link>
+          </div>
+        }
       />
 
       <div className='mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>

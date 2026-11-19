@@ -112,6 +112,17 @@ export interface PrivateMessage extends BaseDocument {
   payload: string
 }
 
+/** Governance vote outcome, Core's vote_outcome_t: 1 YES, 2 NO, 3 ABSTAIN */
+export type VoteOutcome = 1 | 2 | 3
+
+/** A member's recorded choice on a proposal. Immutable; the newest per member counts (lib/voting.ts) */
+export interface Vote extends BaseDocument {
+  poolId: string
+  /** Governance object hash, hex */
+  proposalHash: string
+  outcome: VoteOutcome
+}
+
 /** An identity public key others can encrypt to */
 export interface EncryptionKey {
   id: number

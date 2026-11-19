@@ -8,10 +8,12 @@ export const HOSTING_CONTRACT_ID = import.meta.env?.VITE_HOSTING_CONTRACT_ID ?? 
 export const HOSTING_OWNER_ID = import.meta.env?.VITE_HOSTING_OWNER_ID ?? '9m1QYXVRyUpg99PyVD6DcdffuMhsJfgwLDxTeAg6PxDj'
 
 /**
- * The voting address every pool hosted by pshenmic.dev must use. The operator holds this key and votes
- * on governance for the masternode; it is not derived from the hosting contract.
+ * The voting address whose key is loaded in the voting software (VITE_VOTING_ADDRESS). Hosted pools
+ * pin to it, and the governance tab offers shared voting only for pools whose voting address matches
+ * it. The operator holds this key and votes on governance for the masternode; it is not derived from
+ * the hosting contract.
  */
-export const HOSTING_VOTING_ADDRESS = 'ygVtwBQx7MiHS84FtX8CFTqgFBf8z25B2b'
+export const HOSTING_VOTING_ADDRESS = import.meta.env?.VITE_VOTING_ADDRESS ?? 'ygVtwBQx7MiHS84FtX8CFTqgFBf8z25B2b'
 
 export const HOSTING_PROVIDER_ID = 'pshenmic.dev'
 

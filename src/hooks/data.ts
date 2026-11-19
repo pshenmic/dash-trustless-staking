@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { backend } from '../data'
 import {
-  fetchCreatorProfile, fetchMyActivity, fetchPoolState, fetchPoolSummaries,
-  type CreatorProfile, type MyActivity, type PoolState, type PoolSummary
+  fetchCreatorProfile, fetchMyActivity, fetchPoolState, fetchPoolSummaries, fetchProposalSentiment, fetchGovernanceStats,
+  type CreatorProfile, type MyActivity, type PoolState, type PoolSummary, type ProposalSentiment
 } from '../data/queries'
+import type { GovernanceStats } from '../lib/governanceStats'
 import type { HostingOptions } from '../data/types'
-import type { Feedback, Message, Pool } from '../lib/types'
+import type { Feedback, Message, Pool, Vote } from '../lib/types'
+import { useNetwork } from '../lib/network'
+import { isProposalHash } from '../lib/voting'
 
 export function usePoolSummaries (): UseQueryResult<PoolSummary[]> {
   return useQuery({ queryKey: ['pools'], queryFn: fetchPoolSummaries, refetchInterval: 30_000 })
@@ -55,6 +58,29 @@ export function useMessages (channel: string): UseQueryResult<Message[]> {
 
 export function useFeedback (poolId: string): UseQueryResult<Feedback[]> {
   return useQuery({ queryKey: ['feedback', poolId], queryFn: async () => await backend.platform.listFeedback(poolId) })
+}
+
+export function useVotes (poolId: string, enabled = true): UseQueryResult<Vote[]> {
+  // The tally is multi-user: poll so a member watching the tab sees others' choices
+  return useQuery({ queryKey: ['votes', poolId], queryFn: async () => await backend.platform.listVotes(poolId), enabled, refetchInterval: 30_000 })
+}
+
+export function useRecentVotes (limit = 100): UseQueryResult<Vote[]> {
+  return useQuery({ queryKey: ['recent-votes', limit], queryFn: async () => await backend.platform.listRecentVotes(limit), refetchInterval: 30_000 })
+}
+
+export function useProposalSentiment (proposalHash: string | null): UseQueryResult<ProposalSentiment> {
+  return useQuery({
+    queryKey: ['sentiment', proposalHash],
+    queryFn: async () => await fetchProposalSentiment(proposalHash as string),
+    enabled: proposalHash != null && isProposalHash(proposalHash),
+    refetchInterval: 30_000
+  })
+}
+
+export function useGovernanceStats (): UseQueryResult<GovernanceStats> {
+  const { network } = useNetwork()
+  return useQuery({ queryKey: ['governance-stats', network], queryFn: async () => await fetchGovernanceStats(network), refetchInterval: 30_000 })
 }
 
 export function useCreatorProfile (ownerId: string): UseQueryResult<CreatorProfile> {

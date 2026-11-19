@@ -1,5 +1,7 @@
 import type { PoolState } from '../../data/queries'
 import { formatDash } from '../../lib/format'
+import type { Join, Vote } from '../../lib/types'
+import { outcomeLabel } from '../../lib/voting'
 
 export interface PoolEvent {
   /** Milliseconds since the epoch, or null for chain state that has no single moment */
@@ -7,6 +9,17 @@ export interface PoolEvent {
   who?: string
   text: string
   tone?: 'brand' | 'mint' | 'red'
+}
+
+/**
+ * Member vote choices as feed events. Members only (anyone can publish a vote naming any pool), and
+ * every recorded choice gets a line — including superseded ones — so the feed is a chronological log.
+ */
+export function voteEvents (votes: Vote[], members: Join[]): PoolEvent[] {
+  const memberIds = new Set(members.map(m => m.ownerId))
+  return votes
+    .filter(v => memberIds.has(v.ownerId))
+    .map(v => ({ at: v.createdAt, who: v.ownerId, text: `recorded ${outcomeLabel(v.outcome)} on proposal ${v.proposalHash.slice(0, 8)}…`, tone: 'mint' as const }))
 }
 
 /**

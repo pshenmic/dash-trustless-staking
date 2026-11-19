@@ -6,8 +6,14 @@ import {
   derivePoolStatus, findPoolLock, listStatus, lockMembers, memberDocument, signingStage, type SigningStage
 } from '../lib/status'
 import type {
-  ChainTx, Consent, Duffs, Feedback, Funding, Join, Lock, MasternodeEntry, Outpoint, Pool, PoolListStatus, PoolStatus, Prevout
+  ChainTx, Consent, Duffs, Feedback, Funding, Join, Lock, MasternodeEntry, Network, Outpoint, Pool, PoolListStatus, PoolStatus, Prevout, Vote, VoteOutcome
 } from '../lib/types'
+import { groupVotesByPool, poolVoteSummary } from '../lib/voting'
+import {
+  aggregateProposal, governanceOverview, poolLeaderboard, proposalParticipation, voteTrend,
+  type GovernanceStats, type ProposalStats
+} from '../lib/governanceStats'
+import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { backend } from './index'
 import { outpointKey, type RegistrationTx } from './types'
 
@@ -43,6 +49,120 @@ export async function fetchPoolSummaries (): Promise<PoolSummary[]> {
       joinedTotal: counted.reduce((s, j) => s + j.amount, 0)
     }
   })
+}
+
+export interface PoolSentiment {
+  pool: Pool
+  choices: Vote[]
+  tally: VoteOutcome | null
+  votedStake: number
+  totalStake: number
+}
+
+export interface ProposalSentiment {
+  proposalHash: string
+  pools: PoolSentiment[]
+  /** How many pools lean each way (null tallies excluded) */
+  overall: { yes: number, no: number, abstain: number }
+}
+
+/** Cross-pool sentiment on a proposal, from Platform documents only (lock + joins + votes, no chain) */
+export async function fetchProposalSentiment (proposalHash: string): Promise<ProposalSentiment> {
+  const votes = await platform.listVotesByProposal(proposalHash)
+  const byPool = groupVotesByPool(votes)
+  const poolIds = [...byPool.keys()]
+  if (poolIds.length === 0) return { proposalHash, pools: [], overall: { yes: 0, no: 0, abstain: 0 } }
+  const [pools, locks, allJoins] = await Promise.all([
+    platform.listPools(),
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
+  ])
+  const poolMap = new Map(pools.map(p => [p.id, p]))
+  const sentiments: PoolSentiment[] = []
+  for (const poolId of poolIds) {
+    const pool = poolMap.get(poolId)
+    if (pool == null) continue // votes naming an unknown pool
+    const lock = findPoolLock(pool, locks)
+    if (lock == null) continue // no locked member set to weight against
+    const joins = allJoins.filter(j => j.poolId === poolId && joinProblems(j, pool).length === 0)
+    const members = lockMembers(lock, joins).filter((j): j is Join => j != null)
+    const summary = poolVoteSummary(members, byPool.get(poolId)!)
+    if (summary.choices.length === 0) continue // no member chose; a stranger's doc must not surface a row
+    sentiments.push({ pool, ...summary })
+  }
+  sentiments.sort((a, b) => b.totalStake - a.totalStake)
+  const overall = { yes: 0, no: 0, abstain: 0 }
+  for (const s of sentiments) {
+    if (s.tally === 1) overall.yes++
+    else if (s.tally === 2) overall.no++
+    else if (s.tally === 3) overall.abstain++
+  }
+  return { proposalHash, pools: sentiments, overall }
+}
+
+/** Network-wide governance dashboard stats over hosted pools that can actually vote (Platform-only, plus chain state) */
+export async function fetchGovernanceStats (network: Network = 'testnet'): Promise<GovernanceStats> {
+  const [votes, allPools, height] = await Promise.all([
+    platform.listAllVotes(),
+    platform.listPools(),
+    chain.getBestBlockHeight()
+  ])
+  const hosted = allPools.filter(p => p.votingAddress === HOSTING_VOTING_ADDRESS)
+  // A dissolved (or PoSe-banned) node can no longer produce a vote: `voteraw` refuses any outpoint
+  // missing from the chain-tip list of valid masternodes, and Core gives a removed node's standing
+  // votes no weight. The operator key identifies the entry without rebuilding each registration; the
+  // chainlocked list can lag a fresh registration, but such a pool has no choices yet.
+  const votable = await Promise.all(hosted.map(async p => (await chain.getMasternodeByOperatorKey(p.operatorPubKey))?.isValid === true))
+  const pools = hosted.filter((_, i) => votable[i])
+  const poolIds = pools.map(p => p.id)
+  const [locks, allJoins] = await Promise.all([
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
+  ])
+  const membersByPool = new Map<string, Join[]>()
+  for (const pool of pools) {
+    const lock = findPoolLock(pool, locks)
+    if (lock == null) continue
+    const joins = allJoins.filter(j => j.poolId === pool.id && joinProblems(j, pool).length === 0)
+    membersByPool.set(pool.id, lockMembers(lock, joins).filter((j): j is Join => j != null))
+  }
+  const totalStake = pools.reduce((s, p) => s + (membersByPool.get(p.id) ?? []).reduce((a, j) => a + j.amount, 0), 0)
+  const totalMembers = pools.reduce((s, p) => s + (membersByPool.get(p.id)?.length ?? 0), 0)
+
+  const byProposal = new Map<string, Vote[]>()
+  for (const v of votes) {
+    const list = byProposal.get(v.proposalHash) ?? []
+    list.push(v)
+    byProposal.set(v.proposalHash, list)
+  }
+  const proposals: ProposalStats[] = []
+  for (const [proposalHash, proposalVotes] of byProposal) {
+    const byPool = groupVotesByPool(proposalVotes)
+    const sentiments: PoolSentiment[] = []
+    for (const pool of pools) {
+      const members = membersByPool.get(pool.id)
+      const poolVotes = byPool.get(pool.id)
+      if (members == null || poolVotes == null) continue
+      const summary = poolVoteSummary(members, poolVotes)
+      if (summary.choices.length === 0) continue
+      sentiments.push({ pool, ...summary })
+    }
+    if (sentiments.length === 0) continue // stranger-only proposal
+    const { stake, count, margin, leading } = aggregateProposal(sentiments)
+    proposals.push({
+      proposalHash, pools: sentiments, stake, count, margin, leading,
+      participation: proposalParticipation(sentiments, pools.length, totalStake, totalMembers),
+      lastActivity: Math.max(...proposalVotes.map(v => v.createdAt))
+    })
+  }
+  proposals.sort((a, b) => a.margin - b.margin)
+  const memberVotes = votes.filter(v => (membersByPool.get(v.poolId) ?? []).some(m => m.ownerId === v.ownerId))
+  return {
+    overview: governanceOverview(pools, membersByPool, votes, height, network),
+    proposals,
+    leaderboard: poolLeaderboard(votes, pools, membersByPool),
+    trend: voteTrend(memberVotes, 86_400_000, 30)
+  }
 }
 
 export interface MemberState {

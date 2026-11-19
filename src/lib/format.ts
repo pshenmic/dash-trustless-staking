@@ -15,6 +15,14 @@ export function formatDash (duffs: Duffs): string {
   return `${duffsToDashString(duffs)} DASH`
 }
 
+/** Governance voting power: 1 unit = 1,000 DASH of pool collateral */
+export const DUFFS_PER_VOTING_POWER = 1000 * DUFFS_PER_DASH
+
+/** Stake in duffs → voting power units, e.g. 2,500 DASH → "2.5" */
+export function formatVotingPower (duffs: Duffs): string {
+  return (duffs / DUFFS_PER_VOTING_POWER).toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
 /** Parses a user-entered DASH amount into duffs. Returns null for anything that isn't a valid amount. */
 export function parseDash (input: string): Duffs | null {
   const value = input.trim().replace(/,/g, '')
