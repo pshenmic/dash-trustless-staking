@@ -5,15 +5,19 @@ import { IdentityChip, StatusBadge } from '../components/bits'
 import { Chat } from '../components/Chat'
 import { ActionPanel, JoinProgress } from '../components/pool/ActionPanel'
 import { poolEvents, voteEvents } from '../components/pool/activity'
+import { AvatarUpload } from '../components/pool/AvatarUpload'
 import { DetailsTab } from '../components/pool/DetailsTab'
 import { FeedbackTab } from '../components/pool/FeedbackTab'
 import { GovernanceTab } from '../components/pool/GovernanceTab'
 import { MembersTab } from '../components/pool/MembersTab'
+import { PoolAvatar } from '../components/PoolAvatar'
 import { PrivateChat } from '../components/pool/PrivateChat'
 import { hasSigningTask, poolRole } from '../components/pool/role'
 import { SystemTab } from '../components/pool/SystemTab'
 import { Card, EmptyState, Loading } from '../components/ui'
+import { backend } from '../data'
 import { usePoolDocument, usePoolPreview, usePoolState, useVotes } from '../hooks/data'
+import { setMockAvatar, useMockAvatar } from '../hooks/useMockAvatar'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { relativeTime } from '../lib/format'
 import { useWallet } from '../wallet/WalletContext'
@@ -31,6 +35,7 @@ export function PoolPage (): ReactNode {
   const poolForGate = state?.pool ?? document ?? preview?.pool ?? null
   const hosted = poolForGate?.votingAddress === HOSTING_VOTING_ADDRESS
   const votes = useVotes(poolId, hosted)
+  const mockAvatar = useMockAvatar(poolId)
   const [params, setParams] = useSearchParams()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const role = state == null ? null : poolRole(state, activeIdentity)
@@ -59,6 +64,9 @@ export function PoolPage (): ReactNode {
 
   const pool = state?.pool ?? document ?? preview?.pool ?? null
   if (pool == null) return <Loading label='Loading pool…' />
+
+  // Only the pool creator may change the avatar; uploads live in the sandbox until the avatar document ships
+  const canEditAvatar = backend.mode === 'mock' && activeIdentity != null && pool.ownerId === activeIdentity
 
   const badgeStatus = state?.status ?? preview?.listStatus
   const memberCount = state != null ? (state.lock == null ? state.joins.length : state.members.length) : preview?.joinCount ?? '…'
@@ -98,6 +106,17 @@ export function PoolPage (): ReactNode {
 
       <header className='mt-4 mb-8 flex flex-col gap-4'>
         <div className='flex flex-wrap items-center gap-3'>
+          {canEditAvatar
+            ? (
+              <AvatarUpload
+                poolId={pool.id}
+                name={pool.name}
+                src={mockAvatar}
+                onSet={url => setMockAvatar(pool.id, url)}
+                onRemove={() => setMockAvatar(pool.id, null)}
+              />
+              )
+            : <PoolAvatar poolId={pool.id} name={pool.name} src={backend.mode === 'mock' ? mockAvatar : undefined} size='md' />}
           <h1 className='text-title'>{pool.name}</h1>
           {badgeStatus != null && <StatusBadge status={badgeStatus} />}
         </div>

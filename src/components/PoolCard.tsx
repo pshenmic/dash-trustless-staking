@@ -5,8 +5,9 @@ import { COLLATERAL } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, pluralize, relativeTime } from '../lib/format'
 import { Dash, FillBar, IdentityChip, StatusBadge } from './bits'
 import { Flag, hasLocation, locationText } from './Flag'
+import { PoolAvatar } from './PoolAvatar'
 
-export function PoolCard ({ summary }: { summary: PoolSummary }): ReactNode {
+export function PoolCard ({ summary, avatarSrc }: { summary: PoolSummary, avatarSrc?: string }): ReactNode {
   const { pool, listStatus, joinCount, joinedTotal } = summary
   const open = listStatus === 'NEW'
   return (
@@ -15,13 +16,16 @@ export function PoolCard ({ summary }: { summary: PoolSummary }): ReactNode {
       className='group flex flex-col rounded-3xl border border-line/60 bg-surface p-5 shadow-card transition-[transform,border-color] hover:-translate-y-0.5 hover:border-brand/50'
     >
       <div className='flex items-start justify-between gap-3'>
-        <div className='min-w-0'>
-          <h3 className='truncate text-lead font-extrabold tracking-[-0.02em] group-hover:text-brand-ink'>{pool.name}</h3>
-          <div className='mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
-            <IdentityChip id={pool.ownerId} size='sm' />
-            {hasLocation(pool) && (
-              <span className='inline-flex items-center gap-1.5 text-tag text-muted'><Flag country={pool.location} />{locationText(pool.location)}</span>
-            )}
+        <div className='flex min-w-0 items-start gap-3'>
+          <PoolAvatar poolId={pool.id} name={pool.name} src={avatarSrc} />
+          <div className='min-w-0'>
+            <h3 className='truncate text-lead font-extrabold tracking-[-0.02em] group-hover:text-brand-ink'>{pool.name}</h3>
+            <div className='mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
+              <IdentityChip id={pool.ownerId} size='sm' />
+              {hasLocation(pool) && (
+                <span className='inline-flex items-center gap-1.5 text-tag text-muted'><Flag country={pool.location} />{locationText(pool.location)}</span>
+              )}
+            </div>
           </div>
         </div>
         <StatusBadge status={listStatus} size='sm' />
