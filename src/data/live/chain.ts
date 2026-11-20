@@ -87,7 +87,7 @@ export function createLiveChain (dapiUrls: string[] = []): ChainSource {
   const transaction = async (txid: string): Promise<{ raw: Uint8Array, height: number } | null> => {
     if (txCache.has(txid)) return txCache.get(txid) ?? null
 
-    let result: { raw: Uint8Array, height: number } | null = null
+    let result: { raw: Uint8Array, height: number } | null
 
     try {
       const tx = await resilient(`getTransaction ${txid}`, async () => await sdk.getTransaction(txid))
@@ -112,6 +112,11 @@ export function createLiveChain (dapiUrls: string[] = []): ChainSource {
     async getTransaction (txid) {
       const tx = await transaction(txid)
       return tx == null ? null : { txid, height: tx.height > 0 ? tx.height : null }
+    },
+
+    async getTransactionHex (txid) {
+      const tx = await transaction(txid)
+      return tx == null ? null : toHex(tx.raw)
     },
 
     async getOutputValue (outpoint) {

@@ -15,7 +15,7 @@ function hash160 (bytes: Uint8Array): string {
   return toHex(ripemd160(sha256(bytes)))
 }
 
-function parseKey (text: string): PrivateKey | null {
+export function parsePrivateKey (text: string): PrivateKey | null {
   try {
     const trimmed = text.trim()
     return /^[0-9a-fA-F]{64}$/.test(trimmed)
@@ -27,7 +27,7 @@ function parseKey (text: string): PrivateKey | null {
 }
 
 /** P2PKH scriptSig: push(DER signature || SIGHASH_ALL) push(compressed pubkey) */
-function p2pkhScriptSig (signatureDer: Uint8Array, publicKey: Uint8Array): string {
+export function p2pkhScriptSig (signatureDer: Uint8Array, publicKey: Uint8Array): string {
   if (signatureDer.byteLength > 75 || publicKey.byteLength > 75) throw new Error('Push too large for a P2PKH scriptSig')
 
   return [
@@ -39,7 +39,7 @@ function p2pkhScriptSig (signatureDer: Uint8Array, publicKey: Uint8Array): strin
 }
 
 function signInputs (joinedHex: string, inputs: Outpoint[], offset: number, keyTexts: string[], prevouts: Map<string, Prevout | null>): SignFundingResult {
-  const keys = keyTexts.flatMap(text => text.split(/[\s,]+/)).filter(text => text !== '').map(parseKey)
+  const keys = keyTexts.flatMap(text => text.split(/[\s,]+/)).filter(text => text !== '').map(parsePrivateKey)
   if (keys.length === 0) return { ok: false, error: 'Paste at least one private key' }
   if (keys.some(key => key == null)) return { ok: false, error: 'One of the pasted keys is not a valid WIF or 64-character hex key' }
 

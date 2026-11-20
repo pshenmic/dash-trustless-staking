@@ -286,6 +286,9 @@ const chain: ChainSource = {
     const height = state.chain.txHeights[txid]
     return height === undefined ? null : { txid, height }
   },
+
+  // The sandbox has no real chain state to decode; share-reward updates are a live-only flow
+  async getTransactionHex () { return null },
   async getOutputValue (outpoint) {
     await latency()
     return state.chain.outputs[outpointKey(outpoint)] ?? null

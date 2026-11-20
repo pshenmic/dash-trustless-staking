@@ -3,16 +3,18 @@ import { Button } from '../Button'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { backend } from '../../data'
-import { fetchInputValues, type PoolState } from '../../data/queries'
+import { fetchInputValues, type MemberState, type PoolState } from '../../data/queries'
 import { useWrite } from '../../hooks/data'
 import { COLLATERAL, MAX_SHARES } from '../../lib/consensus'
 import { formatDash, relativeTime } from '../../lib/format'
+import { parseOnchainShares } from '../../lib/onchainShares'
 import { rewardSharePercent, selectionProblems } from '../../lib/rules'
 import { useSettings } from '../../lib/settings'
 import type { Join, Outpoint } from '../../lib/types'
 import { useWallet } from '../../wallet/WalletContext'
 import { Dash, FillBar, IdentityChip, YouTag } from '../bits'
 import { parseOutpoint } from '../JoinDialog'
+import { ShareRewardDialog } from './ShareRewardDialog'
 import { errorMessage, useToast } from '../Toast'
 import { cn, EmptyState, Notice } from '../ui'
 import { poolRole } from './role'
@@ -230,6 +232,16 @@ function LockedMembers ({ state }: { state: PoolState }): ReactNode {
   const selectedIds = new Set(state.members.map(m => m.join.id))
   const others = state.joins.filter(j => !selectedIds.has(j.id))
   const showSigning = state.status === 'SIGNING'
+  const proTxHash = state.finalTx?.txid ?? null
+  const [editing, setEditing] = useState<MemberState | null>(null)
+
+  const onchain = useQuery({
+    queryKey: ['onchain-shares', proTxHash],
+    queryFn: async () => proTxHash == null ? null : parseOnchainShares(await backend.chain.getTransactionHex(proTxHash) ?? ''),
+    enabled: proTxHash != null && backend.mode !== 'mock'
+  })
+  // A reward-address update only exists on chain, so the sandbox and pre-registration pools do not offer it
+  const canUpdateRewards = backend.mode !== 'mock' && state.regTx?.height != null
 
   return (
     <div className='flex flex-col gap-6'>
@@ -252,6 +264,11 @@ function LockedMembers ({ state }: { state: PoolState }): ReactNode {
                 <span className='text-right'>
                   <span className='block font-bold'><Dash duffs={m.join.amount} /></span>
                   <span className='block text-tag text-muted'>{rewardSharePercent(m.join.amount, state.pool.operatorReward).toFixed(1)}% of rewards</span>
+                  {canUpdateRewards && m.join.ownerId === activeIdentity && (
+                    <button type='button' className='mt-1 block text-tag font-bold text-brand-ink hover:underline' onClick={() => setEditing(m)}>
+                      Reward address
+                    </button>
+                  )}
                 </span>
               </span>
             </li>
@@ -270,6 +287,9 @@ function LockedMembers ({ state }: { state: PoolState }): ReactNode {
             ))}
           </ul>
         </div>
+        )}
+      {editing != null && (
+        <ShareRewardDialog state={state} member={editing} shares={onchain.data ?? null} onClose={() => setEditing(null)} />
       )}
     </div>
   )

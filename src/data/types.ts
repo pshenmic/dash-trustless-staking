@@ -66,6 +66,8 @@ export interface PlatformSource {
 export interface ChainSource {
   getBestBlockHeight: () => Promise<number>
   getTransaction: (txid: string) => Promise<ChainTx | null>
+  /** Raw transaction bytes, for reading a registered masternode's on-chain share table */
+  getTransactionHex: (txid: string) => Promise<string | null>
   /** Value of a transaction output, read from the funding tx via getTransaction. null if not found. */
   getOutputValue: (outpoint: Outpoint) => Promise<Duffs | null>
   /** Script and value of a previous output, for checking funding signatures. null if not found. */
