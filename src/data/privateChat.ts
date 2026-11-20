@@ -1,4 +1,5 @@
 import { decryptMessage, encryptMessage, generateGroupKey, parseEnvelopes } from '../lib/chatCipher'
+import { normalizeMultilineText } from '../lib/text'
 import type { ChatKey } from '../lib/types'
 import { backend } from './index'
 import type { MemberState, PoolState } from './queries'
@@ -85,7 +86,9 @@ export async function loadPrivateMessages (state: PoolState, chatKey: ChatKey, g
   const decrypted = await Promise.all(messages
     .filter(m => members.has(m.ownerId) && m.createdAt >= chatKey.createdAt)
     .map(async m => ({ id: m.id, ownerId: m.ownerId, createdAt: m.createdAt, text: await decryptMessage(groupKey, m.payload) })))
-  return decrypted.filter((m): m is DecryptedMessage => m.text != null)
+  return decrypted
+    .filter((m): m is DecryptedMessage => m.text != null)
+    .map(m => ({ ...m, text: normalizeMultilineText(m.text) }))
 }
 
 export async function sendPrivateMessage (identity: string, lockId: string, groupKey: Uint8Array, text: string): Promise<void> {

@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { backend } from '../data'
 import { createQuickPool } from '../data/mock/mockBackend'
 import { usePoolSummaries, useWrite } from '../hooks/data'
+import { useMockAvatars } from '../hooks/useMockAvatar'
 import { isBlsPublicKey } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
 import type { PoolSummary } from '../data/queries'
@@ -30,6 +31,7 @@ export function PoolsPage (): ReactNode {
   const [sort, setSort] = useState<Sort>('newest')
   const [query, setQuery] = useState('')
   const [noPenalty, setNoPenalty] = useState(false)
+  const mockAvatars = useMockAvatars()
 
   // An operator key in the search box goes through the operatorPubKey index, across all statuses
   const keyQuery = query.trim().toLowerCase()
@@ -128,7 +130,7 @@ export function PoolsPage (): ReactNode {
       )}
       {pools.length > 0 && (
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-          {pools.map(s => <PoolCard key={s.pool.id} summary={s} />)}
+          {pools.map(s => <PoolCard key={s.pool.id} summary={s} avatarSrc={backend.mode === 'mock' ? mockAvatars[s.pool.id] : undefined} />)}
         </div>
       )}
     </div>

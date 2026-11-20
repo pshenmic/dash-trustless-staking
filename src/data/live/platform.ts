@@ -6,6 +6,7 @@ import { contractNonce, contractOwner } from '../../config'
 import { addressToKeyId, addressToScript, keyIdToAddress, scriptToAddress } from '../../lib/address'
 import { ByteReader, compactSize, concatBytes, fromHex, toHex } from '../../lib/bytes'
 import { isCountryCode } from '../../lib/countries'
+import { normalizeDisplayText, normalizeMultilineText } from '../../lib/text'
 import type {
   ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Network, Outpoint, Pool, PrivateMessage, Vote
 } from '../../lib/types'
@@ -100,8 +101,8 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
       const location = p.location as string | undefined
       return {
         ...base(doc),
-        name: String(p.name),
-        description: String(p.description ?? ''),
+        name: normalizeDisplayText(String(p.name)),
+        description: normalizeMultilineText(String(p.description ?? '')),
         ...(typeof p.service === 'string' && p.service !== '' ? { service: p.service } : {}),
         ...(location != null && isCountryCode(location) ? { location } : {}),
         operatorPubKey: toHex(asBytes(p.operatorPubKey)),
@@ -137,8 +138,8 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     consent: (doc: RawDocument): Consent => ({ ...base(doc), lockId: asId(doc.properties.lockId), signature: base64.encode(asBytes(doc.properties.signature)) }),
     funding: (doc: RawDocument): Funding => ({ ...base(doc), lockId: asId(doc.properties.lockId), scriptSigs: decodeScriptSigs(asBytes(doc.properties.scriptSigs)) }),
     feeFunding: (doc: RawDocument): Funding => ({ ...base(doc), lockId: asId(doc.properties.lockId), scriptSigs: decodeScriptSigs(asBytes(doc.properties.scriptSigs)) }),
-    feedback: (doc: RawDocument): Feedback => ({ ...base(doc), poolId: asId(doc.properties.poolId), rating: asNumber(doc.properties.rating), text: String(doc.properties.text ?? '') }),
-    message: (doc: RawDocument): Message => ({ ...base(doc), channel: String(doc.properties.channel), text: String(doc.properties.text) }),
+    feedback: (doc: RawDocument): Feedback => ({ ...base(doc), poolId: asId(doc.properties.poolId), rating: asNumber(doc.properties.rating), text: normalizeMultilineText(String(doc.properties.text ?? '')) }),
+    message: (doc: RawDocument): Message => ({ ...base(doc), channel: normalizeDisplayText(String(doc.properties.channel)), text: normalizeMultilineText(String(doc.properties.text)) }),
     chatKey: (doc: RawDocument): ChatKey => ({ ...base(doc), lockId: asId(doc.properties.lockId), envelopes: toHex(asBytes(doc.properties.envelopes)) }),
     privateMessage: (doc: RawDocument): PrivateMessage => ({ ...base(doc), lockId: asId(doc.properties.lockId), payload: toHex(asBytes(doc.properties.payload)) }),
     vote: (doc: RawDocument): Vote => {
@@ -230,7 +231,7 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
           const label = doc.properties.label
           // An identity can hold several names; the first one in index order is the one shown
           if (records?.identity != null && typeof label === 'string' && !names.has(asId(records.identity))) {
-            names.set(asId(records.identity), `${label}.dash`)
+            names.set(asId(records.identity), `${normalizeDisplayText(label)}.dash`)
           }
         }
         if (page.length < PAGE) break

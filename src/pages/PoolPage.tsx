@@ -9,13 +9,17 @@ import { DetailsTab } from '../components/pool/DetailsTab'
 import { FeedbackTab } from '../components/pool/FeedbackTab'
 import { GovernanceTab } from '../components/pool/GovernanceTab'
 import { MembersTab } from '../components/pool/MembersTab'
+import { PoolAvatar } from '../components/PoolAvatar'
 import { PrivateChat } from '../components/pool/PrivateChat'
 import { hasSigningTask, poolRole } from '../components/pool/role'
 import { SystemTab } from '../components/pool/SystemTab'
 import { Card, EmptyState, Loading } from '../components/ui'
+import { backend } from '../data'
 import { usePoolDocument, usePoolPreview, usePoolState, useVotes } from '../hooks/data'
+import { setMockAvatar, useMockAvatar } from '../hooks/useMockAvatar'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { relativeTime } from '../lib/format'
+import { squareDataUrl } from '../lib/image'
 import { useWallet } from '../wallet/WalletContext'
 
 const TABS = ['activity', 'details', 'members', 'private', 'feedback', 'governance', 'system'] as const
@@ -31,6 +35,7 @@ export function PoolPage (): ReactNode {
   const poolForGate = state?.pool ?? document ?? preview?.pool ?? null
   const hosted = poolForGate?.votingAddress === HOSTING_VOTING_ADDRESS
   const votes = useVotes(poolId, hosted)
+  const mockAvatar = useMockAvatar(poolId)
   const [params, setParams] = useSearchParams()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const role = state == null ? null : poolRole(state, activeIdentity)
@@ -98,6 +103,7 @@ export function PoolPage (): ReactNode {
 
       <header className='mt-4 mb-8 flex flex-col gap-4'>
         <div className='flex flex-wrap items-center gap-3'>
+          <PoolAvatar poolId={pool.id} name={pool.name} src={backend.mode === 'mock' ? mockAvatar : undefined} size='md' />
           <h1 className='text-title'>{pool.name}</h1>
           {badgeStatus != null && <StatusBadge status={badgeStatus} />}
         </div>
@@ -107,6 +113,29 @@ export function PoolPage (): ReactNode {
           <span>created {relativeTime(pool.createdAt)}</span>
         </div>
         {pool.description !== '' && <p className='max-w-2xl text-muted'>{pool.description}</p>}
+        {backend.mode === 'mock' && (
+          <div className='flex flex-wrap items-center gap-3 text-tag text-muted'>
+            <span>Mock avatar:</span>
+            <label className='cursor-pointer font-bold text-brand-ink hover:underline'>
+              Set…
+              <input
+                type='file'
+                accept='image/png,image/webp,image/jpeg'
+                className='hidden'
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file != null) void squareDataUrl(file, 64).then(url => setMockAvatar(pool.id, url)).catch(() => {})
+                }}
+              />
+            </label>
+            {mockAvatar != null && (
+              <button type='button' className='font-bold text-brand-ink hover:underline' onClick={() => setMockAvatar(pool.id, null)}>
+                Clear
+              </button>
+              )}
+          </div>
+          )}
       </header>
 
       {signingFocus
