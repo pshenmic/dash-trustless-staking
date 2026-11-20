@@ -16,7 +16,7 @@ export function PoolAvatar ({ poolId, name = '', src, size = 'sm', className }: 
   const { background, foreground } = poolAvatarColor(name.trim() === '' ? poolId : name)
 
   return (
-    <span className={cn('shrink-0 overflow-hidden bg-surface-2', SIZES[size], className)}>
+    <span className={cn('block shrink-0 overflow-hidden bg-surface-2', SIZES[size], className)}>
       {src != null
         ? <AvatarImage src={src} />
         : (

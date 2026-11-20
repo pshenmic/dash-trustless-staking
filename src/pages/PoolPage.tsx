@@ -5,6 +5,7 @@ import { IdentityChip, StatusBadge } from '../components/bits'
 import { Chat } from '../components/Chat'
 import { ActionPanel, JoinProgress } from '../components/pool/ActionPanel'
 import { poolEvents, voteEvents } from '../components/pool/activity'
+import { AvatarUpload } from '../components/pool/AvatarUpload'
 import { DetailsTab } from '../components/pool/DetailsTab'
 import { FeedbackTab } from '../components/pool/FeedbackTab'
 import { GovernanceTab } from '../components/pool/GovernanceTab'
@@ -19,7 +20,6 @@ import { usePoolDocument, usePoolPreview, usePoolState, useVotes } from '../hook
 import { setMockAvatar, useMockAvatar } from '../hooks/useMockAvatar'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { relativeTime } from '../lib/format'
-import { squareDataUrl } from '../lib/image'
 import { useWallet } from '../wallet/WalletContext'
 
 const TABS = ['activity', 'details', 'members', 'private', 'feedback', 'governance', 'system'] as const
@@ -65,6 +65,9 @@ export function PoolPage (): ReactNode {
   const pool = state?.pool ?? document ?? preview?.pool ?? null
   if (pool == null) return <Loading label='Loading pool…' />
 
+  // Only the pool creator may change the avatar; uploads live in the sandbox until the avatar document ships
+  const canEditAvatar = backend.mode === 'mock' && activeIdentity != null && pool.ownerId === activeIdentity
+
   const badgeStatus = state?.status ?? preview?.listStatus
   const memberCount = state != null ? (state.lock == null ? state.joins.length : state.members.length) : preview?.joinCount ?? '…'
   const details = (
@@ -103,7 +106,17 @@ export function PoolPage (): ReactNode {
 
       <header className='mt-4 mb-8 flex flex-col gap-4'>
         <div className='flex flex-wrap items-center gap-3'>
-          <PoolAvatar poolId={pool.id} name={pool.name} src={backend.mode === 'mock' ? mockAvatar : undefined} size='md' />
+          {canEditAvatar
+            ? (
+              <AvatarUpload
+                poolId={pool.id}
+                name={pool.name}
+                src={mockAvatar}
+                onSet={url => setMockAvatar(pool.id, url)}
+                onRemove={() => setMockAvatar(pool.id, null)}
+              />
+              )
+            : <PoolAvatar poolId={pool.id} name={pool.name} src={backend.mode === 'mock' ? mockAvatar : undefined} size='md' />}
           <h1 className='text-title'>{pool.name}</h1>
           {badgeStatus != null && <StatusBadge status={badgeStatus} />}
         </div>
@@ -113,29 +126,6 @@ export function PoolPage (): ReactNode {
           <span>created {relativeTime(pool.createdAt)}</span>
         </div>
         {pool.description !== '' && <p className='max-w-2xl text-muted'>{pool.description}</p>}
-        {backend.mode === 'mock' && (
-          <div className='flex flex-wrap items-center gap-3 text-tag text-muted'>
-            <span>Mock avatar:</span>
-            <label className='cursor-pointer font-bold text-brand-ink hover:underline'>
-              Set…
-              <input
-                type='file'
-                accept='image/png,image/webp,image/jpeg'
-                className='hidden'
-                onChange={e => {
-                  const file = e.target.files?.[0]
-                  e.target.value = ''
-                  if (file != null) void squareDataUrl(file, 64).then(url => setMockAvatar(pool.id, url)).catch(() => {})
-                }}
-              />
-            </label>
-            {mockAvatar != null && (
-              <button type='button' className='font-bold text-brand-ink hover:underline' onClick={() => setMockAvatar(pool.id, null)}>
-                Clear
-              </button>
-              )}
-          </div>
-          )}
       </header>
 
       {signingFocus
