@@ -8,12 +8,13 @@ import { useQuery } from '@tanstack/react-query'
 import { backend } from '../data'
 import { createQuickPool } from '../data/mock/mockBackend'
 import { usePoolSummaries, useWrite } from '../hooks/data'
+import { useHiddenPools } from '../hooks/useHiddenPools'
 import { useSeenSnapshots } from '../hooks/useSeen'
 import { isBlsPublicKey } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
 import type { PoolSummary } from '../data/queries'
 
-type Filter = 'all' | 'NEW' | 'LOCKED'
+type Filter = 'all' | 'NEW' | 'LOCKED' | 'hidden'
 type Sort = 'newest' | 'filled' | 'fee'
 
 const SORTS: Record<Sort, (a: PoolSummary, b: PoolSummary) => number> = {
@@ -25,6 +26,7 @@ const SORTS: Record<Sort, (a: PoolSummary, b: PoolSummary) => number> = {
 export function PoolsPage (): ReactNode {
   const { data, isLoading, error } = usePoolSummaries()
   const seenPools = useSeenSnapshots()
+  const { hidden, toggleHidden } = useHiddenPools()
   const navigate = useNavigate()
   const { activeIdentity } = useWallet()
   const quickPool = useWrite(async () => createQuickPool(activeIdentity))
@@ -45,19 +47,24 @@ export function PoolsPage (): ReactNode {
     const q = query.trim().toLowerCase()
     if (isBlsPublicKey(q)) {
       const ids = new Set((byKey.data ?? []).map(p => p.id))
-      return (data ?? []).filter(s => ids.has(s.pool.id)).sort(SORTS[sort])
+      return (data ?? [])
+        .filter(s => ids.has(s.pool.id) && hidden.has(s.pool.id) === (filter === 'hidden'))
+        .sort(SORTS[sort])
     }
+    // The hidden view is the only place hidden pools appear, and it is the only way to bring one back
     return (data ?? [])
-      .filter(s => filter === 'all' || s.listStatus === filter)
+      .filter(s => hidden.has(s.pool.id) === (filter === 'hidden'))
+      .filter(s => filter === 'hidden' || filter === 'all' || s.listStatus === filter)
       .filter(s => !noPenalty || s.pool.earlyPenalty === 0)
       .filter(s => q === '' || s.pool.name.toLowerCase().includes(q) || s.pool.description.toLowerCase().includes(q))
       .sort(SORTS[sort])
-  }, [data, filter, sort, query, noPenalty, byKey.data])
+  }, [data, filter, sort, query, noPenalty, byKey.data, hidden])
 
   const counts = {
-    all: data?.length ?? 0,
-    NEW: data?.filter(s => s.listStatus === 'NEW').length ?? 0,
-    LOCKED: data?.filter(s => s.listStatus === 'LOCKED').length ?? 0
+    all: data?.filter(s => !hidden.has(s.pool.id)).length ?? 0,
+    hidden: hidden.size,
+    NEW: data?.filter(s => !hidden.has(s.pool.id) && s.listStatus === 'NEW').length ?? 0,
+    LOCKED: data?.filter(s => !hidden.has(s.pool.id) && s.listStatus === 'LOCKED').length ?? 0
   }
 
   return (
@@ -87,6 +94,9 @@ export function PoolsPage (): ReactNode {
           <Chip active={filter === 'NEW'} onClick={() => setFilter('NEW')}>Open · {counts.NEW}</Chip>
           <Chip active={filter === 'LOCKED'} onClick={() => setFilter('LOCKED')}>Locked · {counts.LOCKED}</Chip>
           <Chip active={filter === 'all'} onClick={() => setFilter('all')}>All · {counts.all}</Chip>
+          {(counts.hidden > 0 || filter === 'hidden') && (
+            <Chip active={filter === 'hidden'} onClick={() => setFilter('hidden')}>Hidden · {counts.hidden}</Chip>
+          )}
           <Chip active={noPenalty} onClick={() => setNoPenalty(v => !v)}>No early penalty</Chip>
         </div>
         <div className='flex gap-2'>
@@ -130,7 +140,19 @@ export function PoolsPage (): ReactNode {
       )}
       {pools.length > 0 && (
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-          {pools.map(s => <PoolCard key={s.pool.id} summary={s} seen={seenPools[s.pool.id] ?? null} />)}
+          {pools.map(s => (
+            <PoolCard
+              key={s.pool.id}
+              summary={s}
+              seen={seenPools[s.pool.id] ?? null}
+              hidden={hidden.has(s.pool.id)}
+              onToggleHidden={() => {
+                toggleHidden(s.pool.id)
+                // Restoring the last hidden pool leaves the hidden view empty, so fall back to all pools
+                if (filter === 'hidden' && hidden.size === 1 && hidden.has(s.pool.id)) setFilter('all')
+              }}
+            />
+          ))}
         </div>
       )}
     </div>

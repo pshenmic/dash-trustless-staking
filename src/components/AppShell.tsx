@@ -1,6 +1,6 @@
 import { DashLogo, useTheme } from 'dash-ui-kit/react'
 import { Button } from './Button'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { backend } from '../data'
 import { useUsername } from '../hooks/data'
@@ -9,6 +9,7 @@ import { useSettings } from '../lib/settings'
 import { useWallet } from '../wallet/WalletContext'
 import { IdentityChip } from './bits'
 import { LoginDialog } from './LoginDialog'
+import { Menu } from './Menu'
 import { errorMessage, useToast } from './Toast'
 import { cn } from './ui'
 
@@ -150,52 +151,6 @@ function ConnectButton (): ReactNode {
     >
       {status === 'connecting' ? 'Logging in…' : 'Log in'}
     </Button>
-  )
-}
-
-interface MenuItem {
-  label: string
-  onClick?: () => void
-  to?: string
-}
-
-function Menu ({ trigger, items }: { trigger: ReactNode, items: MenuItem[] }): ReactNode {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent | KeyboardEvent): void => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !(ref.current?.contains(e.target as Node) ?? false)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', close)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', close)
-    }
-  }, [open])
-
-  const itemClass = 'block w-full rounded-xl px-3 py-2 text-left text-small font-semibold hover:bg-surface-2'
-  return (
-    <div ref={ref} className='relative'>
-      <button
-        type='button'
-        aria-haspopup='menu'
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-        className='max-w-44 rounded-full border border-line bg-surface py-1 pr-3 pl-1 hover:border-brand/60'
-      >
-        {trigger}
-      </button>
-      {open && (
-        <div role='menu' className='absolute right-0 z-50 mt-2 w-56 rounded-2xl border border-line/60 bg-surface p-1.5 shadow-card'>
-          {items.map(item => item.to != null
-            ? <Link key={item.label} role='menuitem' to={item.to} className={itemClass} onClick={() => setOpen(false)}>{item.label}</Link>
-            : <button key={item.label} role='menuitem' type='button' className={itemClass} onClick={() => { setOpen(false); item.onClick?.() }}>{item.label}</button>)}
-        </div>
-      )}
-    </div>
   )
 }
 

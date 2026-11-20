@@ -8,65 +8,86 @@ import { isNewPool } from '../lib/recency'
 import { changesSince, type PoolSnapshot } from '../lib/seen'
 import { Dash, FillBar, IdentityChip, StatusBadge } from './bits'
 import { Flag, hasLocation, locationText } from './Flag'
+import { Menu } from './Menu'
 import { cn } from './ui'
 
-export function PoolCard ({ summary, seen }: { summary: PoolSummary, seen: PoolSnapshot | null }): ReactNode {
+export function PoolCard ({ summary, seen, hidden = false, onToggleHidden }: {
+  summary: PoolSummary
+  seen: PoolSnapshot | null
+  hidden?: boolean
+  onToggleHidden?: () => void
+}): ReactNode {
   const { pool, listStatus, joinCount, joinedTotal } = summary
   const open = listStatus === 'NEW'
   const changed = useChangedSince(seen, summary)
   const recent = isNewPool(pool.createdAt)
   return (
-    <Link
-      to={`/pools/${pool.id}`}
-      className='group flex flex-col rounded-3xl border border-line/60 bg-surface p-5 shadow-card transition-[transform,border-color] hover:-translate-y-0.5 hover:border-brand/50'
-    >
-      <div className='flex items-start justify-between gap-3'>
-        <div className='min-w-0'>
-          {/* Inverse emphasis: a pool with nothing new since your visit steps back, one with something new keeps full contrast */}
-          <div className='flex min-w-0 items-center gap-2'>
-            <h3 className={cn(
-              'truncate text-lead tracking-[-0.02em] group-hover:text-brand-ink',
-              changed ? 'font-extrabold' : 'font-semibold text-muted'
-            )}
-            >
-              {pool.name}
-            </h3>
-            {recent && (
-              <span className='shrink-0 rounded-full bg-brand px-2 py-0.5 text-tag font-semibold text-white' title={`Created ${relativeTime(pool.createdAt)}`}>New pool</span>
-            )}
+    // The actions menu cannot live inside the card's link, so the card is wrapped and the menu floats over it
+    <div className='group relative transition-transform hover:-translate-y-0.5'>
+      <Link
+        to={`/pools/${pool.id}`}
+        className='flex flex-col rounded-3xl border border-line/60 bg-surface p-5 shadow-card transition-[border-color] hover:border-brand/50'
+      >
+        <div className='flex items-start justify-between gap-3 pr-8'>
+          <div className='min-w-0'>
+            {/* Inverse emphasis: a pool with nothing new since your visit steps back, one with something new keeps full contrast */}
+            <div className='flex min-w-0 items-center gap-2'>
+              <h3 className={cn(
+                'truncate text-lead tracking-[-0.02em] group-hover:text-brand-ink',
+                changed ? 'font-extrabold' : 'font-semibold text-muted'
+              )}
+              >
+                {pool.name}
+              </h3>
+              {recent && (
+                <span className='shrink-0 rounded-full bg-brand px-2 py-0.5 text-tag font-semibold text-white' title={`Created ${relativeTime(pool.createdAt)}`}>New pool</span>
+              )}
+            </div>
+            <div className='mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
+              <IdentityChip id={pool.ownerId} size='sm' />
+              {hasLocation(pool) && (
+                <span className='inline-flex items-center gap-1.5 text-tag text-muted'><Flag country={pool.location} />{locationText(pool.location)}</span>
+              )}
+            </div>
           </div>
-          <div className='mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
-            <IdentityChip id={pool.ownerId} size='sm' />
-            {hasLocation(pool) && (
-              <span className='inline-flex items-center gap-1.5 text-tag text-muted'><Flag country={pool.location} />{locationText(pool.location)}</span>
-            )}
+          <StatusBadge status={listStatus} size='sm' dot={false} />
+        </div>
+
+        <div className='mt-5'>
+          <div className='mb-2 flex items-baseline justify-between gap-2 text-small'>
+            <span>
+              <Dash duffs={joinedTotal} className='text-lead font-extrabold' />
+              <span className='text-muted'> / {COLLATERAL / 1e8} DASH</span>
+            </span>
+            <span className='text-muted'>{pluralize(joinCount, open ? 'join' : 'member')}</span>
           </div>
+          <FillBar joined={joinedTotal} />
+          {open && joinedTotal > COLLATERAL && (
+            <div className='mt-1.5 text-tag text-muted'>More joins than needed: the creator picks members</div>
+          )}
         </div>
-        <StatusBadge status={listStatus} size='sm' dot={false} />
-      </div>
 
-      <div className='mt-5'>
-        <div className='mb-2 flex items-baseline justify-between gap-2 text-small'>
-          <span>
-            <Dash duffs={joinedTotal} className='text-lead font-extrabold' />
-            <span className='text-muted'> / {COLLATERAL / 1e8} DASH</span>
-          </span>
-          <span className='text-muted'>{pluralize(joinCount, open ? 'join' : 'member')}</span>
+        <dl className='mt-5 grid grid-cols-3 gap-2 text-small'>
+          <Term label='Operator fee' value={formatBasisPoints(pool.operatorReward)} />
+          <Term label='Early exit' value={pool.earlyPenalty === 0 ? 'Free' : <Dash duffs={pool.earlyPenalty} />} />
+          <Term label='Early period' value={pool.earlyPeriodBlocks === 0 ? 'None' : blocksToDuration(pool.earlyPeriodBlocks)} />
+        </dl>
+
+        <div className='mt-4 text-tag text-muted'>Created {relativeTime(pool.createdAt)}</div>
+      </Link>
+
+      {onToggleHidden != null && (
+        <div className='absolute top-3.5 right-3.5'>
+          <Menu
+            trigger={<KebabIcon />}
+            triggerLabel='Pool actions'
+            triggerClassName='flex size-8 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg'
+            menuClassName='w-44'
+            items={[{ label: hidden ? 'Show pool' : 'Hide pool', onClick: onToggleHidden }]}
+          />
         </div>
-        <FillBar joined={joinedTotal} />
-        {open && joinedTotal > COLLATERAL && (
-          <div className='mt-1.5 text-tag text-muted'>More joins than needed: the creator picks members</div>
-        )}
-      </div>
-
-      <dl className='mt-5 grid grid-cols-3 gap-2 text-small'>
-        <Term label='Operator fee' value={formatBasisPoints(pool.operatorReward)} />
-        <Term label='Early exit' value={pool.earlyPenalty === 0 ? 'Free' : <Dash duffs={pool.earlyPenalty} />} />
-        <Term label='Early period' value={pool.earlyPeriodBlocks === 0 ? 'None' : blocksToDuration(pool.earlyPeriodBlocks)} />
-      </dl>
-
-      <div className='mt-4 text-tag text-muted'>Created {relativeTime(pool.createdAt)}</div>
-    </Link>
+      )}
+    </div>
   )
 }
 
@@ -76,6 +97,16 @@ function Term ({ label, value }: { label: string, value: ReactNode }): ReactNode
       <dt className='text-tag text-muted'>{label}</dt>
       <dd className='mt-0.5 font-bold'>{value}</dd>
     </div>
+  )
+}
+
+function KebabIcon (): ReactNode {
+  return (
+    <svg viewBox='0 0 16 16' className='size-4' fill='currentColor' aria-hidden>
+      <circle cx='8' cy='3' r='1.5' />
+      <circle cx='8' cy='8' r='1.5' />
+      <circle cx='8' cy='13' r='1.5' />
+    </svg>
   )
 }
 

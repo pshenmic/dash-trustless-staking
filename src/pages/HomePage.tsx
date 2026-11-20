@@ -5,6 +5,7 @@ import { Dash } from '../components/bits'
 import { PoolCard } from '../components/PoolCard'
 import { EmptyState, Skeleton, Stat } from '../components/ui'
 import { usePoolSummaries } from '../hooks/data'
+import { useHiddenPools } from '../hooks/useHiddenPools'
 import { useSeenSnapshots } from '../hooks/useSeen'
 
 const STEPS = [
@@ -24,8 +25,9 @@ const GUARANTEES = [
 export function HomePage (): ReactNode {
   const { data: pools } = usePoolSummaries()
   const seenPools = useSeenSnapshots()
-  const open = pools?.filter(p => p.listStatus === 'NEW') ?? []
-  const locked = pools?.filter(p => p.listStatus === 'LOCKED') ?? []
+  const { hidden, toggleHidden } = useHiddenPools()
+  const open = (pools ?? []).filter(p => p.listStatus === 'NEW' && !hidden.has(p.pool.id))
+  const locked = (pools ?? []).filter(p => p.listStatus === 'LOCKED' && !hidden.has(p.pool.id))
   const joinedOpen = open.reduce((s, p) => s + p.joinedTotal, 0)
   const featured = [...open].sort((a, b) => b.joinedTotal - a.joinedTotal).slice(0, 3)
 
@@ -89,7 +91,15 @@ export function HomePage (): ReactNode {
         <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
           {pools == null
             ? [0, 1, 2].map(i => <Skeleton key={i} className='h-64' />)
-            : featured.map(s => <PoolCard key={s.pool.id} summary={s} seen={seenPools[s.pool.id] ?? null} />)}
+            : featured.map(s => (
+                <PoolCard
+                  key={s.pool.id}
+                  summary={s}
+                  seen={seenPools[s.pool.id] ?? null}
+                  hidden={hidden.has(s.pool.id)}
+                  onToggleHidden={() => toggleHidden(s.pool.id)}
+                />
+              ))}
         </div>
         {pools != null && featured.length === 0 && (
           <EmptyState title='No open pools yet' action={<Link to='/pools/new'><Button colorScheme='brand' size='md'>Create the first pool</Button></Link>}>
