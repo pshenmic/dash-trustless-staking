@@ -1,14 +1,20 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { PoolSummary } from '../data/queries'
+import { usePoolState } from '../hooks/data'
 import { COLLATERAL } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, pluralize, relativeTime } from '../lib/format'
+import { isNewPool } from '../lib/recency'
+import { changesSince, type PoolSnapshot } from '../lib/seen'
 import { Dash, FillBar, IdentityChip, StatusBadge } from './bits'
 import { Flag, hasLocation, locationText } from './Flag'
+import { cn } from './ui'
 
-export function PoolCard ({ summary }: { summary: PoolSummary }): ReactNode {
+export function PoolCard ({ summary, seen }: { summary: PoolSummary, seen: PoolSnapshot | null }): ReactNode {
   const { pool, listStatus, joinCount, joinedTotal } = summary
   const open = listStatus === 'NEW'
+  const changed = useChangedSince(seen, summary)
+  const recent = isNewPool(pool.createdAt)
   return (
     <Link
       to={`/pools/${pool.id}`}
@@ -16,7 +22,19 @@ export function PoolCard ({ summary }: { summary: PoolSummary }): ReactNode {
     >
       <div className='flex items-start justify-between gap-3'>
         <div className='min-w-0'>
-          <h3 className='truncate text-lead font-extrabold tracking-[-0.02em] group-hover:text-brand-ink'>{pool.name}</h3>
+          {/* Inverse emphasis: a pool with nothing new since your visit steps back, one with something new keeps full contrast */}
+          <div className='flex min-w-0 items-center gap-2'>
+            <h3 className={cn(
+              'truncate text-lead tracking-[-0.02em] group-hover:text-brand-ink',
+              changed ? 'font-extrabold' : 'font-semibold text-muted'
+            )}
+            >
+              {pool.name}
+            </h3>
+            {recent && (
+              <span className='shrink-0 rounded-full bg-brand px-2 py-0.5 text-tag font-semibold text-white' title={`Created ${relativeTime(pool.createdAt)}`}>New pool</span>
+            )}
+          </div>
           <div className='mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
             <IdentityChip id={pool.ownerId} size='sm' />
             {hasLocation(pool) && (
@@ -24,7 +42,7 @@ export function PoolCard ({ summary }: { summary: PoolSummary }): ReactNode {
             )}
           </div>
         </div>
-        <StatusBadge status={listStatus} size='sm' />
+        <StatusBadge status={listStatus} size='sm' dot={false} />
       </div>
 
       <div className='mt-5'>
@@ -59,4 +77,29 @@ function Term ({ label, value }: { label: string, value: ReactNode }): ReactNode
       <dd className='mt-0.5 font-bold'>{value}</dd>
     </div>
   )
+}
+
+/**
+ * True when the pool holds something the stored visit has not seen: never opened here, a join landed,
+ * the pool got locked, or — for a locked pool — a new signature or a move through signing/registration.
+ * An Open pool needs no query: joins and the lock are the whole of its visible state, and both are in
+ * the summary. A locked pool's signatures and chain status are not, so they come from the pool's state
+ * (the same cache entry the pool page reads, fetched once, never polled from the grid).
+ */
+function useChangedSince (seen: PoolSnapshot | null, summary: PoolSummary): boolean {
+  const { lock, joinCount } = summary
+  const { data: state } = usePoolState(summary.pool.id, { enabled: seen != null && lock != null, poll: false })
+  if (seen == null) return true
+  const now = lock == null
+    ? { status: 'NEW' as const, consents: 0, fundings: 0, members: joinCount }
+    : state == null
+      ? null
+      : {
+          status: state.status,
+          consents: state.consentCount,
+          fundings: state.fundingCount,
+          members: state.lock == null ? state.joins.length : state.members.length
+        }
+  // Unknown yet reads as "nothing new": a circle that appears late beats one that lies for a second
+  return now != null && changesSince(seen, now) != null
 }

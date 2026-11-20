@@ -24,6 +24,15 @@ export function readSeen (poolId: string): PoolSnapshot | null {
   return snapshot != null && typeof snapshot.at === 'number' ? snapshot : null
 }
 
+/** Every remembered visit, by pool id — read once per grid render, not once per card */
+export function seenSnapshots (): Record<string, PoolSnapshot> {
+  const valid: Record<string, PoolSnapshot> = {}
+  for (const [poolId, snapshot] of Object.entries(readMap())) {
+    if (snapshot != null && typeof snapshot.at === 'number') valid[poolId] = snapshot
+  }
+  return valid
+}
+
 export function writeSeen (poolId: string, snapshot: PoolSnapshot): void {
   try {
     localStorage.setItem(KEY, JSON.stringify({ ...readMap(), [poolId]: snapshot }))

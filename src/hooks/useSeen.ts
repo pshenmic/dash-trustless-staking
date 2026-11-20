@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { snapshotNow, type PoolSnapshot } from '../lib/seen'
-import { readSeen, writeSeen } from '../lib/seenStore'
+import { seenSnapshots, readSeen, writeSeen } from '../lib/seenStore'
 
 /** At most one write every two seconds; the last state wins because each write rewrites the entry */
 const WRITE_INTERVAL_MS = 2_000
@@ -44,4 +44,12 @@ export function useSeen (poolId: string): SeenHandle {
   }, [flush])
 
   return { lastSeen: capture.current.lastSeen, markSeen }
+}
+
+/**
+ * The stored visit of every pool, read once per grid render: the page unmounts when a pool opens and
+ * remounts on the way back, which is what re-reads the marks after that visit.
+ */
+export function useSeenSnapshots (): Record<string, PoolSnapshot> {
+  return useMemo(() => seenSnapshots(), [])
 }

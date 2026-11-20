@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { backend } from '../data'
 import { createQuickPool } from '../data/mock/mockBackend'
 import { usePoolSummaries, useWrite } from '../hooks/data'
+import { useSeenSnapshots } from '../hooks/useSeen'
 import { isBlsPublicKey } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
 import type { PoolSummary } from '../data/queries'
@@ -23,6 +24,7 @@ const SORTS: Record<Sort, (a: PoolSummary, b: PoolSummary) => number> = {
 
 export function PoolsPage (): ReactNode {
   const { data, isLoading, error } = usePoolSummaries()
+  const seenPools = useSeenSnapshots()
   const navigate = useNavigate()
   const { activeIdentity } = useWallet()
   const quickPool = useWrite(async () => createQuickPool(activeIdentity))
@@ -128,7 +130,7 @@ export function PoolsPage (): ReactNode {
       )}
       {pools.length > 0 && (
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-          {pools.map(s => <PoolCard key={s.pool.id} summary={s} />)}
+          {pools.map(s => <PoolCard key={s.pool.id} summary={s} seen={seenPools[s.pool.id] ?? null} />)}
         </div>
       )}
     </div>
