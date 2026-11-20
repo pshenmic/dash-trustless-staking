@@ -30,7 +30,11 @@ export function usePoolDocument (poolId: string): UseQueryResult<Pool | null> {
   })
 }
 
-export function usePoolState (poolId: string): UseQueryResult<PoolState | null> {
+/**
+ * The pool's full state. The pool page polls it; the pools grid asks once per card that has a stored
+ * visit, to decide whether anything changed — same query key, so opening that pool reuses the answer.
+ */
+export function usePoolState (poolId: string, options: { enabled?: boolean, poll?: boolean } = {}): UseQueryResult<PoolState | null> {
   const queryClient = useQueryClient()
   return useQuery({
     queryKey: ['pool', poolId],
@@ -43,8 +47,11 @@ export function usePoolState (poolId: string): UseQueryResult<PoolState | null> 
       })
       return await fetchPoolState(poolId, pool)
     },
+    enabled: options.enabled ?? true,
     // Poll faster while the pool is moving through signing and confirmation
-    refetchInterval: query => query.state.data?.status === 'SIGNING' ? 4_000 : 20_000
+    refetchInterval: options.poll === false
+      ? false
+      : query => query.state.data?.status === 'SIGNING' ? 4_000 : 20_000
   })
 }
 

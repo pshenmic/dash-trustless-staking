@@ -5,6 +5,7 @@ import { Dash } from '../components/bits'
 import { PoolCard } from '../components/PoolCard'
 import { EmptyState, Skeleton, Stat } from '../components/ui'
 import { usePoolSummaries } from '../hooks/data'
+import { useSeenSnapshots } from '../hooks/useSeen'
 
 const STEPS = [
   { title: 'Join a pool', text: 'Pick a pool, choose your share (from 100 DASH) and publish your join. Your coins stay in your wallet.' },
@@ -22,6 +23,7 @@ const GUARANTEES = [
 
 export function HomePage (): ReactNode {
   const { data: pools } = usePoolSummaries()
+  const seenPools = useSeenSnapshots()
   const open = pools?.filter(p => p.listStatus === 'NEW') ?? []
   const locked = pools?.filter(p => p.listStatus === 'LOCKED') ?? []
   const joinedOpen = open.reduce((s, p) => s + p.joinedTotal, 0)
@@ -87,7 +89,7 @@ export function HomePage (): ReactNode {
         <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
           {pools == null
             ? [0, 1, 2].map(i => <Skeleton key={i} className='h-64' />)
-            : featured.map(s => <PoolCard key={s.pool.id} summary={s} />)}
+            : featured.map(s => <PoolCard key={s.pool.id} summary={s} seen={seenPools[s.pool.id] ?? null} />)}
         </div>
         {pools != null && featured.length === 0 && (
           <EmptyState title='No open pools yet' action={<Link to='/pools/new'><Button colorScheme='brand' size='md'>Create the first pool</Button></Link>}>

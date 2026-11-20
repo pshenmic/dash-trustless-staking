@@ -27,7 +27,8 @@ const STATUS_STYLE: Record<PoolStatus | 'LOCKED', { label: string, className: st
   DISSOLVED: { label: 'Dissolved', className: 'bg-surface-2 text-muted', dot: 'bg-muted' }
 }
 
-export function StatusBadge ({ status, size = 'md' }: { status: PoolStatus | PoolListStatus, size?: 'sm' | 'md' }): ReactNode {
+/** `dot` is the status hue; the pools grid turns it off so a card's only circle is its "New" pill */
+export function StatusBadge ({ status, size = 'md', dot = true }: { status: PoolStatus | PoolListStatus, size?: 'sm' | 'md', dot?: boolean }): ReactNode {
   const style = STATUS_STYLE[status]
   return (
     <span className={cn(
@@ -36,7 +37,7 @@ export function StatusBadge ({ status, size = 'md' }: { status: PoolStatus | Poo
       style.className
     )}
     >
-      <span className={cn('size-1.5 rounded-full', style.dot)} aria-hidden />
+      {dot && <span className={cn('size-1.5 rounded-full', style.dot)} aria-hidden />}
       {style.label}
     </span>
   )

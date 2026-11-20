@@ -60,8 +60,19 @@ function MessageBubble ({ message, mine, creator }: { message: ChatLine, mine: b
   )
 }
 
+/** Divider marking where the last visit ended; everything below it arrived since */
+function LastVisitDivider ({ at }: { at: number }): ReactNode {
+  return (
+    <div className='flex items-center gap-3 text-tag text-muted'>
+      <span className='h-px flex-1 bg-line/60' aria-hidden />
+      <span title={formatDateTime(at)}>You were last here {relativeTime(at)}</span>
+      <span className='h-px flex-1 bg-line/60' aria-hidden />
+    </div>
+  )
+}
+
 /** One chronological feed of messages and pool events, newest at the bottom. Shared by both chats. */
-export function ChatMessages ({ messages, events = [], loading, highlight = [], empty }: {
+export function ChatMessages ({ messages, events = [], loading, highlight = [], empty, since }: {
   messages: ChatLine[] | undefined
   /** Pool lifecycle events, shown inline between the messages */
   events?: PoolEvent[]
@@ -69,28 +80,35 @@ export function ChatMessages ({ messages, events = [], loading, highlight = [], 
   /** Identities tagged as the pool creator */
   highlight?: string[]
   empty: string
+  /** Mark the first row recorded after this moment as the end of the previous visit */
+  since?: number
 }): ReactNode {
   const { activeIdentity } = useWallet()
   const listRef = useRef<HTMLDivElement>(null)
 
-  const rows = [
+  const sorted = [
     ...events.map((event, i) => ({ at: event.at, node: <FeedEvent key={`event-${i}`} event={event} /> })),
     ...(messages ?? []).map(message => ({
-      at: message.createdAt,
+      at: message.createdAt as number | null,
       node: <MessageBubble key={message.id} message={message} mine={message.ownerId === activeIdentity} creator={highlight.includes(message.ownerId)} />
     }))
-  ].sort(compareFeed).map(row => row.node)
+  ].sort(compareFeed)
+
+  const cutoff = since ?? null
+  const firstNew = cutoff == null ? -1 : sorted.findIndex(row => row.at != null && row.at > cutoff)
+  const nodes: ReactNode[] = sorted.map(row => row.node)
+  if (cutoff != null && firstNew >= 0) nodes.splice(firstNew, 0, <LastVisitDivider key='last-visit' at={cutoff} />)
 
   useEffect(() => {
     const list = listRef.current
     if (list != null) list.scrollTop = list.scrollHeight
-  }, [rows.length])
+  }, [nodes.length])
 
   return (
     <div ref={listRef} className='flex max-h-[480px] flex-col gap-3 overflow-y-auto pr-1'>
       {loading && <Loading />}
-      {!loading && rows.length === 0 && <EmptyState title='No messages yet'>{empty}</EmptyState>}
-      {rows}
+      {!loading && nodes.length === 0 && <EmptyState title='No messages yet'>{empty}</EmptyState>}
+      {nodes}
     </div>
   )
 }
@@ -131,13 +149,13 @@ export function ChatComposer ({ onSend, note }: { onSend: (text: string) => Prom
 }
 
 /** Public chat over `message` documents. Every message is a public, permanent Platform document. */
-export function Chat ({ channel, events, highlight = [] }: { channel: string, events?: PoolEvent[], highlight?: string[] }): ReactNode {
+export function Chat ({ channel, events, highlight = [], since }: { channel: string, events?: PoolEvent[], highlight?: string[], since?: number }): ReactNode {
   const { data: messages, isLoading } = useMessages(channel)
   const { activeIdentity, openLogin } = useWallet()
 
   return (
     <div className='flex flex-col gap-4'>
-      <ChatMessages messages={messages} events={events} loading={isLoading} highlight={highlight} empty='Say hello to the other members.' />
+      <ChatMessages messages={messages} events={events} loading={isLoading} highlight={highlight} empty='Say hello to the other members.' since={since} />
       {activeIdentity == null
         ? (
           <div className='flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface-2 px-4 py-3 text-small'>
