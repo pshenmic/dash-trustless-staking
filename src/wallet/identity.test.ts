@@ -3,11 +3,7 @@ import { PrivateKeyWASM, type IdentityPublicKeyWASM, type IdentityWASM } from 'p
 import { findIdentityForKeys, parsePrivateKey, type IdentityDirectory } from './identity'
 
 const authKey = PrivateKeyWASM.fromHex('01'.repeat(32), 'testnet')
-const encryptionKey = PrivateKeyWASM.fromHex('02'.repeat(32), 'testnet')
-const otherKey = PrivateKeyWASM.fromHex('03'.repeat(32), 'testnet')
 const authHash = authKey.getPublicKeyHash()
-const encryptionHash = encryptionKey.getPublicKeyHash()
-const otherHash = otherKey.getPublicKeyHash()
 
 interface KeyOptions {
   keyId?: number
@@ -57,97 +53,49 @@ function directory (keys: IdentityPublicKeyWASM[], overrides: Partial<IdentityDi
   }
 }
 
-const goodKeys = (): IdentityPublicKeyWASM[] => [
-  fakeKey({ keyId: 0, hash: authHash }),
-  fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })
-]
+const goodKeys = (): IdentityPublicKeyWASM[] => [fakeKey({ keyId: 0, hash: authHash })]
 
 const find = async (keys = goodKeys(), overrides: Partial<IdentityDirectory> = {}, contractId = 'contract-id') =>
-  await findIdentityForKeys(authKey, encryptionKey, { contractId, directory: directory(keys, overrides) })
+  await findIdentityForKeys(authKey, { contractId, directory: directory(keys, overrides) })
 
 describe('findIdentityForKeys', () => {
-  test('returns the identity and both key ids', async () => {
-    await expect(find()).resolves.toEqual({ identityId: 'identity-id', authKeyId: 0, encryptionKeyId: 2 })
-  })
-
-  test('accepts a DECRYPTION key for encryption', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash }), fakeKey({ keyId: 4, hash: encryptionHash, purpose: 2 })]
-    await expect(find(keys)).resolves.toMatchObject({ encryptionKeyId: 4 })
+  test('returns the identity and the authentication key id', async () => {
+    await expect(find()).resolves.toEqual({ identityId: 'identity-id', authKeyId: 0 })
   })
 
   test('rejects a non-authentication key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash, purpose: 1 }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })]
+    // An encryption key is no longer asked for, and it must not be accepted as the login key either
+    const keys = [fakeKey({ keyId: 0, hash: authHash, purpose: 1 })]
     await expect(find(keys)).rejects.toThrow(/not an authentication key/)
   })
 
   test('rejects a MEDIUM security key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash, security: 3 }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })]
-    await expect(find(keys)).rejects.toThrow(/security level is too low/)
+    await expect(find([fakeKey({ keyId: 0, hash: authHash, security: 3 })])).rejects.toThrow(/security level is too low/)
   })
 
   test('rejects a read-only authentication key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash, readOnly: true }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })]
-    await expect(find(keys)).rejects.toThrow(/read-only/)
+    await expect(find([fakeKey({ keyId: 0, hash: authHash, readOnly: true })])).rejects.toThrow(/read-only/)
   })
 
   test('rejects a disabled authentication key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash, disabled: 1n }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })]
-    await expect(find(keys)).rejects.toThrow(/disabled/)
+    await expect(find([fakeKey({ keyId: 0, hash: authHash, disabled: 1n })])).rejects.toThrow(/disabled/)
   })
 
   test('rejects an expired authentication key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash, expired: true }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })]
-    await expect(find(keys)).rejects.toThrow(/expired/)
+    await expect(find([fakeKey({ keyId: 0, hash: authHash, expired: true })])).rejects.toThrow(/expired/)
   })
 
   test("accepts bounds to this contract and rejects another contract's", async () => {
-    const mine = [
-      fakeKey({ keyId: 0, hash: authHash, bounds: { contract: 'contract-id', documentType: null } }),
-      fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })
-    ]
-    await expect(find(mine)).resolves.toMatchObject({ authKeyId: 0 })
+    await expect(find([fakeKey({ keyId: 0, hash: authHash, bounds: { contract: 'contract-id', documentType: null } })]))
+      .resolves.toMatchObject({ authKeyId: 0 })
 
-    const other = [
-      fakeKey({ keyId: 0, hash: authHash, bounds: { contract: 'other-contract', documentType: null } }),
-      fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })
-    ]
-    await expect(find(other)).rejects.toThrow(/restricted/)
+    await expect(find([fakeKey({ keyId: 0, hash: authHash, bounds: { contract: 'other-contract', documentType: null } })]))
+      .rejects.toThrow(/restricted/)
   })
 
   test('rejects a key bound to one document type', async () => {
-    const keys = [
-      fakeKey({ keyId: 0, hash: authHash, bounds: { contract: 'contract-id', documentType: 'pool' } }),
-      fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })
-    ]
+    const keys = [fakeKey({ keyId: 0, hash: authHash, bounds: { contract: 'contract-id', documentType: 'pool' } })]
     await expect(find(keys)).rejects.toThrow(/restricted/)
-  })
-
-  test('rejects an encryption key from another identity', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash }), fakeKey({ keyId: 2, hash: otherHash, purpose: 1 })]
-    await expect(find(keys)).rejects.toThrow(/another identity/)
-  })
-
-  test('rejects an identity with no encryption key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash })]
-    await expect(find(keys)).rejects.toThrow(/has no encryption key/)
-  })
-
-  test('rejects the authentication key reused as encryption', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1 })]
-    await expect(findIdentityForKeys(authKey, authKey, {
-      contractId: 'contract-id',
-      directory: directory(keys)
-    })).rejects.toThrow(/separate encryption key/)
-  })
-
-  test('rejects a key that is not an encryption key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash }), fakeKey({ keyId: 3, hash: encryptionHash, purpose: 0 })]
-    await expect(find(keys)).rejects.toThrow(/not an ENCRYPTION/)
-  })
-
-  test('rejects a disabled encryption key', async () => {
-    const keys = [fakeKey({ keyId: 0, hash: authHash }), fakeKey({ keyId: 2, hash: encryptionHash, purpose: 1, disabled: 1n })]
-    await expect(find(keys)).rejects.toThrow(/encryption key is disabled/)
   })
 
   test('falls back to the non-unique lookup only on not-found', async () => {
@@ -172,7 +120,7 @@ describe('findIdentityForKeys', () => {
 
   test('turns a slow lookup into a network error', async () => {
     const byKeyHash = vi.fn(() => new Promise<never>(() => {}))
-    await expect(findIdentityForKeys(authKey, encryptionKey, {
+    await expect(findIdentityForKeys(authKey, {
       contractId: 'contract-id',
       directory: directory(goodKeys(), { byKeyHash }),
       timeoutMs: 10

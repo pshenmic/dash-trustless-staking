@@ -10,15 +10,12 @@ import { useSettings } from '../lib/settings'
 import { useWallet } from '../wallet/WalletContext'
 import { IdentityChip } from './bits'
 import { LoginDialog } from './LoginDialog'
-import { Menu } from './Menu'
-import { errorMessage, useToast } from './Toast'
 import { cn } from './ui'
 
 const NAV = [
   { to: '/pools', label: 'Pools', icon: PoolsIcon },
-  { to: '/pools/new', label: 'Create', icon: PlusIcon },
-  { to: '/me', label: 'My dashboard', short: 'Me', icon: UserIcon },
   { to: '/governance', label: 'Governance', short: 'Votes', icon: VoteIcon },
+  { to: '/stats', label: 'Statistics', short: 'Stats', icon: ChartIcon },
   { to: '/guide', label: 'Guide', icon: BookIcon }
 ]
 
@@ -122,25 +119,19 @@ function ThemeToggle (): ReactNode {
 }
 
 function ConnectButton (): ReactNode {
-  const { status, identity, identities, openLogin, logout, selectIdentity } = useWallet()
-  const { notify } = useToast()
+  const { status, identity, openLogin } = useWallet()
 
   if (identity != null) {
-    const copy = (): void => {
-      navigator.clipboard.writeText(identity)
-        .then(() => notify('Identity ID copied', 'info'))
-        .catch(e => notify(errorMessage(e), 'error'))
-    }
+    // The chip is the profile entry point: identity actions and the dashboard live on that page.
+    // Same pill as the button it replaced, so the badge keeps its border and surface.
     return (
-      <Menu
-        trigger={<IdentityChip id={identity} size='sm' />}
-        items={[
-          ...identities.filter(id => id !== identity).map(id => ({ label: `Use ${shortId(id, 6)}`, onClick: () => selectIdentity(id) })),
-          { label: 'Copy identity ID', onClick: copy },
-          { label: 'My dashboard', to: '/me' },
-          { label: 'Log out', onClick: logout }
-        ]}
-      />
+      <Link
+        to='/profile'
+        aria-label='Your profile'
+        className='flex max-w-44 items-center rounded-full border border-line bg-surface py-1 pr-3 pl-1 hover:border-brand/60'
+      >
+        <IdentityChip id={identity} size='sm' />
+      </Link>
     )
   }
 
@@ -164,6 +155,7 @@ function Footer (): ReactNode {
         <span>Trustless shared masternodes on Dash. Runs on DAPI only, no servers.</span>
         <nav className='flex gap-5' aria-label='Footer'>
           <Link to='/guide' className='hover:text-fg'>Guide</Link>
+          <Link to='/stats' className='hover:text-fg'>Statistics</Link>
           <Link to='/chat' className='hover:text-fg'>Community chat</Link>
           <Link to='/settings' className='hover:text-fg'>Settings</Link>
           <a href='https://github.com/pshenmic/dash-trustless-staking' target='_blank' rel='noreferrer' className='hover:text-fg'>GitHub</a>
@@ -174,13 +166,15 @@ function Footer (): ReactNode {
 }
 
 function BottomNav (): ReactNode {
+  const items = [...NAV, { to: '/settings', label: 'Settings', icon: GearIcon }]
   return (
     <nav
       aria-label='Main'
       className='fixed inset-x-0 bottom-0 z-40 border-t border-line/60 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden'
     >
-      <div className='grid grid-cols-6'>
-        {[...NAV, { to: '/settings', label: 'Settings', icon: GearIcon }].map(item => (
+      {/* One column per item, so the row stays even when the nav grows or shrinks */}
+      <div className='grid' style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+        {items.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -212,17 +206,14 @@ function Icon ({ children }: { children: ReactNode }): ReactNode {
 function PoolsIcon (): ReactNode {
   return <Icon><rect x='3' y='4' width='18' height='7' rx='2.5' /><rect x='3' y='13' width='18' height='7' rx='2.5' /><path d='M7 7.5h.01M7 16.5h.01' /></Icon>
 }
-function PlusIcon (): ReactNode {
-  return <Icon><circle cx='12' cy='12' r='9' /><path d='M12 8v8M8 12h8' /></Icon>
-}
-function UserIcon (): ReactNode {
-  return <Icon><circle cx='12' cy='8' r='4' /><path d='M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6' /></Icon>
-}
 function BookIcon (): ReactNode {
   return <Icon><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z' /><path d='M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5' /></Icon>
 }
 function VoteIcon (): ReactNode {
   return <Icon><path d='M5 12l4 4L19 6' /><path d='M3 20h18' /></Icon>
+}
+function ChartIcon (): ReactNode {
+  return <Icon><path d='M4 20V10M10 20V4M16 20v-7M22 20H2' /></Icon>
 }
 function GearIcon (): ReactNode {
   return <Icon><circle cx='12' cy='12' r='3' /><path d='M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z' /></Icon>

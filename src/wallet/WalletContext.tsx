@@ -22,7 +22,7 @@ interface WalletContextValue {
   loginOpen: boolean
   openLogin: () => void
   closeLogin: () => void
-  loginWithPrivateKey: (authenticationKeyText: string, encryptionKeyText: string) => Promise<void>
+  loginWithPrivateKey: (authenticationKeyText: string) => Promise<void>
   loginWithExtension: () => Promise<void>
   logout: () => void
   selectIdentity: (id: string) => void
@@ -85,20 +85,17 @@ export function WalletProvider ({ children }: { children: ReactNode }): ReactNod
 
   const closeLogin = useCallback(() => setLoginOpen(false), [])
 
-  const loginWithPrivateKey = useCallback(async (authenticationKeyText: string, encryptionKeyText: string) => {
+  const loginWithPrivateKey = useCallback(async (authenticationKeyText: string) => {
     setError(null)
     setStatus('connecting')
     try {
       const authenticationKey = await parsePrivateKey(authenticationKeyText)
-      const encryptionKey = await parsePrivateKey(encryptionKeyText)
-      const found = await findIdentityForKeys(authenticationKey, encryptionKey)
+      const found = await findIdentityForKeys(authenticationKey)
       const next: AuthSession = {
         mode: 'privateKey',
         identityId: found.identityId,
         authKeyId: found.authKeyId,
-        authKeyWif: authenticationKey.WIF(),
-        encryptionKeyId: found.encryptionKeyId,
-        encryptionKeyWif: encryptionKey.WIF()
+        authKeyWif: authenticationKey.WIF()
       }
       saveSession(next)
       setSession(next)

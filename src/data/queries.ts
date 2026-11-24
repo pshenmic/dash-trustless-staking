@@ -10,8 +10,9 @@ import type {
 } from '../lib/types'
 import { latestJoins } from '../lib/joins'
 import { entriesProblems } from '../lib/lockEntries'
+import { homeStats, type HomeStats } from '../lib/homeStats'
 import { withDisplayMeta, type DisplayPool } from '../lib/poolName'
-import { groupVotesByPool, poolVoteSummary } from '../lib/voting'
+import { groupVotesByPool, latestVotesPerProposal, poolVoteSummary } from '../lib/voting'
 import {
   aggregateProposal, governanceOverview, poolLeaderboard, proposalParticipation, voteTrend,
   type GovernanceStats, type ProposalStats
@@ -55,6 +56,38 @@ export async function fetchPoolSummaries (platform: PlatformSource = backend.pla
       joinedTotal: counted.reduce((s, j) => s + j.amount, 0)
     }
   })
+}
+
+/**
+ * Landing-page totals. Three document queries (pools, locks, joins) — the same inputs the pools grid
+ * needs anyway — folded by the pure `homeStats`. Shares are counted as stored: the contract already
+ * bounds amount and inputs, so a current document is a real commitment.
+ */
+export async function fetchHomeStats (platform: PlatformSource = backend.platform): Promise<HomeStats> {
+  const pools = await platform.listPools()
+  const poolIds = pools.map(p => p.id)
+  const [locks, joins] = await Promise.all([
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
+  ])
+  return homeStats(pools, locks, joins)
+}
+
+export interface StatsSource {
+  pools: Pool[]
+  locks: Lock[]
+  joins: Join[]
+}
+
+/** The stats page's raw documents: the same three queries the grid and the home page use */
+export async function fetchStatsSource (platform: PlatformSource = backend.platform): Promise<StatsSource> {
+  const pools = await platform.listPools()
+  const poolIds = pools.map(p => p.id)
+  const [locks, joins] = await Promise.all([
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
+  ])
+  return { pools, locks, joins }
 }
 
 export interface PoolSentiment {
@@ -469,12 +502,18 @@ export interface MyActivity {
   created: PoolState[]
   joined: Array<{ state: PoolState, join: Join, selected: boolean }>
   actions: ActionItem[]
+  /** Current choice per proposal this identity voted on (index vote.$ownerId) */
+  votes: Array<{ vote: Vote, pool: Pool | null }>
+  /** Reviews this identity wrote (index feedback.$ownerId) */
+  reviews: Array<{ feedback: Feedback, pool: Pool | null }>
 }
 
 export async function fetchMyActivity (identity: string, platform: PlatformSource = backend.platform): Promise<MyActivity> {
-  const [ownPools, myJoins] = await Promise.all([
+  const [ownPools, myJoins, myVotes, myFeedback] = await Promise.all([
     platform.listPoolsByOwner(identity),
-    platform.listJoinsByOwner(identity)
+    platform.listJoinsByOwner(identity),
+    platform.listVotesByOwner(identity),
+    platform.listFeedbackByOwner(identity)
   ])
   const poolIds = [...new Set([...ownPools.map(p => p.id), ...myJoins.map(j => j.poolId)])]
   const states = new Map(
@@ -502,5 +541,12 @@ export async function fetchMyActivity (identity: string, platform: PlatformSourc
     if (state.status === 'NEW' && state.joins.length >= MIN_SHARES && total >= COLLATERAL) actions.push({ kind: 'lock', pool: state.pool })
     if (state.stage === 'broadcast' && state.lockProblems.length === 0) actions.push({ kind: 'broadcast', pool: state.pool })
   }
-  return { created, joined, actions }
+  return {
+    created,
+    joined,
+    actions,
+    // One row per proposal, newest choice wins: a changed vote must not show twice
+    votes: latestVotesPerProposal(myVotes).map(vote => ({ vote, pool: states.get(vote.poolId)?.pool ?? null })),
+    reviews: myFeedback.map(feedback => ({ feedback, pool: states.get(feedback.poolId)?.pool ?? null }))
+  }
 }

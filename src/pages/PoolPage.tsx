@@ -17,7 +17,7 @@ import { SystemTab } from '../components/pool/SystemTab'
 import { GenerationBanner } from '../components/GenerationBanner'
 import { Card, EmptyState, Loading, Notice } from '../components/ui'
 import { useGeneration } from '../generations'
-import { usePoolDocument, usePoolMetas, usePoolPreview, usePoolState, useVotes } from '../hooks/data'
+import { usePoolDocument, usePoolMetas, usePoolPreview, usePoolState, useRecentPoolVotes } from '../hooks/data'
 import { useSeen } from '../hooks/useSeen'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { relativeTime } from '../lib/format'
@@ -38,7 +38,7 @@ export function PoolPage (): ReactNode {
   const { activeIdentity } = useWallet()
   const poolForGate = state?.pool ?? document ?? preview?.pool ?? null
   const hosted = poolForGate?.votingAddress === HOSTING_VOTING_ADDRESS
-  const votes = useVotes(poolId, hosted)
+  const votes = useRecentPoolVotes(poolId, hosted)
   const metas = usePoolMetas(poolId)
   const { lastSeen, markSeen } = useSeen(poolId)
   const [params, setParams] = useSearchParams()

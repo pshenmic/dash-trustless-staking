@@ -1,12 +1,13 @@
 import { useMutation, useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { backend, platformFor } from '../data'
 import {
-  fetchCreatorProfile, fetchMyActivity, fetchPoolState, fetchPoolSummaries, fetchProposalSentiment, fetchGovernanceStats,
-  type ActionKind, type CreatorProfile, type PoolState, type PoolSummary, type ProposalSentiment
+  fetchCreatorProfile, fetchHomeStats, fetchMyActivity, fetchPoolState, fetchPoolSummaries, fetchProposalSentiment, fetchGovernanceStats, fetchStatsSource,
+  type ActionKind, type CreatorProfile, type PoolState, type PoolSummary, type ProposalSentiment, type StatsSource
 } from '../data/queries'
 import type { GovernanceStats } from '../lib/governanceStats'
 import type { HostingOptions } from '../data/types'
 import type { Feedback, Join, Message, Pool, PoolMeta, Vote } from '../lib/types'
+import type { HomeStats } from '../lib/homeStats'
 import { useNetwork } from '../lib/network'
 import { isProposalHash } from '../lib/voting'
 import { GENERATIONS, useGeneration } from '../generations'
@@ -22,6 +23,52 @@ export function usePoolSummaries (): UseQueryResult<PoolSummary[]> {
     queryKey: ['pools', ref.slug],
     queryFn: async () => await fetchPoolSummaries(platformFor(ref)),
     refetchInterval: 30_000
+  })
+}
+
+/**
+ * Landing-page numbers: documents give the totals, the already-streamed masternode list gives the
+ * running count. `running` stays null until the list has synced, so the tile can say "syncing"
+ * instead of claiming zero.
+ */
+export function useHomeStats (): { stats: HomeStats | null, running: number | null, isLoading: boolean, error: unknown } {
+  const { ref } = useGeneration()
+  const platform = platformFor(ref)
+  const stats = useQuery({
+    queryKey: ['home-stats', ref.slug],
+    queryFn: async () => await fetchHomeStats(platform),
+    staleTime: 5 * 60_000,
+    refetchInterval: 60_000
+  })
+  const operators = stats.data?.lockedOperators ?? []
+  const running = useQuery({
+    queryKey: ['home-running', ref.slug, operators],
+    enabled: operators.length > 0,
+    staleTime: 60_000,
+    queryFn: async (): Promise<number | null> => {
+      const height = await backend.chain.getMasternodeListHeight()
+      if (height == null) return null
+      const entries = await Promise.all(operators.map(async key => await backend.chain.getMasternodeByOperatorKey(key)))
+      return entries.filter(entry => entry != null && entry.isValid).length
+    }
+  })
+  return {
+    stats: stats.data ?? null,
+    // No locked pools means nothing can be running, but only say so once the documents have loaded
+    running: stats.data == null ? null : operators.length === 0 ? 0 : running.data ?? null,
+    isLoading: stats.isLoading,
+    error: stats.error
+  }
+}
+
+/** The stats page's documents. Slower moving than the grid, so it can afford a five-minute cache */
+export function useStatsSource (): UseQueryResult<StatsSource> {
+  const { ref } = useGeneration()
+  return useQuery({
+    queryKey: ['stats-source', ref.slug],
+    queryFn: async () => await fetchStatsSource(platformFor(ref)),
+    staleTime: 5 * 60_000,
+    refetchInterval: 60_000
   })
 }
 
@@ -101,6 +148,18 @@ export function useVotes (poolId: string, enabled = true): UseQueryResult<Vote[]
   return useQuery({ queryKey: ['votes', ref.slug, poolId], queryFn: async () => await platform.listVotes(poolId), enabled, refetchInterval: 30_000 })
 }
 
+/** The newest votes only — the activity feed needs the latest lines, not every proposal's full set */
+export function useRecentPoolVotes (poolId: string, enabled = true): UseQueryResult<Vote[]> {
+  const { ref } = useGeneration()
+  const platform = platformFor(ref)
+  return useQuery({
+    queryKey: ['votes-recent', ref.slug, poolId],
+    queryFn: async () => await platform.listVotesInPool(poolId, 100),
+    enabled,
+    refetchInterval: 30_000
+  })
+}
+
 export function useRecentVotes (limit = 100): UseQueryResult<Vote[]> {
   const { ref } = useGeneration()
   const platform = platformFor(ref)
@@ -169,6 +228,8 @@ export interface MyDashboard {
   created: Array<{ state: PoolState, generation: string }>
   joined: Array<{ state: PoolState, join: Join, selected: boolean, generation: string }>
   actions: Array<{ kind: ActionKind, pool: Pool, generation: string }>
+  votes: Array<{ vote: Vote, pool: Pool | null, generation: string }>
+  reviews: Array<{ feedback: Feedback, pool: Pool | null, generation: string }>
 }
 
 /**
@@ -193,6 +254,10 @@ export function useMyActivity (identity: string | null): { data: MyDashboard | u
           (result.data?.joined ?? []).map(item => ({ ...item, generation: GENERATIONS[index].slug })))
         const actions = results.flatMap((result, index) =>
           (result.data?.actions ?? []).map(action => ({ ...action, generation: GENERATIONS[index].slug })))
+        const votes = results.flatMap((result, index) =>
+          (result.data?.votes ?? []).map(item => ({ ...item, generation: GENERATIONS[index].slug })))
+        const reviews = results.flatMap((result, index) =>
+          (result.data?.reviews ?? []).map(item => ({ ...item, generation: GENERATIONS[index].slug })))
         // Pool ids are unique across contracts; first wins so an older generation keeps the row it owns
         const first = <T>(items: T[], key: (item: T) => string): T[] => {
           const seen = new Map<string, T>()
@@ -202,7 +267,9 @@ export function useMyActivity (identity: string | null): { data: MyDashboard | u
         return {
           created: first(created, item => item.state.pool.id),
           joined: first(joined, item => item.state.pool.id),
-          actions: first(actions, action => `${action.kind}:${action.pool.id}`)
+          actions: first(actions, action => `${action.kind}:${action.pool.id}`),
+          votes: first(votes, item => item.vote.id),
+          reviews: first(reviews, item => item.feedback.id)
         }
       })()
     : undefined

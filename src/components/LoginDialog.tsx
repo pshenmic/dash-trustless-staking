@@ -6,14 +6,13 @@ import { errorMessage, useToast } from './Toast'
 import { Field, Notice } from './ui'
 
 /**
- * Login dialog. Dash Platform Extension is the preferred method; private-key login needs both the
- * authentication key (signing) and the encryption key (private chat) of the same Dash Platform identity.
+ * Login dialog. Dash Platform Extension is the preferred method; private-key login needs only the
+ * authentication key — the encryption key existed for private chat, which is no longer in the app.
  */
 export function LoginDialog (): ReactNode {
   const { loginOpen, closeLogin, loginWithPrivateKey, loginWithExtension } = useWallet()
   const { notify } = useToast()
   const [authenticationKey, setAuthenticationKey] = useState('')
-  const [encryptionKey, setEncryptionKey] = useState('')
   const [showPrivate, setShowPrivate] = useState(false)
   const [pending, setPending] = useState<'private' | 'extension' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +20,6 @@ export function LoginDialog (): ReactNode {
   useEffect(() => {
     if (loginOpen) return
     setAuthenticationKey('')
-    setEncryptionKey('')
     setShowPrivate(false)
     setError(null)
     setPending(null)
@@ -31,7 +29,7 @@ export function LoginDialog (): ReactNode {
     setPending('private')
     setError(null)
     try {
-      await loginWithPrivateKey(authenticationKey, encryptionKey)
+      await loginWithPrivateKey(authenticationKey)
       notify('Logged in', 'success')
     } catch (e) {
       setError(errorMessage(e))
@@ -80,7 +78,7 @@ export function LoginDialog (): ReactNode {
           disabled={pending != null}
           onClick={() => setShowPrivate(value => !value)}
         >
-          {showPrivate ? 'Hide Private Keys' : 'Login with Private Keys'}
+          {showPrivate ? 'Hide Private Key' : 'Login with Private Key'}
         </Button>
 
         {showPrivate && (
@@ -101,31 +99,15 @@ export function LoginDialog (): ReactNode {
               />
             </Field>
 
-            <Field
-              label='Encryption key'
-              hint='ENCRYPTION or DECRYPTION key of the same identity.'
-              htmlFor='login-encryption-key'
-            >
-              <Input
-                id='login-encryption-key'
-                type='password'
-                autoComplete='off'
-                spellCheck={false}
-                value={encryptionKey}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEncryptionKey(e.target.value)}
-                placeholder='WIF or 64-character hex'
-              />
-            </Field>
-
             <p className='text-tag text-muted'>
-              Both keys must belong to the same Dash Platform identity on testnet. Kept for this browser session.
+              Signs your actions on testnet. Kept for this browser session only.
             </p>
 
             <Button
               colorScheme='brand'
               size='sm'
               className='self-start'
-              disabled={pending != null || authenticationKey.trim() === '' || encryptionKey.trim() === ''}
+              disabled={pending != null || authenticationKey.trim() === ''}
               onClick={() => { void submit() }}
             >
               {pending === 'private' ? 'Looking up identity…' : 'Log in'}

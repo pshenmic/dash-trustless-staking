@@ -297,6 +297,7 @@ export function createLivePlatform (sdk: DashPlatformSDK, contract: ContractSour
     listFeeFundings: async lockId => await query('feeFunding', [['lockId', '==', lockId]]),
     listMessages: async channel => await byParent('message', 'channel', channel),
     listFeedback: async poolId => (await byParent('feedback', 'poolId', poolId)).reverse(),
+    listFeedbackByOwner: async ownerId => (await query('feedback', [['$ownerId', '==', ownerId]])).sort((a, b) => b.createdAt - a.createdAt),
     // No `$createdAt > 0` range here: Drive only accepts that range when the orderBy reaches
     // $createdAt without a gap, and `poolProposal` has proposalHash in between. Every document has a
     // $createdAt anyway, so filtering on it adds nothing — verified against the v3 contract.
@@ -307,6 +308,9 @@ export function createLivePlatform (sdk: DashPlatformSDK, contract: ContractSour
     listVotes: async poolId => await queryAll('vote',
       [['poolId', '==', poolId]],
       [['poolId', 'asc'], ['proposalHash', 'asc'], ['$createdAt', 'asc']]),
+    listVotesByOwner: async ownerId => (await query('vote', [['$ownerId', '==', ownerId]])).sort((a, b) => b.createdAt - a.createdAt),
+    listVotesInPool: async (poolId, limit = 100) => decode('vote',
+      await sdk.documents.query(await dataContract(), 'vote', [['poolId', '==', poolId]] as never, [['poolId', 'asc'], ['$createdAt', 'desc']] as never, limit) as unknown as RawDocument[]),
     listVotesByProposal: async proposalHash => await queryAll('vote',
       [['proposalHash', '==', fromHex(proposalHash)], ['$createdAt', '>', 0]],
       [['proposalHash', 'asc'], ['$createdAt', 'asc']]),

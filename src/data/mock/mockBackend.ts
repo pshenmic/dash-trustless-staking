@@ -189,9 +189,21 @@ const platform: PlatformSource = {
     await latency()
     return state.feedback.filter(f => f.poolId === poolId).sort((a, b) => b.createdAt - a.createdAt)
   },
+  async listFeedbackByOwner (ownerId) {
+    await latency()
+    return state.feedback.filter(f => f.ownerId === ownerId).sort((a, b) => b.createdAt - a.createdAt)
+  },
   async listVotes (poolId) {
     await latency()
     return state.votes.filter(v => v.poolId === poolId).sort((a, b) => a.createdAt - b.createdAt)
+  },
+  async listVotesByOwner (ownerId) {
+    await latency()
+    return state.votes.filter(v => v.ownerId === ownerId).sort((a, b) => b.createdAt - a.createdAt)
+  },
+  async listVotesInPool (poolId, limit = 100) {
+    await latency()
+    return state.votes.filter(v => v.poolId === poolId).sort((a, b) => b.createdAt - a.createdAt).slice(0, limit)
   },
   async listPoolMetas (poolId) {
     await latency()

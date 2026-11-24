@@ -17,9 +17,7 @@ const session: AuthSession = {
   mode: 'privateKey',
   identityId: '6ZmHmFzbEb5SFJYg4QUhqBN3xTa2rDU3ywZ2Q149T1jF',
   authKeyId: 0,
-  authKeyWif: 'cV1',
-  encryptionKeyId: 2,
-  encryptionKeyWif: 'cV2'
+  authKeyWif: 'cV1'
 }
 
 describe('authSession', () => {
@@ -67,8 +65,20 @@ describe('authSession', () => {
   })
 
   test('returns null for a private-key session missing a key', () => {
-    sessionStorage.setItem('dts:auth', JSON.stringify({ mode: 'privateKey', identityId: 'id', authKeyId: 0, authKeyWif: 'cV1' }))
+    sessionStorage.setItem('dts:auth', JSON.stringify({ mode: 'privateKey', identityId: 'id', authKeyId: 0 }))
     expect(loadSession()).toBeNull()
+  })
+
+  test('still parses a session written before the encryption key was dropped', () => {
+    sessionStorage.setItem('dts:auth', JSON.stringify({
+      mode: 'privateKey',
+      identityId: 'id',
+      authKeyId: 0,
+      authKeyWif: 'cV1',
+      encryptionKeyId: 2,
+      encryptionKeyWif: 'cV2'
+    }))
+    expect(loadSession()).toEqual({ mode: 'privateKey', identityId: 'id', authKeyId: 0, authKeyWif: 'cV1' })
   })
 
   test('returns null for an unknown mode', () => {

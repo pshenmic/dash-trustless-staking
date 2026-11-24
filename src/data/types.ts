@@ -31,11 +31,17 @@ export interface PlatformSource {
   listFeeFundings: (lockId: string) => Promise<Funding[]>
   listMessages: (channel: string) => Promise<Message[]>
   listFeedback: (poolId: string) => Promise<Feedback[]>
+  /** Reviews written by an identity across pools (index $ownerId), newest first */
+  listFeedbackByOwner: (ownerId: string) => Promise<Feedback[]>
   /** Vote documents of a pool, oldest first (index poolId + proposalHash + $createdAt) */
   /** Pool display metadata, oldest first (index poolId + $createdAt) */
   listPoolMetas: (poolId: string) => Promise<PoolMeta[]>
   listPoolMetasByPools: (poolIds: string[]) => Promise<PoolMeta[]>
   listVotes: (poolId: string) => Promise<Vote[]>
+  /** The pool's newest votes, newest first (index poolId + $createdAt) */
+  listVotesInPool: (poolId: string, limit?: number) => Promise<Vote[]>
+  /** Vote documents this identity published across pools, newest first (index $ownerId) */
+  listVotesByOwner: (ownerId: string) => Promise<Vote[]>
   /** Vote documents on a proposal across all pools, oldest first (index proposalHash + $createdAt) */
   listVotesByProposal: (proposalHash: string) => Promise<Vote[]>
   /** Most recent vote documents across all pools, newest first (index $createdAt) */
