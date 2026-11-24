@@ -5,6 +5,7 @@ import { Dash, StatusBadge } from '../components/bits'
 import { Card, EmptyState, Loading, Notice, PageHeader, SectionTitle } from '../components/ui'
 import { errorMessage } from '../components/Toast'
 import type { ActionKind, PoolState } from '../data/queries'
+import { generationPath } from '../generations'
 import { useMyActivity } from '../hooks/data'
 import { rewardSharePercent } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
@@ -12,7 +13,7 @@ import { useWallet } from '../wallet/WalletContext'
 const ACTION_TEXT: Record<ActionKind, { title: string, cta: string, tab: string }> = {
   consent: { title: 'Sign your consent', cta: 'Sign', tab: 'details' },
   funding: { title: 'Sign your coins', cta: 'Sign', tab: 'details' },
-  lock: { title: 'Enough joins: select members and lock', cta: 'Select members', tab: 'members' },
+  lock: { title: 'Enough shares: select members and lock', cta: 'Select members', tab: 'members' },
   broadcast: { title: 'All signatures in: broadcast the registration', cta: 'Broadcast', tab: 'details' }
 }
 
@@ -36,7 +37,7 @@ export function MePage (): ReactNode {
 
   return (
     <div className='flex flex-col gap-10'>
-      <PageHeader title='My dashboard' subtitle='Pools you created or joined, and anything waiting on you.' />
+      <PageHeader title='My dashboard' subtitle='Pools you created or hold a share in, and anything waiting on you.' />
       {error != null
         ? <Notice tone='error' title='Could not load your dashboard'>{errorMessage(error)}</Notice>
         : isLoading || data == null
@@ -55,7 +56,7 @@ export function MePage (): ReactNode {
                           <div className='font-extrabold'>{ACTION_TEXT[a.kind].title}</div>
                           <div className='text-small text-white/80'>{a.pool.name}</div>
                         </div>
-                        <Link to={`/pools/${a.pool.id}?tab=${ACTION_TEXT[a.kind].tab}`}><Button colorScheme='mint' size='sm' className='font-bold'>{ACTION_TEXT[a.kind].cta}</Button></Link>
+                        <Link to={`${generationPath(a.generation, a.pool.id)}?tab=${ACTION_TEXT[a.kind].tab}`}><Button colorScheme='mint' size='sm' className='font-bold'>{ACTION_TEXT[a.kind].cta}</Button></Link>
                       </li>
                     ))}
                   </ul>
@@ -65,13 +66,14 @@ export function MePage (): ReactNode {
             <section>
               <SectionTitle>My shares</SectionTitle>
               {data.joined.length === 0
-                ? <EmptyState title='You haven’t joined a pool' action={<Link to='/pools'><Button colorScheme='lightBlue' size='sm'>Browse pools</Button></Link>} />
+                ? <EmptyState title='You don’t hold a share in any pool' action={<Link to='/pools'><Button colorScheme='lightBlue' size='sm'>Browse pools</Button></Link>} />
                 : (
                   <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-                    {data.joined.map(({ state, join, selected }) => (
+                    {data.joined.map(({ state, join, selected, generation }) => (
                       <PoolRow
                         key={join.id}
                         state={state}
+                        generation={generation}
                         detail={
                           <>
                             <Dash duffs={join.amount} className='font-bold text-fg' />
@@ -93,10 +95,11 @@ export function MePage (): ReactNode {
                 ? <p className='text-small text-muted'>You haven’t created a pool.</p>
                 : (
                   <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-                    {data.created.map(state => (
+                    {data.created.map(({ state, generation }) => (
                       <PoolRow
                         key={state.pool.id}
                         state={state}
+                        generation={generation}
                         detail={state.lock == null
                           ? `${state.joins.length} join${state.joins.length === 1 ? '' : 's'}`
                           : `${state.members.length} members`}
@@ -111,9 +114,9 @@ export function MePage (): ReactNode {
   )
 }
 
-function PoolRow ({ state, detail }: { state: PoolState, detail: ReactNode }): ReactNode {
+function PoolRow ({ state, generation, detail }: { state: PoolState, generation: string, detail: ReactNode }): ReactNode {
   return (
-    <Link to={`/pools/${state.pool.id}`} className='block'>
+    <Link to={generationPath(generation, state.pool.id)} className='block'>
       <Card className='transition-colors hover:border-brand/50'>
         <div className='flex items-start justify-between gap-3'>
           <div className='min-w-0'>

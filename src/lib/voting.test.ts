@@ -70,6 +70,11 @@ describe('tally', () => {
   test('all abstain', () => {
     expect(tally([vote('A', 3, 1)], members)).toBe(3)
   })
+  test('an identity with several shares votes with the sum of them', () => {
+    const split = [member('A', 400), member('A', 300), member('B', 300)]
+    // A holds 700 across two joins, B 300: A's YES must outweigh B's NO
+    expect(tally([vote('A', 1, 1), vote('B', 2, 1)], split)).toBe(1)
+  })
   test('no choices is null, not abstain', () => {
     expect(tally([], members)).toBeNull()
   })

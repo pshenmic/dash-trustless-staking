@@ -2,8 +2,7 @@ import type { ReactNode } from 'react'
 import type { PoolState } from '../../data/queries'
 import { blocksToDuration, formatBasisPoints, formatDash, formatDateTime } from '../../lib/format'
 import { feeShares } from '../../lib/rules'
-import { findOperatorKey, findProvider, operatorId } from '../../operators'
-import { Flag, hasLocation, locationText } from '../Flag'
+import { findProvider, operatorId } from '../../operators'
 import { cn, IdentifierValue, KeyValue, KeyValueList, Notice } from '../ui'
 
 const STEPS = ['Open', 'Locked', 'Signed', 'Registered'] as const
@@ -85,14 +84,6 @@ export function DetailsTab ({ state }: { state: PoolState }): ReactNode {
           {findProvider(pool.operatorPubKey) != null && (
             <KeyValue label='Operator' hint='Runs the node and holds its operator key'>
               {findProvider(pool.operatorPubKey)?.name} <span className='font-mono font-medium text-muted'>· {operatorId(pool.operatorPubKey)}</span>
-            </KeyValue>
-          )}
-          {hasLocation(pool) && (
-            <KeyValue label='Location'>
-              <span className='inline-flex items-center gap-2'>
-                <Flag country={pool.location} />
-                {locationText(pool.location, findOperatorKey(pool.operatorPubKey)?.country === pool.location ? findOperatorKey(pool.operatorPubKey)?.city : undefined)}
-              </span>
             </KeyValue>
           )}
           <KeyValue label='Starting IP:PORT' hint='The operator can change it at any time'>

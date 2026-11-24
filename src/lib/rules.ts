@@ -2,7 +2,6 @@ import {
   COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_OPERATOR_REWARD_BP, MAX_SHARES, MIN_SHARE, MIN_SHARES
 } from './consensus'
 import { decodeAddress } from './address'
-import { isCountryCode } from './countries'
 import { formatDash } from './format'
 import type { Duffs, FeePayer, Join, Pool } from './types'
 
@@ -50,12 +49,11 @@ export function isBlsPublicKey (value: string): boolean {
 }
 
 export interface PoolTermsInput {
-  name: string
-  description: string
+  /** Promotional fields, optional since generation 2: a pool is created without them and titled later */
+  name?: string
+  description?: string
   /** Empty when the creator leaves it for a later ProUpServTx */
   service: string
-  /** Country code, or empty for worldwide */
-  location: string
   operatorPubKey: string
   votingAddress: string
   operatorReward: number
@@ -78,10 +76,11 @@ export function memberFeeShares (fee: Duffs, count: number, payer: FeePayer = 'm
 
 export function validatePoolTerms (terms: PoolTermsInput, network: 'testnet' | 'mainnet', strict = false): Partial<Record<keyof PoolTermsInput, string>> {
   const errors: Partial<Record<keyof PoolTermsInput, string>> = {}
-  if (terms.name.trim().length === 0) errors.name = 'Enter a name'
-  else if (terms.name.length > 63) errors.name = 'At most 63 characters'
-  if (terms.description.length > 1000) errors.description = 'At most 1000 characters'
-  if (terms.location !== '' && !isCountryCode(terms.location)) errors.location = 'Choose a country or Worldwide'
+  if (terms.name != null) {
+    if (terms.name.trim().length === 0) errors.name = 'Enter a name'
+    else if (terms.name.length > 63) errors.name = 'At most 63 characters'
+  }
+  if (terms.description != null && terms.description.length > 1000) errors.description = 'At most 1000 characters'
   if (terms.service !== '' && !isServiceAddress(terms.service)) errors.service = 'Use the IPv4 address and port, e.g. 203.0.113.10:9999'
   if (!isBlsPublicKey(terms.operatorPubKey)) errors.operatorPubKey = 'A BLS public key is 96 hex characters'
   if (!isAddressShape(terms.votingAddress, network, true, strict)) errors.votingAddress = `Enter a ${network} P2PKH address`
@@ -164,6 +163,14 @@ export function selectionProblems (pool: Pool, joins: Join[]): string[] {
 
   const minAmount = Math.min(...joins.map(j => j.amount))
   if (joins.length > 0 && pool.earlyPenalty >= minAmount) problems.push('The early penalty must be below the smallest share')
+
+  // One stake per identity is a product rule, not a Core rule — but a lock that names two joins from
+  // the same identity can never be signed, so it is as fatal as a duplicate owner key.
+  const identities = new Set<string>()
+  for (const join of joins) {
+    if (identities.has(join.ownerId)) problems.push('Two shares come from the same identity')
+    identities.add(join.ownerId)
+  }
 
   const owners = new Set<string>()
   const refunds = new Set<string>()

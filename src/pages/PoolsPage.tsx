@@ -2,14 +2,16 @@ import { Input, Select } from 'dash-ui-kit/react'
 import { Button } from '../components/Button'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { GenerationBanner } from '../components/GenerationBanner'
 import { PoolCard } from '../components/PoolCard'
 import { Chip, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { useQuery } from '@tanstack/react-query'
-import { backend } from '../data'
+import { backend, platformFor } from '../data'
 import { createQuickPool } from '../data/mock/mockBackend'
 import { usePoolSummaries, useWrite } from '../hooks/data'
 import { useHiddenPools } from '../hooks/useHiddenPools'
 import { useSeenSnapshots } from '../hooks/useSeen'
+import { useGeneration } from '../generations'
 import { isBlsPublicKey } from '../lib/rules'
 import { useWallet } from '../wallet/WalletContext'
 import type { PoolSummary } from '../data/queries'
@@ -27,6 +29,7 @@ export function PoolsPage (): ReactNode {
   const { data, isLoading, error } = usePoolSummaries()
   const seenPools = useSeenSnapshots()
   const { hidden, toggleHidden } = useHiddenPools()
+  const { ref, base } = useGeneration()
   const navigate = useNavigate()
   const { activeIdentity } = useWallet()
   const quickPool = useWrite(async () => createQuickPool(activeIdentity))
@@ -38,10 +41,14 @@ export function PoolsPage (): ReactNode {
   // An operator key in the search box goes through the operatorPubKey index, across all statuses
   const keyQuery = query.trim().toLowerCase()
   const byKey = useQuery({
-    queryKey: ['pools-by-key', keyQuery],
-    queryFn: async () => await backend.platform.listPoolsByOperatorKey(keyQuery),
+    queryKey: ['pools-by-key', ref.slug, keyQuery],
+    queryFn: async () => await platformFor(ref).listPoolsByOperatorKey(keyQuery),
     enabled: isBlsPublicKey(keyQuery)
   })
+
+  // Archived pools stay readable but sink below everything else, whatever the chosen sort
+  const archivedLast = (a: PoolSummary, b: PoolSummary): number =>
+    a.pool.archived === b.pool.archived ? 0 : a.pool.archived ? 1 : -1
 
   const pools = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -49,7 +56,7 @@ export function PoolsPage (): ReactNode {
       const ids = new Set((byKey.data ?? []).map(p => p.id))
       return (data ?? [])
         .filter(s => ids.has(s.pool.id) && hidden.has(s.pool.id) === (filter === 'hidden'))
-        .sort(SORTS[sort])
+        .sort((a, b) => archivedLast(a, b) || SORTS[sort](a, b))
     }
     // The hidden view is the only place hidden pools appear, and it is the only way to bring one back
     return (data ?? [])
@@ -57,7 +64,7 @@ export function PoolsPage (): ReactNode {
       .filter(s => filter === 'hidden' || filter === 'all' || s.listStatus === filter)
       .filter(s => !noPenalty || s.pool.earlyPenalty === 0)
       .filter(s => q === '' || s.pool.name.toLowerCase().includes(q) || s.pool.description.toLowerCase().includes(q))
-      .sort(SORTS[sort])
+      .sort((a, b) => archivedLast(a, b) || SORTS[sort](a, b))
   }, [data, filter, sort, query, noPenalty, byKey.data, hidden])
 
   const counts = {
@@ -71,23 +78,27 @@ export function PoolsPage (): ReactNode {
     <div>
       <PageHeader
         title='Pools'
-        subtitle='Each pool is one shared masternode. Join an open pool, or open your own.'
-        actions={
-          <div className='flex flex-wrap gap-2'>
-            {backend.mode === 'mock' && (
-              <Button
-                colorScheme='mint'
-                size='md'
-                disabled={quickPool.isPending}
-                onClick={() => quickPool.mutate(undefined, { onSuccess: pool => navigate(`/pools/${pool.id}`) })}
-              >
-                {quickPool.isPending ? 'Creating…' : 'Quick test pool'}
-              </Button>
-            )}
-            <Link to='/pools/new'><Button colorScheme='brand' size='md'>Create a pool</Button></Link>
-          </div>
-        }
+        subtitle='Each pool is one shared masternode. Take a share in an open pool, or open your own.'
+        actions={ref.canWrite
+          ? (
+            <div className='flex flex-wrap gap-2'>
+              {backend.mode === 'mock' && (
+                <Button
+                  colorScheme='mint'
+                  size='md'
+                  disabled={quickPool.isPending}
+                  onClick={() => quickPool.mutate(undefined, { onSuccess: pool => navigate(`${base}/pools/${pool.id}`) })}
+                >
+                  {quickPool.isPending ? 'Creating…' : 'Quick test pool'}
+                </Button>
+              )}
+              <Link to='/pools/new'><Button colorScheme='brand' size='md'>Create a pool</Button></Link>
+            </div>
+            )
+          : <span className='text-small text-muted'>No new pools on this version</span>}
       />
+
+      <GenerationBanner />
 
       <div className='mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
         <div className='flex flex-wrap gap-2'>
@@ -116,7 +127,7 @@ export function PoolsPage (): ReactNode {
             onChange={v => setSort(v as Sort)}
             options={[
               { value: 'newest', label: 'Newest' },
-              { value: 'filled', label: 'Most joined' },
+              { value: 'filled', label: 'Most funded' },
               { value: 'fee', label: 'Lowest operator fee' }
             ]}
             className='w-44 shrink-0 sm:w-52'
@@ -133,7 +144,7 @@ export function PoolsPage (): ReactNode {
       {data != null && pools.length === 0 && (
         <EmptyState
           title='No pools match'
-          action={<Link to='/pools/new'><Button colorScheme='lightBlue' size='sm'>Create a pool</Button></Link>}
+          action={ref.canWrite ? <Link to='/pools/new'><Button colorScheme='lightBlue' size='sm'>Create a pool</Button></Link> : undefined}
         >
           Try another filter, or open a pool yourself.
         </EmptyState>

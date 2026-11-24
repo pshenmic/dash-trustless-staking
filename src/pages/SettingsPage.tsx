@@ -33,7 +33,7 @@ export function SettingsPage (): ReactNode {
         <Field
           label='Where pools come from'
           hint={backendMode() === 'testnet'
-            ? 'Real documents on Dash Platform testnet. Creating a pool, joining or locking costs credits and is permanent.'
+            ? 'Real documents on Dash Platform testnet. Creating a pool, taking a share or locking costs credits and is permanent.'
             : 'An empty sandbox simulated in this browser, for trying the whole flow including registration. Nothing is sent to the network.'}
         >
           <div className='flex gap-2'>

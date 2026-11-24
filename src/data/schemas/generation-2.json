@@ -1,0 +1,721 @@
+{
+  "pool": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "Terms of one shared masternode, published by its creator. Immutable: to change terms, create a new pool.",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 63,
+        "position": 0,
+        "description": "Pool name"
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000,
+        "position": 1,
+        "description": "Free text from the creator"
+      },
+      "operatorPubKey": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 48,
+        "maxItems": 48,
+        "position": 2,
+        "description": "Operator BLS public key (basic scheme)"
+      },
+      "votingAddress": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 20,
+        "maxItems": 20,
+        "position": 3,
+        "description": "P2PKH hash160 of the voting address (not a Core key id)"
+      },
+      "operatorReward": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000,
+        "position": 4,
+        "description": "Operator reward in basis points"
+      },
+      "earlyPeriodBlocks": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 420480,
+        "position": 5,
+        "description": "Blocks after registration during which a unilateral dissolution pays earlyPenalty"
+      },
+      "earlyPenalty": {
+        "type": "integer",
+        "minimum": 0,
+        "position": 6,
+        "description": "Early exit penalty in duffs; must be 0 when earlyPeriodBlocks is 0",
+        "maximum": 9999999999
+      },
+      "fee": {
+        "type": "integer",
+        "minimum": 1,
+        "position": 7,
+        "description": "Registration transaction fee in duffs, split between members",
+        "maximum": 100000000
+      },
+      "feePayer": {
+        "type": "string",
+        "enum": [
+          "creator",
+          "members"
+        ],
+        "position": 8,
+        "description": "Who pays the registration fee: the pool creator from a fee input, or split between members. Missing means members."
+      }
+    },
+    "required": [
+      "operatorPubKey",
+      "votingAddress",
+      "operatorReward",
+      "earlyPeriodBlocks",
+      "earlyPenalty",
+      "fee",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "createdAt",
+        "properties": [
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "operatorPubKey",
+        "properties": [
+          {
+            "operatorPubKey": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "votingAddress",
+        "properties": [
+          {
+            "votingAddress": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "join": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "A member's share in a pool. One per identity per pool; final once published.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "amount": {
+        "type": "integer",
+        "minimum": 10000000000,
+        "maximum": 100000000000,
+        "position": 1,
+        "description": "Share of the collateral in duffs, 100 to 1000 DASH"
+      },
+      "refundScript": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 64,
+        "position": 2,
+        "description": "Immutable refund scriptPubKey (P2PKH or P2SH)"
+      },
+      "rewardScript": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 64,
+        "position": 3,
+        "description": "Optional reward scriptPubKey; defaults to refundScript"
+      },
+      "ownerKeyId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 20,
+        "maxItems": 20,
+        "position": 4,
+        "description": "hash160 of the share owner key"
+      },
+      "inputs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 36,
+        "maxItems": 1152,
+        "position": 5,
+        "description": "Funding outpoints: txid (32 bytes, internal order) + vout (uint32 LE), concatenated. Up to 32 inputs; length must be a multiple of 36"
+      },
+      "changeScript": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 64,
+        "position": 6,
+        "description": "Change scriptPubKey"
+      }
+    },
+    "required": [
+      "poolId",
+      "amount",
+      "refundScript",
+      "ownerKeyId",
+      "inputs",
+      "changeScript",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolOwner",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "lock": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "The pool creator's final member selection. Clients count only the lock by the pool owner.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "joinIds": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 64,
+        "maxItems": 256,
+        "position": 1,
+        "description": "Join document IDs in share order, concatenated (2 to 8 x 32 bytes)"
+      },
+      "feeInputs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 36,
+        "maxItems": 360,
+        "position": 2,
+        "description": "Creator fee outpoints: txid (32 bytes, internal order) + vout (uint32 LE), concatenated. 1 to 10 inputs; length must be a multiple of 36"
+      },
+      "feeChangeAddress": {
+        "type": "string",
+        "minLength": 26,
+        "maxLength": 64,
+        "position": 3,
+        "description": "Change address for the creator's fee inputs; omit when the inputs exactly cover the fee"
+      },
+      "entries": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 8,
+        "position": 4,
+        "description": "The accepted shares in share order, each a packed hex entry copied from its join at lock time: joinId(32) | ownerId(32) | amount(8 LE) | ownerKeyId(20) | refundScript | rewardScript | changeScript | inputCount | 36 x inputs",
+        "items": {
+          "type": "string",
+          "minLength": 80,
+          "maxLength": 2048
+        }
+      }
+    },
+    "required": [
+      "poolId",
+      "joinIds",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolOwner",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ],
+        "unique": true
+      }
+    ],
+    "additionalProperties": false
+  },
+  "consent": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "A member's signature over the shared registration consent hash",
+    "properties": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Lock document ID"
+      },
+      "signature": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 65,
+        "maxItems": 65,
+        "position": 1,
+        "description": "65-byte compact recoverable signature by the share owner key"
+      }
+    },
+    "required": [
+      "lockId",
+      "signature",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "lockOwner",
+        "properties": [
+          {
+            "lockId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "funding": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "A member's signatures for their own funding inputs",
+    "properties": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Lock document ID"
+      },
+      "scriptSigs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 4096,
+        "position": 1,
+        "description": "Compact-size-prefixed scriptSigs, one per input of this member, in their input order"
+      }
+    },
+    "required": [
+      "lockId",
+      "scriptSigs",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "lockOwner",
+        "properties": [
+          {
+            "lockId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "feeFunding": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "The pool creator's signatures for the fee inputs",
+    "properties": {
+      "lockId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Lock document ID"
+      },
+      "scriptSigs": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 4096,
+        "position": 1,
+        "description": "Compact-size-prefixed scriptSigs, one per creator fee input, in the lock feeInputs order"
+      }
+    },
+    "required": [
+      "lockId",
+      "scriptSigs",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "lockOwner",
+        "properties": [
+          {
+            "lockId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "feedback": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "A member's review of a pool. Clients count it only from members of a registered pool.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "rating": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5,
+        "position": 1,
+        "description": "1 to 5 stars"
+      },
+      "text": {
+        "type": "string",
+        "maxLength": 1000,
+        "position": 2,
+        "description": "Review text"
+      }
+    },
+    "required": [
+      "poolId",
+      "rating",
+      "text",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "poolOwner",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ],
+        "unique": true
+      }
+    ],
+    "additionalProperties": false
+  },
+  "message": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "Public chat message. Public and permanent.",
+    "properties": {
+      "channel": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 63,
+        "position": 0,
+        "description": "'global' or a pool ID (base58)"
+      },
+      "text": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000,
+        "position": 1,
+        "description": "Message text"
+      }
+    },
+    "required": [
+      "channel",
+      "text",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "channelCreatedAt",
+        "properties": [
+          {
+            "channel": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "vote": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "A member's choice on a governance proposal. Immutable: changing a choice publishes a new document; the latest per member counts, weighted by stake, an exact tie abstains.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "proposalHash": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "position": 1,
+        "description": "Dash Core governance object hash of the proposal"
+      },
+      "outcome": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 3,
+        "position": 2,
+        "description": "Core vote_outcome_t: 1 YES, 2 NO, 3 ABSTAIN"
+      }
+    },
+    "required": [
+      "poolId",
+      "proposalHash",
+      "outcome",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolProposal",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "proposalHash": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerId",
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "proposalCreatedAt",
+        "properties": [
+          {
+            "proposalHash": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "createdAt",
+        "properties": [
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "proposalOwner",
+        "properties": [
+          {
+            "proposalHash": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  },
+  "poolMeta": {
+    "type": "object",
+    "documentsMutable": false,
+    "canBeDeleted": false,
+    "transferable": 0,
+    "tradeMode": 0,
+    "description": "Display metadata for a pool. The newest document from the pool creator wins; the terms themselves stay in the immutable pool document.",
+    "properties": {
+      "poolId": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32,
+        "contentMediaType": "application/x.dash.dpp.identifier",
+        "position": 0,
+        "description": "Pool document ID"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 63,
+        "position": 1,
+        "description": "Display name override"
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000,
+        "position": 2,
+        "description": "Display description override"
+      },
+      "archived": {
+        "type": "boolean",
+        "position": 3,
+        "description": "Retired by the creator: readers sink it and mark it, nothing is deleted"
+      }
+    },
+    "required": [
+      "poolId",
+      "$createdAt"
+    ],
+    "indices": [
+      {
+        "name": "poolCreatedAt",
+        "properties": [
+          {
+            "poolId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      }
+    ],
+    "additionalProperties": false
+  }
+}

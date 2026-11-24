@@ -1,6 +1,6 @@
 import type {
-  ChainTx, ChatKey, Consent, Duffs, EncryptionKey, Feedback, Funding, Join, Lock, MasternodeEntry, Message, Outpoint,
-  Pool, Prevout, PrivateMessage, Vote
+  ChainTx, Consent, Duffs, Feedback, Funding, Join, Lock, MasternodeEntry, Message, Outpoint,
+  Pool, PoolMeta, Prevout, Vote
 } from '../lib/types'
 import type { DissolutionContext, DissolutionVerdict } from '../lib/dissolution'
 
@@ -31,9 +31,10 @@ export interface PlatformSource {
   listFeeFundings: (lockId: string) => Promise<Funding[]>
   listMessages: (channel: string) => Promise<Message[]>
   listFeedback: (poolId: string) => Promise<Feedback[]>
-  listChatKeys: (lockId: string) => Promise<ChatKey[]>
-  listPrivateMessages: (lockId: string) => Promise<PrivateMessage[]>
   /** Vote documents of a pool, oldest first (index poolId + proposalHash + $createdAt) */
+  /** Pool display metadata, oldest first (index poolId + $createdAt) */
+  listPoolMetas: (poolId: string) => Promise<PoolMeta[]>
+  listPoolMetasByPools: (poolIds: string[]) => Promise<PoolMeta[]>
   listVotes: (poolId: string) => Promise<Vote[]>
   /** Vote documents on a proposal across all pools, oldest first (index proposalHash + $createdAt) */
   listVotesByProposal: (proposalHash: string) => Promise<Vote[]>
@@ -45,7 +46,6 @@ export interface PlatformSource {
    * Identity keys others can encrypt to: enabled ECDSA_SECP256K1 keys with the ENCRYPTION or DECRYPTION
    * purpose, whose full public key is on Platform
    */
-  getEncryptionKeys: (identityId: string) => Promise<EncryptionKey[]>
   /** DPNS username of an identity, if it has one */
   getUsername: (identityId: string) => Promise<string | null>
 
@@ -58,9 +58,8 @@ export interface PlatformSource {
   createFeeFunding: (identity: string, data: NewDocument<Funding>) => Promise<Funding>
   sendMessage: (identity: string, data: NewDocument<Message>) => Promise<Message>
   createFeedback: (identity: string, data: NewDocument<Feedback>) => Promise<Feedback>
-  createChatKey: (identity: string, data: NewDocument<ChatKey>) => Promise<ChatKey>
-  sendPrivateMessage: (identity: string, data: NewDocument<PrivateMessage>) => Promise<PrivateMessage>
   createVote: (identity: string, data: NewDocument<Vote>) => Promise<Vote>
+  createPoolMeta: (identity: string, data: NewDocument<PoolMeta>) => Promise<PoolMeta>
 }
 
 export interface ChainSource {
@@ -131,26 +130,6 @@ export interface TxBuilder {
   verifyDissolution: (ctx: DissolutionContext, signedHex: string) => DissolutionVerdict
 }
 
-export interface ChatRecipient {
-  shareIndex: number
-  /** The member's encryption public key, hex */
-  publicKey: string
-}
-
-/**
- * The two private-chat steps that involve identity keys. Messages themselves are encrypted in the app
- * with the group key (lib/chatCipher.ts).
- */
-export interface ChatCrypto {
-  /** ECIES-wraps the group key for each recipient. Needs only public keys, so no wallet prompt. */
-  wrapGroupKey: (groupKey: Uint8Array, recipients: ChatRecipient[]) => Promise<string>
-  /**
-   * Opens the member's own envelope with their identity encryption key. Live: ECIES with the key held by
-   * the private-key session. Returns null when the envelope isn't theirs or doesn't open.
-   */
-  unwrapGroupKey: (identity: string, keyId: number, envelope: Uint8Array) => Promise<Uint8Array | null>
-}
-
 export interface HostingTerms {
   /** Minimum operator reward, in basis points, a hosted pool must register with */
   operatorRewardMin: number
@@ -178,17 +157,25 @@ export interface HostingSource {
 export interface BackendFeatures {
   /** Signing, broadcasting and masternode status: on once the live registration builder is wired */
   registration: boolean
-  /** Private chat: needs a private-key session with the identity's encryption key */
-  privateChat: boolean
+}
+
+/** One deployed contract plus the schema its client-side instance is built from */
+export interface ContractSource {
+  slug: string
+  contractId: string
+  schema: Record<string, unknown>
+  /** Version of the deployed contract itself, not of the app generation */
+  deployedVersion: number
 }
 
 export interface Backend {
   mode: 'mock' | 'live'
   features: BackendFeatures
   platform: PlatformSource
+  /** The platform source for one generation; the mock backend serves the same data for every slug */
+  platformFor: (slug: string) => PlatformSource
   chain: ChainSource
   tx: TxBuilder
-  chat: ChatCrypto
   hosting: HostingSource
 }
 

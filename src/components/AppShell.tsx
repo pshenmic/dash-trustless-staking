@@ -3,6 +3,7 @@ import { Button } from './Button'
 import { useEffect, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { backend } from '../data'
+import { useSyncActiveGeneration } from '../generations'
 import { useUsername } from '../hooks/data'
 import { shortId } from '../lib/format'
 import { useSettings } from '../lib/settings'
@@ -24,6 +25,8 @@ const NAV = [
 export function AppShell (): ReactNode {
   const { pathname } = useLocation()
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  // Every write follows the generation in the URL, not the build's default contract
+  useSyncActiveGeneration()
 
   return (
     <div className='flex min-h-dvh flex-col'>
@@ -46,7 +49,7 @@ function Banners (): ReactNode {
     <>
       {backend.mode === 'live' && (
         <div className='bg-midnight px-4 py-2 text-center text-tag text-white/85'>
-          Testnet: pools, joins and locks are real Platform documents.{' '}
+          Testnet: pools, shares and locks are real Platform documents.{' '}
           <Link to='/settings' className='font-bold text-mint underline-offset-2 hover:underline'>Settings</Link>
         </div>
       )}

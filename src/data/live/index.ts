@@ -1,9 +1,7 @@
 import { DashPlatformSDK } from 'dash-platform-sdk'
-import { currentSession } from '../../wallet/authSession'
 import { createSigner } from '../../wallet/privateKeySigner'
-import type { Backend } from '../types'
+import type { Backend, ContractSource, PlatformSource } from '../types'
 import { createLiveChain } from './chain'
-import { createLiveChatCrypto } from './chat'
 import { createLiveHosting } from './hosting'
 import { createLivePlatform } from './platform'
 import { createLiveTxBuilder } from './txBuilder'
@@ -11,22 +9,28 @@ import { createLiveTxBuilder } from './txBuilder'
 /*
  * Testnet backend. Every Platform document, plus the Core side: transactions and the chainlocked
  * masternode list over DAPI, and the shared registration transaction built by lib/registration.
+ *
+ * One SDK, one Core client, one platform source per generation. `platform` is the default generation's
+ * source so existing call sites keep working; contract-scoped reads use `platformFor(slug)`.
  */
 
-export function createTestnetBackend (contractId: string, dapiUrls?: string[]): Backend {
+export function createTestnetBackend (contracts: ContractSource[], dapiUrls?: string[]): Backend {
   const sdk = new DashPlatformSDK(dapiUrls != null && dapiUrls.length > 0 ? { network: 'testnet', dapiUrl: dapiUrls } as never : { network: 'testnet' })
+  const signer = createSigner(sdk)
+  const sources = new Map<string, PlatformSource>(
+    contracts.map(contract => [contract.slug, createLivePlatform(sdk, contract, 'testnet', signer)])
+  )
+  const fallback = sources.get(contracts[contracts.length - 1].slug)!
 
   return {
     mode: 'live',
     features: {
-      registration: true,
-      // Private chat needs the identity encryption key, which only the private-key login holds
-      get privateChat () { return currentSession()?.mode === 'privateKey' }
+      registration: true
     },
-    platform: createLivePlatform(sdk, contractId, 'testnet', createSigner(sdk)),
+    platform: fallback,
+    platformFor: (slug: string) => sources.get(slug) ?? fallback,
     chain: createLiveChain(dapiUrls),
     tx: createLiveTxBuilder(),
-    chat: createLiveChatCrypto(),
     hosting: createLiveHosting(sdk)
   }
 }

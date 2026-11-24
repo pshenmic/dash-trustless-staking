@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { PoolSummary } from '../data/queries'
+import { poolPath, useGeneration } from '../generations'
 import { usePoolState } from '../hooks/data'
 import { COLLATERAL } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, pluralize, relativeTime } from '../lib/format'
-import { isNewPool } from '../lib/recency'
 import { changesSince, type PoolSnapshot } from '../lib/seen'
 import { Dash, FillBar, IdentityChip, StatusBadge } from './bits'
-import { Flag, hasLocation, locationText } from './Flag'
 import { Menu } from './Menu'
 import { cn } from './ui'
 
@@ -19,13 +18,13 @@ export function PoolCard ({ summary, seen, hidden = false, onToggleHidden }: {
 }): ReactNode {
   const { pool, listStatus, joinCount, joinedTotal } = summary
   const open = listStatus === 'NEW'
+  const { base } = useGeneration()
   const changed = useChangedSince(seen, summary)
-  const recent = isNewPool(pool.createdAt)
   return (
     // The actions menu cannot live inside the card's link, so the card is wrapped and the menu floats over it
     <div className='group relative transition-transform hover:-translate-y-0.5'>
       <Link
-        to={`/pools/${pool.id}`}
+        to={poolPath(base, pool.id)}
         className='flex flex-col rounded-3xl border border-line/60 bg-surface p-5 shadow-card transition-[border-color] hover:border-brand/50'
       >
         <div className='flex items-start justify-between gap-3 pr-8'>
@@ -39,15 +38,15 @@ export function PoolCard ({ summary, seen, hidden = false, onToggleHidden }: {
               >
                 {pool.name}
               </h3>
-              {recent && (
-                <span className='shrink-0 rounded-full bg-brand px-2 py-0.5 text-tag font-semibold text-white' title={`Created ${relativeTime(pool.createdAt)}`}>New pool</span>
+              {pool.archived && (
+                <span className='shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-tag font-semibold text-muted' title='Retired by the creator'>Archived</span>
               )}
             </div>
             <div className='mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
-              <IdentityChip id={pool.ownerId} size='sm' />
-              {hasLocation(pool) && (
-                <span className='inline-flex items-center gap-1.5 text-tag text-muted'><Flag country={pool.location} />{locationText(pool.location)}</span>
-              )}
+              <span className='inline-flex items-center gap-2'>
+                <span className='text-tag text-muted'>by</span>
+                <IdentityChip id={pool.ownerId} size='sm' />
+              </span>
             </div>
           </div>
           <StatusBadge status={listStatus} size='sm' dot={false} />
@@ -63,7 +62,7 @@ export function PoolCard ({ summary, seen, hidden = false, onToggleHidden }: {
           </div>
           <FillBar joined={joinedTotal} />
           {open && joinedTotal > COLLATERAL && (
-            <div className='mt-1.5 text-tag text-muted'>More joins than needed: the creator picks members</div>
+            <div className='mt-1.5 text-tag text-muted'>More shares than needed: the creator picks members</div>
           )}
         </div>
 

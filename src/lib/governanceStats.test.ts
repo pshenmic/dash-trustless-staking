@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { aggregateProposal, governanceOverview, poolLeaderboard, proposalParticipation, voteTrend } from './governanceStats'
 import type { PoolSentiment } from '../data/queries'
-import type { Join, Pool, Vote, VoteOutcome } from './types'
+import type { DisplayPool } from './poolName'
+import type { Join, Vote, VoteOutcome } from './types'
 
 const DASH = 100_000_000
 const HASH = 'a'.repeat(64)
-const pool = (id: string): Pool => ({
-  id, ownerId: 'owner', createdAt: 0, name: id, description: '', operatorPubKey: 'ab'.repeat(48),
+const pool = (id: string): DisplayPool => ({
+  id, ownerId: 'owner', createdAt: 0, name: id, description: '', archived: false, operatorPubKey: 'ab'.repeat(48),
   votingAddress: 'yVoting', operatorReward: 500, earlyPeriodBlocks: 17280, earlyPenalty: 5 * DASH, fee: 20000
 })
 const join = (poolId: string, ownerId: string, dash: number): Join => ({
@@ -16,7 +17,7 @@ const join = (poolId: string, ownerId: string, dash: number): Join => ({
 const vote = (poolId: string, ownerId: string, outcome: VoteOutcome, createdAt = 1000, proposalHash = HASH): Vote => ({
   id: `v-${poolId}-${ownerId}-${createdAt}`, ownerId, createdAt, poolId, proposalHash, outcome
 })
-const sentiment = (p: Pool, tally: VoteOutcome | null, totalStake: number, votedStake: number, choices: Vote[]): PoolSentiment =>
+const sentiment = (p: DisplayPool, tally: VoteOutcome | null, totalStake: number, votedStake: number, choices: Vote[]): PoolSentiment =>
   ({ pool: p, choices, tally, votedStake, totalStake })
 
 describe('aggregateProposal', () => {

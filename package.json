@@ -1,7 +1,7 @@
 {
   "name": "dash-trustless-staking-web",
   "private": true,
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Frontend for coordinating Dash shared masternodes through Dash Platform",
   "repository": {
     "type": "git",

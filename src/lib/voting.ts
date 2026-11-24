@@ -38,7 +38,9 @@ export function latestMemberChoices (votes: Vote[], members: Join[]): Vote[] {
 
 /** Stake-weighted aggregate of one proposal's latest choices; tie → ABSTAIN, no counted choices → null */
 export function tally (choices: Vote[], members: Join[]): VoteOutcome | null {
-  const weight = new Map(members.map(m => [m.ownerId, m.amount]))
+  // Sum, never overwrite: an identity may hold more than one share, and its single vote weighs them all
+  const weight = new Map<string, number>()
+  for (const m of members) weight.set(m.ownerId, (weight.get(m.ownerId) ?? 0) + m.amount)
   const sums: Record<VoteOutcome, number> = { 1: 0, 2: 0, 3: 0 }
   let counted = 0
   for (const c of choices) {

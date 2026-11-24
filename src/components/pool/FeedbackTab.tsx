@@ -17,7 +17,9 @@ export function FeedbackTab ({ state }: { state: PoolState }): ReactNode {
   const role = poolRole(state, activeIdentity)
   const feedback = eligibleFeedback(state, data ?? [])
   const formed = ['REGISTERED', 'FORMED', 'ERROR', 'DISSOLVED'].includes(state.status)
-  const canWrite = formed && role.myMember != null && !feedback.some(f => f.ownerId === activeIdentity)
+  // One review per member per pool is a unique index on the contract, so the form must be offered only
+  // when this identity has published none at all — not merely none among the eligible reviews
+  const canWrite = formed && role.myMember != null && !(data ?? []).some(f => f.ownerId === activeIdentity)
   const average = feedback.length > 0 ? feedback.reduce((s, f) => s + f.rating, 0) / feedback.length : null
 
   if (isLoading) return <Loading />

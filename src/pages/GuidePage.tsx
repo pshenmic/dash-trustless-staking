@@ -16,14 +16,14 @@ const SECTIONS = [
 const FAQ = [
   {
     q: 'Can the pool creator take my coins?',
-    a: 'No. Dash consensus only ever refunds your principal to the refund address you set when joining, and pays your rewards to your reward address. The creator holds the operator and voting keys, which can run the node and vote, but can’t move coins. Changing either key takes every member’s signature.'
+    a: 'No. Dash consensus only ever refunds your principal to the refund address you set when you take a share, and pays your rewards to your reward address. The creator holds the operator and voting keys, which can run the node and vote, but can’t move coins. Changing either key takes every member’s signature.'
   },
   {
     q: 'What if a member never signs?',
     a: 'The pool stays in Signing and never registers. Your coins never leave your wallet, because the registration needs every member’s signature. The creator can’t re-lock the pool; they create a new one instead.'
   },
   {
-    q: 'Can I spend my coins after joining?',
+    q: 'Can I spend my coins after taking a share?',
     a: 'Technically yes, but then the registration transaction becomes invalid and the pool can never form. Keep your UTXOs unspent until the masternode registers. Creators can ban members who do this.'
   },
   {
@@ -36,7 +36,7 @@ const FAQ = [
   },
   {
     q: 'Is the chat private?',
-    a: 'Each pool has two chats. The public chat is readable by anyone, forever. The private chat opens when the pool is locked and is encrypted for the selected members who joined with an encryption key on their identity; the creator can’t read it unless they also hold a share. Even so, it can’t be deleted, anyone can see who posted and when, and any member could copy messages out, so don’t post secrets.'
+    a: 'There is one chat per pool, and it is public: messages are readable by anyone, forever, and anyone can see who posted and when. Don’t post secrets. A private, member-only chat is not part of this version.'
   },
   {
     q: 'Can I change my reward address later?',
@@ -53,7 +53,7 @@ const GLOSSARY = [
   ['Share', 'A member’s part of the 1000 DASH collateral, between 100 and 1000 DASH. Rewards are split by share.'],
   ['Lock', 'The creator’s final selection of members. After the lock, the registration transaction is fixed.'],
   ['Consent', 'A signature by your share owner key over the exact registration transaction and terms.'],
-  ['Share owner key', 'The key behind the owner address you give when joining. It signs your consent and your dissolution.'],
+  ['Share owner key', 'The key behind the owner address you give when you take a share. It signs your consent and your dissolution.'],
   ['Refund address', 'Where your principal returns when the masternode dissolves. It can never change.'],
   ['ProRegTx', 'The special transaction that registers a masternode. A shared ProRegTx carries every member’s share.'],
   ['ProDisTx', 'The special transaction that dissolves a shared masternode and refunds every member.'],
@@ -83,7 +83,7 @@ export function GuidePage (): ReactNode {
       </nav>
 
       <div className='flex max-w-3xl flex-col gap-10'>
-        <PageHeader title='Guide' subtitle='Everything you need to join or run a shared masternode.' />
+        <PageHeader title='Guide' subtitle='Everything you need to take a share or run a shared masternode.' />
 
         <Section id='how' title='How it works'>
           <p>

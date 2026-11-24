@@ -2,15 +2,16 @@ import { Input, ProgressStepBar, Textarea } from 'dash-ui-kit/react'
 import { Button } from '../components/Button'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Chip, Field, KeyValue, KeyValueList, Notice, PageHeader, Card } from '../components/ui'
 import { errorMessage, useToast } from '../components/Toast'
-import { backend } from '../data'
+import { backend, platformFor } from '../data'
 import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
 import { useHostingOptions, useWrite } from '../hooks/data'
 import { buildHostingProvider, HOSTING_VOTING_ADDRESS } from '../hosting'
 import { COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, formatDash, parseDash } from '../lib/format'
+import { poolDisplayName } from '../lib/poolName'
 import { memberFeeShares, isBlsPublicKey, validatePoolTerms, type PoolTermsInput } from '../lib/rules'
 import type { FeePayer } from '../lib/types'
 import { fetchOperatorKeyUsage } from '../data/queries'
@@ -20,9 +21,9 @@ import { useWallet } from '../wallet/WalletContext'
 import { config } from '../config'
 import { OperatorKeyPicker } from '../components/OperatorKeyPicker'
 import { OPERATOR_PROVIDERS, operatorId } from '../operators'
-import { Flag, locationText } from '../components/Flag'
+import { defaultGeneration, generationBySlug, poolSupports, useGeneration } from '../generations'
 
-const STEPS = ['Basics', 'Node', 'Exit terms', 'Review'] as const
+const STEPS = ['Node', 'Exit terms', 'Review'] as const
 
 const PERIODS = [
   { label: 'None', blocks: 0 },
@@ -35,13 +36,12 @@ const PERIODS = [
 
 /** Which fields each step owns, for per-step validation */
 const STEP_FIELDS: Array<Array<keyof PoolTermsInput>> = [
-  ['name', 'description'],
   ['operatorPubKey', 'service', 'votingAddress', 'operatorReward'],
   ['earlyPeriodBlocks', 'earlyPenalty', 'fee', 'feePayer'],
   []
 ]
 
-const DRAFT_KEY = 'dts:pool-draft'
+const DRAFT_KEY = 'dts:pool-draft:v2'
 
 interface Draft {
   form: Record<string, string>
@@ -76,6 +76,9 @@ export function CreatePoolPage (): ReactNode {
   const activeIdentityRef = useRef(activeIdentity)
   activeIdentityRef.current = activeIdentity
   const { network, strict } = useNetwork()
+  const { ref } = useGeneration()
+  // The generation's own schema decides which optional pool fields exist and which ones are required
+  const supportsService = poolSupports(ref, 'service')
   const { notify } = useToast()
   const draft = readDraft()
   const [step, setStep] = useState(draft?.step ?? 0)
@@ -88,7 +91,7 @@ export function CreatePoolPage (): ReactNode {
   const providers = backend.mode === 'mock' ? OPERATOR_PROVIDERS : [hostingProvider]
   const provider = providers.find(p => p.id === operatorSource) ?? null
   const [form, setForm] = useState(() => ({
-    name: '', description: '', service: '', operatorPubKey: '', votingAddress: '',
+    service: '', operatorPubKey: '', votingAddress: '',
     operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5', fee: '', feePayer: 'creator',
     allowVoting: 'true',
     // Old drafts predate the fee fields; keep their values and fill the new ones with defaults
@@ -96,13 +99,11 @@ export function CreatePoolPage (): ReactNode {
   }))
   const selectedKey = provider?.keys.find(key => key.pubKey.toLowerCase() === form.operatorPubKey.trim().toLowerCase()) ?? null
 
+  // The name and description are promotional and set after creation through poolMeta, so the pool
+  // document is published without them; a generation that still declares them keeps them optional
   const terms: PoolTermsInput = {
-    name: form.name.trim(),
-    description: form.description.trim(),
     // A third-party operator sets the address after registration, so the ProRegTx carries none
     service: provider != null ? '' : form.service.trim(),
-    // Only a third-party operator's key carries a location; custom pools leave it out
-    location: provider != null ? selectedKey?.country ?? '' : '',
     operatorPubKey: form.operatorPubKey.trim().toLowerCase(),
     // A third-party operator votes with their own key for the chosen operator key; a custom operator
     // either uses the shared voting address (members vote in the app) or their own
@@ -121,6 +122,8 @@ export function CreatePoolPage (): ReactNode {
   const errors = validatePoolTerms(terms, network, strict)
   // The shared voting address is system-provided, not user input: no shape check while the box is ticked
   if (provider == null && form.allowVoting !== 'false') delete errors.votingAddress
+  // Fields this generation's contract does not have (or does not require) must not block publishing
+  if (!supportsService) delete errors.service
 
   // A key a masternode already holds would make the registration fail; other pools only get a warning
   const keyUsage = useQuery({
@@ -141,7 +144,9 @@ export function CreatePoolPage (): ReactNode {
     setOperatorSource(source)
     setForm(f => ({ ...f, operatorPubKey: '', service: '' }))
   }
-  const stepValid = (i: number): boolean => STEP_FIELDS[i].every(f => errors[f] == null)
+  const stepValid = (i: number): boolean => STEP_FIELDS[i]
+    .filter(f => f !== 'service' || supportsService)
+    .every(f => errors[f] == null)
   const show = (field: keyof PoolTermsInput): string | null => {
     if (!touched[step]) return null
     const error = errors[field]
@@ -155,10 +160,38 @@ export function CreatePoolPage (): ReactNode {
 
   // Persist the form as a draft so a restart or extension installation doesn't lose it
   useEffect(() => {
-    if (form.name.trim() !== '' || form.description.trim() !== '' || form.operatorPubKey.trim() !== '') {
+    if (form.operatorPubKey.trim() !== '' || form.service.trim() !== '') {
       saveDraft({ form, step, operatorSource, touched })
     }
   }, [form, step, operatorSource, touched])
+
+  // Recreating an existing pool on this generation: ?from=<poolId>&gen=<slug> copies its terms once
+  const [params] = useSearchParams()
+  const fromPoolId = params.get('from')
+  const fromGeneration = generationBySlug(params.get('gen') ?? undefined)
+  const originPool = useQuery({
+    queryKey: ['recreate-source', fromGeneration?.slug ?? '', fromPoolId],
+    queryFn: async () => await platformFor(fromGeneration ?? defaultGeneration).getPool(fromPoolId as string),
+    enabled: fromPoolId != null
+  })
+  const prefilled = useRef(false)
+  useEffect(() => {
+    const source = originPool.data
+    if (source == null || prefilled.current) return
+    prefilled.current = true
+    setOperatorSource('custom')
+    setForm(f => ({
+      ...f,
+      operatorPubKey: source.operatorPubKey,
+      operatorReward: String(source.operatorReward / 100),
+      earlyPeriodBlocks: String(source.earlyPeriodBlocks),
+      earlyPenalty: String(source.earlyPenalty / 1e8),
+      fee: String(source.fee / 1e8),
+      feePayer: source.feePayer ?? 'creator',
+      allowVoting: source.votingAddress === HOSTING_VOTING_ADDRESS ? 'true' : 'false',
+      votingAddress: source.votingAddress === HOSTING_VOTING_ADDRESS ? '' : source.votingAddress
+    }))
+  }, [originPool.data])
 
   const next = (): void => {
     setTouched(t => t.map((v, i) => i === step ? true : v))
@@ -168,19 +201,16 @@ export function CreatePoolPage (): ReactNode {
   const create = useWrite(async () => {
     const identity = activeIdentityRef.current
     if (identity == null) throw new Error('Connect your identity first')
-    // Optional contract fields are left out rather than stored empty
-    const { service, location, ...rest } = terms
+    // Optional contract fields are left out rather than stored empty, and fields the generation's
+    // schema does not declare are never sent (Platform would reject the document)
+    const { service, ...rest } = terms
     return await backend.platform.createPool(identity, {
       ...rest,
-      ...(service === '' ? {} : { service }),
-      ...(location === '' ? {} : { location })
+      ...(supportsService && service !== '' ? { service } : {})
     })
   })
 
   const publish = (): void => {
-    console.log('publish clicked, errors:', Object.keys(errors).length)
-    console.log('activeIdentity:', activeIdentity?.substring(0, 10))
-    console.log('platform available:', typeof backend.platform.createPool)
     create.mutate(undefined, {
       onSuccess: pool => {
         console.log('pool created:', pool.id)
@@ -209,6 +239,13 @@ export function CreatePoolPage (): ReactNode {
 
   return (
     <div className='mx-auto max-w-2xl'>
+      {fromPoolId != null && originPool.data != null && (
+        <Notice tone='info' title={`Copied the terms of ${poolDisplayName(originPool.data)}`}>
+          Adjust anything before publishing. The original pool keeps running on {fromGeneration?.label ?? 'its own version'};
+          this creates a new one on {defaultGeneration.label}.
+        </Notice>
+      )}
+
       <PageHeader
         title='Create a pool'
         subtitle='You publish the masternode terms. Members join, you pick who is in, and everyone signs. You run the node; you never hold anyone’s coins.'
@@ -226,17 +263,6 @@ export function CreatePoolPage (): ReactNode {
 
       <Card className='flex flex-col gap-5'>
         {step === 0 && (
-          <>
-            <Field label='Pool name' error={show('name')} htmlFor='pool-name'>
-              <Input id='pool-name' value={form.name} maxLength={63} onChange={e => set('name')(e.target.value)} placeholder='e.g. Hyperwave Node #1' />
-            </Field>
-            <Field label='Description' optional error={show('description')} hint='Who you are, where the node runs, how you’ll keep it online' htmlFor='pool-description'>
-              <Textarea id='pool-description' rows={4} showPasteButton={false} value={form.description} onChange={v => set('description')(v.slice(0, 1000))} />
-            </Field>
-          </>
-        )}
-
-        {step === 1 && (
           <>
             <Field label='Operator' hint={provider?.description ?? 'You run the node yourself and hold its operator key.'}>
               <div className='flex flex-wrap gap-2'>
@@ -259,15 +285,17 @@ export function CreatePoolPage (): ReactNode {
                     the node’s address and your payout address. Members can’t change either key without everyone
                     signing, and neither key can move anyone’s coins.
                   </Notice>
-                  <Field
-                    label='Masternode IP:PORT'
-                    optional
-                    error={show('service')}
-                    hint='Where the node starts. You can change it any time with your operator key (protx update_service). Leave it empty if the server isn’t ready: the node registers inactive until you set it.'
-                    htmlFor='pool-service'
-                  >
-                    <Input id='pool-service' value={form.service} onChange={e => set('service')(e.target.value)} placeholder='203.0.113.10:9999' spellCheck={false} />
-                  </Field>
+                  {supportsService && (
+                    <Field
+                      label='Masternode IP:PORT'
+                      optional
+                      error={show('service')}
+                      hint='Where the node starts. You can change it any time with your operator key (protx update_service). Leave it empty if the server isn’t ready: the node registers inactive until you set it.'
+                      htmlFor='pool-service'
+                    >
+                      <Input id='pool-service' value={form.service} onChange={e => set('service')(e.target.value)} placeholder='203.0.113.10:9999' spellCheck={false} />
+                    </Field>
+                  )}
                   <label className='flex items-start gap-3 text-small'>
                     <input
                       type='checkbox'
@@ -309,9 +337,9 @@ export function CreatePoolPage (): ReactNode {
                   )}
                   <Notice tone='info'>
                     {provider.name} runs this node and holds its operator and voting keys. The chosen key sets the
-                    operator fee and location; {provider.name} sets the node’s address after registration, and the
-                    node is inactive until then. Replacing either key takes every member’s signature, and neither key
-                    can move anyone’s coins.
+                    operator fee; {provider.name} sets the node’s address after registration, and the node is
+                    inactive until then. Replacing either key takes every member’s signature, and neither key can
+                    move anyone’s coins.
                   </Notice>
                 </>
                 )}
@@ -322,7 +350,7 @@ export function CreatePoolPage (): ReactNode {
           </>
         )}
 
-        {step === 2 && (
+        {step === 1 && (
           <>
             <p className='text-small text-muted'>
               Any member can dissolve the masternode on their own at any time. During the early period, whoever does
@@ -371,25 +399,21 @@ export function CreatePoolPage (): ReactNode {
           </>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <>
             <Notice tone='warning' title='Terms are permanent'>Once published, these terms can never change. To change anything, create a new pool.</Notice>
             <KeyValueList>
-              <KeyValue label='Name'>{terms.name}</KeyValue>
               <KeyValue label='Operator'>
                 {provider != null
                   ? <>{provider.name} <span className='font-mono font-medium text-muted'>· {operatorId(terms.operatorPubKey)}</span></>
                   : 'You (custom)'}
               </KeyValue>
               <KeyValue label='Operator key'><span className='font-mono text-[12px] break-all'>{terms.operatorPubKey}</span></KeyValue>
-              {provider != null && (
-                <KeyValue label='Location'>
-                  <span className='inline-flex items-center gap-2'><Flag country={terms.location} />{locationText(terms.location)}</span>
+              {supportsService && (
+                <KeyValue label='Masternode IP:PORT'>
+                  {terms.service !== '' ? <span className='font-mono'>{terms.service}</span> : provider != null ? `Set by ${provider.name} after registration` : 'Set after registration'}
                 </KeyValue>
               )}
-              <KeyValue label='Masternode IP:PORT'>
-                {terms.service !== '' ? <span className='font-mono'>{terms.service}</span> : provider != null ? `Set by ${provider.name} after registration` : 'Set after registration'}
-              </KeyValue>
               <KeyValue
                 label='Voting address'
                 hint={provider == null && form.allowVoting !== 'false' ? 'Shared voting address — members record governance choices in the app' : undefined}

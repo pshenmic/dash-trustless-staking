@@ -1,4 +1,4 @@
-import type { ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Pool, PrivateMessage, Vote } from '../../lib/types'
+import type { Consent, Feedback, Funding, Join, Lock, Message, Pool, PoolMeta, Vote } from '../../lib/types'
 import { randomBase58, seededRandom } from './mockHash'
 
 export interface MockChainState {
@@ -22,16 +22,13 @@ export interface MockState {
   feeFundings: Funding[]
   messages: Message[]
   feedback: Feedback[]
-  chatKeys: ChatKey[]
-  privateMessages: PrivateMessage[]
   votes: Vote[]
-  /** Identities without an encryption key: they can join, but not read private chats */
-  noEncryptionKey: string[]
+  poolMetas: PoolMeta[]
   usernames: Record<string, string>
   chain: MockChainState
 }
 
-export const MOCK_STATE_VERSION = 12
+export const MOCK_STATE_VERSION = 14
 
 const NAMES = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'grace', 'heidi', 'ivan', 'judy', 'nodeops', 'oscar'] as const
 
@@ -56,11 +53,9 @@ export function createFixtures (now = Date.now()): MockState {
     feeFundings: [],
     messages: [],
     feedback: [],
-    chatKeys: [],
-    privateMessages: [],
     votes: [],
+    poolMetas: [],
     // Two identities without an encryption key, to try the "joined without a key" case
-    noEncryptionKey: [identities.frank, identities.oscar],
     usernames: Object.fromEntries(NAMES.map(n => [identities[n], `${n}.dash`])),
     chain: { txHeights: {}, pendingUntil: {}, masternodes: {}, outputs: {} }
   }

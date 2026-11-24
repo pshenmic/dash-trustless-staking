@@ -1,5 +1,6 @@
 import type { IdentityPublicKeyWASM, IdentityWASM, PrivateKeyWASM } from 'pshenmic-dpp'
 import { contractId as configuredContractId, dapiEndpoints } from '../config'
+import { GENERATIONS } from '../contracts'
 
 const NETWORK_ERROR = 'Could not reach Dash Platform. Check your connection and try again.'
 const NOT_FOUND_ERROR = 'No Dash Platform identity uses this key.'
@@ -112,7 +113,7 @@ function purposeName (purpose: number): string {
   }
 }
 
-function validateAuthenticationKey (key: KeyFacts, appContractId: string): void {
+function validateAuthenticationKey (key: KeyFacts, appContractIds: string[]): void {
   if (key.keyType !== 'ECDSA_SECP256K1') {
     throw new Error('The authentication key is not an ECDSA secp256k1 key.')
   }
@@ -125,7 +126,8 @@ function validateAuthenticationKey (key: KeyFacts, appContractId: string): void 
   if (key.readOnly) throw new Error('This authentication key is read-only.')
   if (key.disabled) throw new Error('This authentication key is disabled.')
   if (key.expired) throw new Error('This authentication key is expired.')
-  if (key.boundsContract != null && (key.boundsContract !== appContractId || key.boundsDocumentType != null)) {
+  // A key bound to any generation this app reads is usable; only a foreign contract is refused
+  if (key.boundsContract != null && (!appContractIds.includes(key.boundsContract) || key.boundsDocumentType != null)) {
     throw new Error('This authentication key is restricted to another contract or document type.')
   }
 }
@@ -162,6 +164,7 @@ export async function findIdentityForKeys (
   options: FindIdentityOptions = {}
 ): Promise<FoundIdentity> {
   const appContractId = options.contractId ?? configuredContractId
+  const appContractIds = [appContractId, ...GENERATIONS.map(g => g.contractId)].filter(id => id !== '')
   if (appContractId === '') throw new Error('VITE_CONTRACT_ID is not configured.')
   const directory = options.directory ?? await createDirectory(options.dapiUrls ?? dapiEndpoints())
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -185,7 +188,7 @@ export async function findIdentityForKeys (
   const authentication = keys.find(key => key.getPublicKeyHash() === authHash)
   if (authentication == null) throw new Error(NOT_FOUND_ERROR)
   const authFacts = facts(authentication, now)
-  validateAuthenticationKey(authFacts, appContractId)
+  validateAuthenticationKey(authFacts, appContractIds)
 
   const encHash = encryptionKey.getPublicKeyHash()
   const encryption = keys.find(key => key.getPublicKeyHash() === encHash)

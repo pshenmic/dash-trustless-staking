@@ -75,7 +75,10 @@ Every member needs a Dash Platform identity (setup instructions are provided sep
 
 Contract config:
 - **not read-only**, so new document types can be added later.
-- Every document type is **immutable** (`documentsMutable: false`) and **not deletable** (`canBeDeleted: false`).
+- Every document type is **immutable** (`documentsMutable: false`), **not deletable** (`canBeDeleted: false`),
+  **not transferable** (`transferable: 0` — `Transferable::Never`) and **not tradeable** (`tradeMode: 0` —
+  `TradeMode::None`), so no document can change owner, carry a `$price` or be bought. Those two flags are u8
+  enums in the contract JSON, not booleans.
 - All history stays on Platform.
 
 Rules that span documents (for example, "only the pool owner may lock") cannot be enforced by Platform.
@@ -142,6 +145,11 @@ Indices: **`poolId + $ownerId` unique** (one share per identity per pool), `pool
 |---|---|---|
 | `poolId` | identifier | |
 | `joinIds` | byteArray, 64–256, multiple of 32 | concatenated join document IDs **in share order** |
+| `entries` | array of 2–8 hex strings, each ≤ 2048 chars | packed copy of each selected share, **in share order**: `joinId`(32) ‖ `ownerId`(32) ‖ `amount`(8 LE) ‖ `ownerKeyId`(20) ‖ 1+`refundScript` ‖ 1+`rewardScript` (0 = refund) ‖ 1+`changeScript` ‖ 1+`inputCount` ‖ 36×inputs |
+
+Platform arrays hold scalars only, so each share is one packed string rather than an object. The copies make the
+selected set auditable from the lock alone; the registration transaction is still built from the join documents
+named in `joinIds`. A lock published before `entries` existed has no entries and remains valid.
 
 Indices: **`poolId + $ownerId` unique**. The pool owner can therefore lock a pool only once.
 **No re-locking:** to retry, the creator makes a new pool.
@@ -209,6 +217,8 @@ A client ignores any document that fails these checks.
 - `pool.earlyPenalty` < the smallest amount.
 - Owner keys are unique, and refund scripts are unique.
 - No refund or reward script pays any selected member's owner key or the voting key.
+- When `entries` are present, there is one per named join, and each packed copy equals its join document
+  (owner, amount, owner key, scripts, inputs).
 - Only the first lock by the pool owner counts, and the unique index guarantees there is at most one.
 
 **Consent:** `$ownerId` is a member of the lock, and the signature recovers to that member's `ownerKeyId` over the consent hash.
