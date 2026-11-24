@@ -14,8 +14,8 @@ import { cn } from './ui'
 
 const NAV = [
   { to: '/pools', label: 'Pools', icon: PoolsIcon },
-  { to: '/governance', label: 'Governance', short: 'Votes', icon: VoteIcon },
   { to: '/stats', label: 'Statistics', short: 'Stats', icon: ChartIcon },
+  { to: '/governance', label: 'Governance', short: 'Votes', icon: VoteIcon },
   { to: '/guide', label: 'Guide', icon: BookIcon }
 ]
 

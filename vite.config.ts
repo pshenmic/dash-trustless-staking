@@ -2,25 +2,17 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// pshenmic-dpp's WASM runs on WASI pthreads and needs SharedArrayBuffer, which browsers only expose
-// to cross-origin isolated pages. The production host must send the same two headers.
-const crossOriginIsolation = {
-  'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Embedder-Policy': 'require-corp'
-}
-
 /*
  * The policy the built app runs under, injected as a meta tag so it travels with the bundle to any
  * static host.
  *
  * - `wasm-unsafe-eval` lets pshenmic-dpp compile its WebAssembly without opening up `eval`.
- * - `worker-src blob:` is required: the dpp WASI runtime spins its threads up as workers built from a
- *   blob URL.
+ * - `worker-src blob:` is kept for WASM runtimes that build their threads from a blob URL; the base
+ *   dpp this app uses does not, so it is a guard rather than a current requirement.
  * - `style-src 'unsafe-inline'` is required: dash-ui-kit injects its styles at runtime.
  * - `connect-src https:` is deliberately broad: DAPI endpoints are arbitrary masternode hosts supplied
  *   by the network, so they cannot be enumerated here.
- * - `frame-ancestors` and `report-uri` cannot be expressed in a meta tag; send those as headers when
- *   the host configuration lands (COOP/COEP belong there too).
+ * - `frame-ancestors` and `report-uri` cannot be expressed in a meta tag; the host sends frame-ancestors.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -56,7 +48,5 @@ function contentSecurityPolicy (): Plugin {
 // base: './' keeps asset URLs relative, so the built app runs from any static host or folder.
 export default defineConfig({
   base: './',
-  plugins: [react(), tailwindcss(), contentSecurityPolicy()],
-  server: { headers: crossOriginIsolation },
-  preview: { headers: crossOriginIsolation }
+  plugins: [react(), tailwindcss(), contentSecurityPolicy()]
 })
