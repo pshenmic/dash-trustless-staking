@@ -6,11 +6,12 @@ const DEFAULT_REGISTRATION_FEE: Duffs = 20_000 // 0.0002 DASH
 export const contractId = import.meta.env?.VITE_CONTRACT_ID ?? ''
 
 /**
- * Owner identity and creation nonce of the deployed pool contract. The contract id is derived from
- * these two, so the client can build the contract from schema.json instead of fetching it from DAPI.
+ * Owner identity and creation nonce of the current writable pool contract (generation 2, deployed
+ * 2026-11-24). The contract id is derived from these two, so the client builds it from the generation's
+ * schema instead of fetching it from DAPI. Generation 1 was created at nonce 1.
  */
 export const contractOwner = '9m1QYXVRyUpg99PyVD6DcdffuMhsJfgwLDxTeAg6PxDj'
-export const contractNonce = 1n
+export const contractNonce = 9n
 
 /** Custom DAPI addresses from Settings, with a scheme added; empty means the SDK's default seeds */
 export function dapiEndpoints (): string[] {

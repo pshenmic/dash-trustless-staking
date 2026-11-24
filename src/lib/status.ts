@@ -61,6 +61,11 @@ export interface StatusInput {
   height: number
   /** ProDisTx this browser broadcast for the pool; see pendingDissolution.ts */
   dissolutionTxid: string | null
+  /**
+   * The pool can never complete: a selected join is missing or invalid, or the assembled registration
+   * fails its preflight. Without this the pool reads "Signing" forever while the page says it is dead.
+   */
+  blocked?: boolean
 }
 
 /** A masternode registered without an address reports `[::]:0` */
@@ -68,10 +73,13 @@ function hasNoService (service: string): boolean {
   return service === '' || service === '[::]:0' || service === '0.0.0.0:0'
 }
 
-export function derivePoolStatus ({ lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid }: StatusInput): PoolStatus {
+export function derivePoolStatus ({ lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid, blocked = false }: StatusInput): PoolStatus {
   if (lock == null) return 'NEW'
-  if (!allConsented || !allFunded) return 'SIGNING'
-  if (regTx == null || regTx.height == null) return 'SIGNING'
+  // A broken lock or a registration that cannot be broadcast never resolves: reporting Signing would
+  // promise progress that cannot happen. Chain truth still wins — a mined registration means the
+  // preflight complaints were wrong or already resolved.
+  if (!allConsented || !allFunded) return blocked ? 'ERROR' : 'SIGNING'
+  if (regTx == null || regTx.height == null) return blocked ? 'ERROR' : 'SIGNING'
 
   // A dissolution we broadcast outranks the list's pre-dissolution view of the masternode: the
   // chainlocked list trails the tip, so without this a dissolved pool reads as ERROR for a few

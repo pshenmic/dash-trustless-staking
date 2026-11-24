@@ -1,12 +1,13 @@
+import { Accordion } from 'dash-ui-kit/react'
 import { Button } from '../components/Button'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Dash } from '../components/bits'
-import { PoolCard } from '../components/PoolCard'
-import { EmptyState, Skeleton, Stat } from '../components/ui'
-import { usePoolSummaries } from '../hooks/data'
-import { useHiddenPools } from '../hooks/useHiddenPools'
-import { useSeenSnapshots } from '../hooks/useSeen'
+import { LockedChart } from '../components/home/LockedChart'
+import { errorMessage } from '../components/Toast'
+import { Notice, Skeleton, Stat } from '../components/ui'
+import { useHomeStats } from '../hooks/data'
+import { FAQ } from '../lib/faq'
 
 const STEPS = [
   { title: 'Join a pool', text: 'Pick a pool, choose your share (from 100 DASH) and publish your join. Your coins stay in your wallet.' },
@@ -22,14 +23,10 @@ const GUARANTEES = [
   { title: 'The creator can’t touch funds', text: 'The creator runs the node and votes. Changing keys takes every member’s signature.' }
 ]
 
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
+
 export function HomePage (): ReactNode {
-  const { data: pools } = usePoolSummaries()
-  const seenPools = useSeenSnapshots()
-  const { hidden, toggleHidden } = useHiddenPools()
-  const open = (pools ?? []).filter(p => p.listStatus === 'NEW' && !hidden.has(p.pool.id))
-  const locked = (pools ?? []).filter(p => p.listStatus === 'LOCKED' && !hidden.has(p.pool.id))
-  const joinedOpen = open.reduce((s, p) => s + p.joinedTotal, 0)
-  const featured = [...open].sort((a, b) => b.joinedTotal - a.joinedTotal).slice(0, 3)
+  const { stats, running, error } = useHomeStats()
 
   return (
     <div className='flex flex-col gap-14 md:gap-20'>
@@ -49,16 +46,40 @@ export function HomePage (): ReactNode {
         </div>
       </section>
 
-      <section className='grid grid-cols-1 gap-4 sm:grid-cols-3'>
-        {pools == null
-          ? [0, 1, 2].map(i => <Skeleton key={i} className='h-28' />)
+      {error != null && (
+        <Notice tone='error' title='Could not load network stats'>{errorMessage(error)}</Notice>
+      )}
+
+      <section className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+        {stats == null
+          ? [0, 1, 2, 3].map(i => <Skeleton key={i} className='h-28' />)
           : (
             <>
-              <Stat label='Open pools' value={open.length} hint='Accepting joins' />
-              <Stat label='Locked pools' value={locked.length} hint='Signing or running' />
-              <Stat label='Joined in open pools' value={<Dash duffs={joinedOpen} />} hint='Waiting for their masternode' />
+              <Stat label='DASH pooled' value={<Dash duffs={stats.pooled} />} hint={plural(stats.openPools, 'open pool')} />
+              <Stat label='DASH locked' value={<Dash duffs={stats.locked} />} hint={plural(stats.lockedPools, 'locked pool')} />
+              <Stat
+                label='Masternodes running'
+                value={running ?? '—'}
+                hint={running == null ? 'Syncing the masternode list' : stats.lockedPools === 0 ? 'No locked pools yet' : 'Registered and valid'}
+              />
+              <Stat
+                label='Shares'
+                value={stats.shares}
+                hint={`${plural(stats.members, 'member')} · ${plural(stats.pools, 'pool')} opened`}
+              />
             </>
             )}
+      </section>
+
+      <section>
+        <div className='flex flex-wrap items-end justify-between gap-3'>
+          <h2 className='text-title'>DASH locked</h2>
+          <Link to='/stats' className='text-small font-bold text-brand-ink hover:underline'>All statistics →</Link>
+        </div>
+        <p className='mt-2 text-small text-muted'>The DASH pool creators have locked over time. A locked pool still has to be signed and registered on chain.</p>
+        <div className='mt-6'>
+          {stats == null ? <Skeleton className='h-64' /> : <LockedChart points={stats.lockedPoints} />}
+        </div>
       </section>
 
       <section>
@@ -84,28 +105,17 @@ export function HomePage (): ReactNode {
       </section>
 
       <section>
-        <div className='mb-6 flex items-end justify-between gap-4'>
-          <h2 className='text-title'>Open pools</h2>
-          <Link to='/pools' className='text-small font-bold text-brand-ink hover:underline'>All pools →</Link>
+        <div className='flex flex-wrap items-end justify-between gap-3'>
+          <h2 className='text-title'>Questions</h2>
+          <Link to='/guide#faq' className='text-small font-bold text-brand-ink hover:underline'>Read the guide →</Link>
         </div>
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
-          {pools == null
-            ? [0, 1, 2].map(i => <Skeleton key={i} className='h-64' />)
-            : featured.map(s => (
-                <PoolCard
-                  key={s.pool.id}
-                  summary={s}
-                  seen={seenPools[s.pool.id] ?? null}
-                  hidden={hidden.has(s.pool.id)}
-                  onToggleHidden={() => toggleHidden(s.pool.id)}
-                />
-              ))}
+        <div className='mt-6 flex flex-col gap-2'>
+          {FAQ.map(item => (
+            <Accordion key={item.q} title={item.q} border>
+              <p className='text-small text-muted'>{item.a}</p>
+            </Accordion>
+          ))}
         </div>
-        {pools != null && featured.length === 0 && (
-          <EmptyState title='No open pools yet' action={<Link to='/pools/new'><Button colorScheme='brand' size='md'>Create the first pool</Button></Link>}>
-            Open a pool and invite others to join it.
-          </EmptyState>
-        )}
       </section>
     </div>
   )

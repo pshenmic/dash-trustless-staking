@@ -1,24 +1,26 @@
 import { Dialog, Input } from 'dash-ui-kit/react'
 import { Button } from './Button'
 import { useQuery } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { backend } from '../data'
 import { mockRegisterOutput } from '../data/mock/mockBackend'
 import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
 import { useWrite } from '../hooks/data'
 import { COLLATERAL, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
-import { formatBasisPoints, formatDash, parseDash } from '../lib/format'
+import { duffsToDashString, formatBasisPoints, formatDash, parseDash } from '../lib/format'
 import { isTxid, rewardSharePercent, validateJoinInput, type JoinInput } from '../lib/rules'
 import { useNetwork } from '../lib/network'
-import type { Duffs, Outpoint, Pool } from '../lib/types'
+import type { Duffs, Join, Outpoint, Pool } from '../lib/types'
 import { useWallet } from '../wallet/WalletContext'
 import { errorMessage, useToast } from './Toast'
-import { Chip, Field, Notice } from './ui'
+import { Field, Notice } from './ui'
 
 interface Props {
   pool: Pool
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** The member's current join, when this is a top-up rather than a first join */
+  initial?: Join | null
 }
 
 /** "txid:vout" → Outpoint */
@@ -28,7 +30,7 @@ export function parseOutpoint (value: string): Outpoint | null {
   return { txid: txid.toLowerCase(), vout: Number(vout) }
 }
 
-export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
+export function JoinDialog ({ pool, open, onOpenChange, initial = null }: Props): ReactNode {
   const { activeIdentity } = useWallet()
   const { network, strict } = useNetwork()
   const { notify } = useToast()
@@ -36,16 +38,22 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
   const [fields, setFields] = useState({ ownerAddress: '', refundAddress: '', rewardAddress: '', changeAddress: '' })
   const [utxos, setUtxos] = useState<string[]>([''])
   const [touched, setTouched] = useState(false)
-  // undefined = not chosen yet (defaults to the identity's first key); null = join without the private chat
-  const [chatKeyChoice, setChatKeyChoice] = useState<number | null | undefined>(undefined)
 
-  // Identity keys the private chat key can be encrypted to. They're public on Platform.
-  const encryptionKeys = useQuery({
-    queryKey: ['encryption-keys', activeIdentity],
-    queryFn: async () => await backend.platform.getEncryptionKeys(activeIdentity as string),
-    enabled: activeIdentity != null && open
-  })
-  const encryptionKeyId = chatKeyChoice === undefined ? encryptionKeys.data?.[0]?.id ?? null : chatKeyChoice
+  // A top-up pre-fills the current join: same addresses, same UTXOs, a larger amount
+  useEffect(() => {
+    if (!open) return
+    setAmountText(initial == null ? '' : duffsToDashString(initial.amount))
+    setFields(initial == null
+      ? { ownerAddress: '', refundAddress: '', rewardAddress: '', changeAddress: '' }
+      : {
+          ownerAddress: initial.ownerAddress,
+          refundAddress: initial.refundAddress,
+          rewardAddress: initial.rewardAddress ?? '',
+          changeAddress: initial.changeAddress
+        })
+    setUtxos(initial == null || initial.inputs.length === 0 ? [''] : initial.inputs.map(i => `${i.txid}:${i.vout}`))
+    setTouched(false)
+  }, [open, initial?.id])
 
   const amount = parseDash(amountText)
   const input: JoinInput = { amount, ...fields }
@@ -86,8 +94,7 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
       // Optional contract fields are left out, never sent as undefined/null
       ...(fields.rewardAddress.trim() === '' ? {} : { rewardAddress: fields.rewardAddress.trim() }),
       inputs: outpoints.filter((o): o is Outpoint => o != null),
-      changeAddress: fields.changeAddress.trim(),
-      ...(encryptionKeyId == null ? {} : { encryptionKeyId })
+      changeAddress: fields.changeAddress.trim()
     })
   })
 
@@ -96,7 +103,7 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
     if (!valid) return
     join.mutate(undefined, {
       onSuccess: () => {
-        notify('You joined the pool')
+        notify(initial == null ? 'Your share was submitted' : 'Your share was updated')
         onOpenChange(false)
       },
       onError: e => notify(errorMessage(e), 'error')
@@ -120,15 +127,19 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`Join ${pool.name}`}
+      title={initial == null ? `Take a share in ${pool.name}` : `Increase your share in ${pool.name}`}
       maxWidth='xl'
       horizontalMargin={12}
       className='max-h-[92dvh] overflow-y-auto !rounded-3xl dark:!border-line dark:!bg-surface'
     >
       <div className='flex flex-col gap-5'>
         <p className='text-small text-muted'>
-          Joining is final: you cannot change or withdraw a join. Your coins stay in your wallet until every
-          selected member has signed and the masternode registers.
+          {initial == null
+            ? <>Your share is final: it cannot be changed or withdrawn. Your coins stay in your wallet until every
+                selected member has signed and the masternode registers.</>
+            : <>This publishes a new share document that <span className='font-bold'>replaces</span> the one you have —
+                a share cannot be edited in place. Raise the amount and add UTXOs; the previous document stops counting
+                once this one is published.</>}
         </p>
 
         <Field label='Amount' error={show('amount')} hint={amount != null && amount <= COLLATERAL ? `${rewardSharePercent(amount, pool.operatorReward).toFixed(2)}% of the masternode rewards (after the ${formatBasisPoints(pool.operatorReward)} operator fee)` : '100 to 1000 DASH'} htmlFor='join-amount'>
@@ -183,31 +194,6 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
           <Input id='join-change' value={fields.changeAddress} onChange={set('changeAddress')} placeholder='y…' spellCheck={false} />
         </Field>
 
-        <Field
-          label='Private chat'
-          hint={encryptionKeys.data != null && encryptionKeys.data.length > 0
-            ? 'Selected members get an encrypted chat. Its key is locked to this key on your identity, so only you can open your copy. This can’t be changed after joining.'
-            : undefined}
-        >
-          {encryptionKeys.data == null
-            ? <span className='text-small text-muted'>Checking your identity’s keys…</span>
-            : encryptionKeys.data.length === 0
-              ? (
-                <Notice tone='warning' title='Your identity has no encryption key'>
-                  You can still join, but you won’t be able to read this pool’s private chat. To take part, add an
-                  encryption key to your identity before joining: a join can’t be changed later.
-                </Notice>
-                )
-              : (
-                <div className='flex flex-wrap gap-2'>
-                  {encryptionKeys.data.map(key => (
-                    <Chip key={key.id} active={encryptionKeyId === key.id} onClick={() => setChatKeyChoice(key.id)}>Identity key #{key.id}</Chip>
-                  ))}
-                  <Chip active={encryptionKeyId == null} onClick={() => setChatKeyChoice(null)}>Don’t take part</Chip>
-                </div>
-                )}
-        </Field>
-
         {pool.earlyPenalty === 0 && (
           <Notice tone='warning' title='This pool has no early exit penalty'>
             Any member can dissolve the masternode at any time, at no cost beyond the fee.
@@ -216,7 +202,7 @@ export function JoinDialog ({ pool, open, onOpenChange }: Props): ReactNode {
 
         <div className='flex flex-wrap items-center gap-3'>
           <Button colorScheme='brand' size='md' onClick={submit} disabled={join.isPending || activeIdentity == null}>
-            {join.isPending ? 'Publishing…' : 'Join pool'}
+            {join.isPending ? 'Publishing…' : 'Submit share'}
           </Button>
           {backend.mode === 'mock' && (
             <button type='button' onClick={fillMock} className='text-small font-bold text-brand-ink hover:underline'>Fill with mock data</button>

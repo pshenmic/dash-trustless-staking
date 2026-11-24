@@ -36,9 +36,27 @@ export function latestMemberChoices (votes: Vote[], members: Join[]): Vote[] {
   return latestChoices(votes.filter(v => ids.has(v.ownerId)))
 }
 
+/**
+ * Latest choice per (poolId, proposalHash), newest first: a member who changed their mind should see
+ * one row per proposal, not every document they ever published.
+ */
+export function latestVotesPerProposal (votes: Vote[]): Vote[] {
+  const latest = new Map<string, Vote>()
+  for (const v of votes) {
+    const key = `${v.poolId}:${v.proposalHash}`
+    const current = latest.get(key)
+    if (current == null || v.createdAt > current.createdAt || (v.createdAt === current.createdAt && compareDocumentIds(current.id, v.id) < 0)) {
+      latest.set(key, v)
+    }
+  }
+  return [...latest.values()].sort((a, b) => b.createdAt - a.createdAt)
+}
+
 /** Stake-weighted aggregate of one proposal's latest choices; tie → ABSTAIN, no counted choices → null */
 export function tally (choices: Vote[], members: Join[]): VoteOutcome | null {
-  const weight = new Map(members.map(m => [m.ownerId, m.amount]))
+  // Sum, never overwrite: an identity may hold more than one share, and its single vote weighs them all
+  const weight = new Map<string, number>()
+  for (const m of members) weight.set(m.ownerId, (weight.get(m.ownerId) ?? 0) + m.amount)
   const sums: Record<VoteOutcome, number> = { 1: 0, 2: 0, 3: 0 }
   let counted = 0
   for (const c of choices) {

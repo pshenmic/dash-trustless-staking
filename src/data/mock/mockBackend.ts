@@ -3,7 +3,6 @@ import type { BaseDocument, Join, Lock, Outpoint, Pool, Vote, VoteOutcome } from
 import { HOSTING_VOTING_ADDRESS } from '../../hosting'
 import { outpointKey, type Backend, type ChainSource, type NewDocument, type PlatformSource } from '../types'
 import { createFixtures, MOCK_STATE_VERSION, type MockState } from './fixtures'
-import { mockChatCrypto, mockEncryptionKey } from './mockChat'
 import { mockHash, mockSignature, randomBase58, seededRandom } from './mockHash'
 import { MOCK_DISSOLVE_PREFIX, MOCK_REGISTRATION_PREFIX, mockConsentHash, mockProTxHash, mockScriptSigs, mockTxBuilder } from './mockTxBuilder'
 
@@ -190,17 +189,29 @@ const platform: PlatformSource = {
     await latency()
     return state.feedback.filter(f => f.poolId === poolId).sort((a, b) => b.createdAt - a.createdAt)
   },
-  async listChatKeys (lockId) {
+  async listFeedbackByOwner (ownerId) {
     await latency()
-    return state.chatKeys.filter(k => k.lockId === lockId).sort((a, b) => a.createdAt - b.createdAt)
-  },
-  async listPrivateMessages (lockId) {
-    await latency()
-    return state.privateMessages.filter(m => m.lockId === lockId).sort((a, b) => a.createdAt - b.createdAt)
+    return state.feedback.filter(f => f.ownerId === ownerId).sort((a, b) => b.createdAt - a.createdAt)
   },
   async listVotes (poolId) {
     await latency()
     return state.votes.filter(v => v.poolId === poolId).sort((a, b) => a.createdAt - b.createdAt)
+  },
+  async listVotesByOwner (ownerId) {
+    await latency()
+    return state.votes.filter(v => v.ownerId === ownerId).sort((a, b) => b.createdAt - a.createdAt)
+  },
+  async listVotesInPool (poolId, limit = 100) {
+    await latency()
+    return state.votes.filter(v => v.poolId === poolId).sort((a, b) => b.createdAt - a.createdAt).slice(0, limit)
+  },
+  async listPoolMetas (poolId) {
+    await latency()
+    return state.poolMetas.filter(m => m.poolId === poolId).sort((a, b) => a.createdAt - b.createdAt)
+  },
+  async listPoolMetasByPools (poolIds) {
+    await latency()
+    return state.poolMetas.filter(m => poolIds.includes(m.poolId)).sort((a, b) => a.createdAt - b.createdAt)
   },
   async listVotesByProposal (proposalHash) {
     await latency()
@@ -213,10 +224,6 @@ const platform: PlatformSource = {
   async listAllVotes () {
     await latency()
     return [...state.votes].sort((a, b) => a.createdAt - b.createdAt)
-  },
-  async getEncryptionKeys (identityId) {
-    await latency()
-    return state.noEncryptionKey.includes(identityId) ? [] : [mockEncryptionKey(identityId)]
   },
   async getUsername (identityId) {
     return state.usernames[identityId] ?? null
@@ -261,17 +268,13 @@ const platform: PlatformSource = {
     await latency()
     return create(state.feedback, identity, data)
   },
-  async createChatKey (identity, data) {
-    await latency()
-    return create(state.chatKeys, identity, data)
-  },
-  async sendPrivateMessage (identity, data) {
-    await latency()
-    return create(state.privateMessages, identity, data)
-  },
   async createVote (identity, data) {
     await latency()
     return create(state.votes, identity, data)
+  },
+  async createPoolMeta (identity, data) {
+    await latency()
+    return create(state.poolMetas, identity, data)
   }
 }
 
@@ -361,10 +364,10 @@ function findPoolByProTxHash (txid: string): Pool | null {
 
 export const mockBackend: Backend = {
   mode: 'mock',
-  features: { registration: true, privateChat: true },
+  features: { registration: true },
   platform,
+  platformFor: () => platform,
   chain,
   tx: mockTxBuilder,
-  chat: mockChatCrypto,
   hosting: { getOptions: async () => ({ terms: null, servers: [] }) }
 }

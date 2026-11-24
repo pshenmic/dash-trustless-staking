@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { backend } from '../../data'
 import type { PoolState } from '../../data/queries'
 import { useWrite } from '../../hooks/data'
+import { useGeneration } from '../../generations'
 import { COLLATERAL } from '../../lib/consensus'
 import { formatDash } from '../../lib/format'
 import { useWallet } from '../../wallet/WalletContext'
@@ -64,7 +65,7 @@ export function JoinProgress ({ total }: { total: number }): ReactNode {
       <div className='mt-2 text-small text-muted'>
         {total < COLLATERAL
           ? `${formatDash(COLLATERAL - total)} more needed before the creator can lock`
-          : 'Enough joins: the creator can select members and lock'}
+          : 'Enough shares: the creator can select members and lock'}
       </div>
     </div>
   )
@@ -73,6 +74,8 @@ export function JoinProgress ({ total }: { total: number }): ReactNode {
 function NewActions ({ state, onShowMembers }: { state: PoolState, onShowMembers: () => void }): ReactNode {
   const { activeIdentity } = useWallet()
   const role = poolRole(state, activeIdentity)
+  const { ref } = useGeneration()
+  const canWrite = ref.canWrite
   const [joinOpen, setJoinOpen] = useState(false)
   const total = state.joins.reduce((s, j) => s + j.amount, 0)
 
@@ -94,22 +97,28 @@ function NewActions ({ state, onShowMembers }: { state: PoolState, onShowMembers
         </Notice>
       )}
 
-      {role.me != null && role.myJoin == null && (
-        <>
+      {role.me != null && role.myJoin == null && (canWrite
+        ? (
           <Button colorScheme={role.isCreator ? 'lightBlue' : 'brand'} size='md' onClick={() => setJoinOpen(true)}>
-            {role.isCreator ? 'Join your own pool' : 'Join pool'}
+            {role.isCreator ? 'Take a share in your pool' : 'Take a share'}
           </Button>
-          <JoinDialog pool={state.pool} open={joinOpen} onOpenChange={setJoinOpen} />
+          )
+        : <Notice tone='info' title='This version takes no new shares'>The pool was created on an earlier version. You can still lock, sign, register or dissolve it.</Notice>)}
+
+      {role.myJoin != null && (
+        <>
+          <Notice tone='success' title={`Your share: ${formatDash(role.myJoin.amount)}`}>
+            {role.isCreator
+              ? 'Keep your UTXOs unspent until the pool registers.'
+              : 'Waiting for the creator to lock the pool. Keep your UTXOs unspent until then.'}
+          </Notice>
+          {canWrite && state.lock == null && (
+            <Button size='md' onClick={() => setJoinOpen(true)}>Increase my share</Button>
+          )}
         </>
       )}
 
-      {role.myJoin != null && (
-        <Notice tone='success' title={`You joined with ${formatDash(role.myJoin.amount)}`}>
-          {role.isCreator
-            ? 'Keep your UTXOs unspent until the pool registers.'
-            : 'Waiting for the creator to lock the pool. Keep your UTXOs unspent until then.'}
-        </Notice>
-      )}
+      <JoinDialog pool={state.pool} open={joinOpen} onOpenChange={setJoinOpen} initial={role.myJoin} />
     </>
   )
 }

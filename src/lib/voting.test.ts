@@ -1,7 +1,7 @@
 import { base58 } from '@scure/base'
 import { describe, expect, test } from 'vitest'
 import {
-  cycleLocked, groupVotesByPool, isProposalHash, latestChoices, latestMemberChoices, lockHeight,
+  cycleLocked, groupVotesByPool, isProposalHash, latestChoices, latestMemberChoices, latestVotesPerProposal, lockHeight,
   nextSuperblockHeight, outcomeLabel, poolVoteSummary, proposalActivity, tally
 } from './voting'
 import type { Join, Vote, VoteOutcome } from './types'
@@ -16,6 +16,28 @@ const member = (ownerId: string, dash: number): Join => ({
   id: `join-${ownerId}`, ownerId, createdAt: 0, poolId: 'pool', amount: dash * DASH,
   ownerAddress: 'yj5Z2cy5bGCva2DorKb8f4pJG7FoFSpBwk', refundAddress: 'yj5Z2cy5bGCva2DorKb8f4pJG7FoFSpBwk',
   inputs: [], changeAddress: 'yj5Z2cy5bGCva2DorKb8f4pJG7FoFSpBwk'
+})
+
+describe('latestVotesPerProposal', () => {
+  test('one row per pool and proposal, newest choice wins, newest first', () => {
+    const old = vote('A', 1, 1000, { id: idOf(1) })
+    const newer = vote('A', 2, 3000, { id: idOf(2) })
+    const other = vote('A', 3, 2000, { id: idOf(3), proposalHash: PROP2 })
+    expect(latestVotesPerProposal([old, other, newer])).toEqual([newer, other])
+  })
+
+  test('votes in different pools on the same proposal are separate rows', () => {
+    const here = vote('A', 1, 1000, { id: idOf(1), poolId: 'pool-a' })
+    const there = vote('A', 2, 1000, { id: idOf(2), poolId: 'pool-b' })
+    expect(latestVotesPerProposal([here, there])).toHaveLength(2)
+  })
+
+  test('equal timestamps are broken by document id so every client picks the same one', () => {
+    const lower = vote('A', 1, 1000, { id: idOf(0, 1) })
+    const higher = vote('A', 2, 1000, { id: idOf(0, 16) })
+    expect(latestVotesPerProposal([lower, higher])).toEqual([higher])
+    expect(latestVotesPerProposal([higher, lower])).toEqual([higher])
+  })
 })
 
 describe('latestChoices', () => {
@@ -69,6 +91,11 @@ describe('tally', () => {
   })
   test('all abstain', () => {
     expect(tally([vote('A', 3, 1)], members)).toBe(3)
+  })
+  test('an identity with several shares votes with the sum of them', () => {
+    const split = [member('A', 400), member('A', 300), member('B', 300)]
+    // A holds 700 across two joins, B 300: A's YES must outweigh B's NO
+    expect(tally([vote('A', 1, 1), vote('B', 2, 1)], split)).toBe(1)
   })
   test('no choices is null, not abstain', () => {
     expect(tally([], members)).toBeNull()

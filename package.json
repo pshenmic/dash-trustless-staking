@@ -1,7 +1,7 @@
 {
   "name": "dash-trustless-staking-web",
   "private": true,
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Frontend for coordinating Dash shared masternodes through Dash Platform",
   "repository": {
     "type": "git",
@@ -32,9 +32,9 @@
     "cbor2": "^2.4.1",
     "country-flag-icons": "^1.6.20",
     "dash-core-sdk": "1.1.6",
-    "dash-platform-sdk": "1.6.3",
+    "dash-platform-sdk": "1.7.0-dev.1",
     "dash-ui-kit": "^2.1.5",
-    "pshenmic-dpp": "2.0.1-dev.6",
+    "pshenmic-dpp": "2.1.0-dev.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-is": "^19.0.0",

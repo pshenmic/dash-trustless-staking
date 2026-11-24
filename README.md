@@ -176,20 +176,16 @@ yarn preview    # serve dist/ over http
 The build uses relative asset paths and hash routing, so `dist/` runs from any static host or
 sub-directory with no rewrites. Serve it over http(s) rather than opening `index.html` from disk.
 
-### Cross-origin isolation is mandatory
+### No cross-origin isolation needed
 
-`pshenmic-dpp`'s WASM runs on WASI threads and needs `SharedArrayBuffer`, which browsers only expose to
-cross-origin isolated pages. Vite's dev and preview servers send:
+`dash-platform-sdk` 1.7 split the shielded prover out of `pshenmic-dpp`, so the base WASM this app
+uses no longer needs `SharedArrayBuffer` and the app runs without `Cross-Origin-Opener-Policy` /
+`Cross-Origin-Embedder-Policy`. Any static host or sub-directory works as is.
 
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-The production host must send the same two headers (for nginx, `add_header Cross-Origin-Opener-Policy
-same-origin always;` and `add_header Cross-Origin-Embedder-Policy require-corp always;`). Without them
-the page renders nothing and the console reports
-`SharedArrayBuffer transfer requires self.crossOriginIsolated`.
+If shielded features are ever added, that prover does need shared memory: serve
+`Cross-Origin-Opener-Policy: same-origin` with `Cross-Origin-Embedder-Policy: require-corp` on the
+pages that prove, and note that `same-origin` severs `window.open`'s reference to a cross-origin
+wallet-extension popup.
 
 ## Configuration
 
@@ -275,7 +271,7 @@ spacing from the Dash Brand Guidelines 2026 (`src/index.css`).
 
 | Symptom | Cause |
 |---|---|
-| Blank page, `SharedArrayBuffer`/`crossOriginIsolated` in the console | The host is not sending the COOP/COEP headers above. |
+| Blank page, `SharedArrayBuffer`/`crossOriginIsolated` in the console | An older `dash-platform-sdk` (before 1.7) is installed; run `yarn install` and check the version. |
 | First load takes a while | There is no pinned DAPI node: both SDKs use the network's seed list. Custom endpoints in Settings help. |
 | "Log in" does nothing | The Dash Platform Extension is not installed or not unlocked in this browser; use private keys instead. |
 | A pool never leaves Signing | A member has not consented or funded yet. Joins are immutable, and only the missing member can complete them. |

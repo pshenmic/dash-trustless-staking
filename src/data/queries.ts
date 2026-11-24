@@ -8,19 +8,23 @@ import {
 import type {
   ChainTx, Consent, Duffs, Feedback, Funding, Join, Lock, MasternodeEntry, Network, Outpoint, Pool, PoolListStatus, PoolStatus, Prevout, Vote, VoteOutcome
 } from '../lib/types'
-import { groupVotesByPool, poolVoteSummary } from '../lib/voting'
+import { latestJoins } from '../lib/joins'
+import { entriesProblems } from '../lib/lockEntries'
+import { homeStats, type HomeStats } from '../lib/homeStats'
+import { withDisplayMeta, type DisplayPool } from '../lib/poolName'
+import { groupVotesByPool, latestVotesPerProposal, poolVoteSummary } from '../lib/voting'
 import {
   aggregateProposal, governanceOverview, poolLeaderboard, proposalParticipation, voteTrend,
   type GovernanceStats, type ProposalStats
 } from '../lib/governanceStats'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
 import { backend } from './index'
-import { outpointKey, type RegistrationTx } from './types'
+import { outpointKey, type PlatformSource, type RegistrationTx } from './types'
 
-const { platform, chain, tx: txBuilder } = backend
+const { chain, tx: txBuilder } = backend
 
 export interface PoolSummary {
-  pool: Pool
+  pool: DisplayPool
   lock: Lock | null
   listStatus: PoolListStatus
   joinCount: number
@@ -28,18 +32,21 @@ export interface PoolSummary {
 }
 
 /** Everything the pools list needs, from Platform only */
-export async function fetchPoolSummaries (): Promise<PoolSummary[]> {
+export async function fetchPoolSummaries (platform: PlatformSource = backend.platform): Promise<PoolSummary[]> {
   const pools = await platform.listPools()
   const poolIds = pools.map(p => p.id)
-  const [locks, allJoins] = await Promise.all([
+  const [locks, allJoins, metas] = await Promise.all([
     platform.listLocks(poolIds),
-    platform.listJoinsByPools(poolIds)
+    platform.listJoinsByPools(poolIds),
+    platform.listPoolMetasByPools(poolIds)
   ])
-  return pools.map(pool => {
+  return pools.map(document => {
+    const pool = withDisplayMeta(document, metas.filter(m => m.poolId === document.id))
     const lock = findPoolLock(pool, locks)
-    const joins = allJoins
+    // A top-up is a newer join by the same identity: count only the current document per member
+    const joins = latestJoins(allJoins
       .filter(j => j.poolId === pool.id)
-      .filter(j => joinProblems(j, pool).length === 0)
+      .filter(j => joinProblems(j, pool).length === 0))
     const counted = lock == null ? joins : joins.filter(j => lock.joinIds.includes(j.id))
     return {
       pool,
@@ -51,8 +58,40 @@ export async function fetchPoolSummaries (): Promise<PoolSummary[]> {
   })
 }
 
+/**
+ * Landing-page totals. Three document queries (pools, locks, joins) — the same inputs the pools grid
+ * needs anyway — folded by the pure `homeStats`. Shares are counted as stored: the contract already
+ * bounds amount and inputs, so a current document is a real commitment.
+ */
+export async function fetchHomeStats (platform: PlatformSource = backend.platform): Promise<HomeStats> {
+  const pools = await platform.listPools()
+  const poolIds = pools.map(p => p.id)
+  const [locks, joins] = await Promise.all([
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
+  ])
+  return homeStats(pools, locks, joins)
+}
+
+export interface StatsSource {
+  pools: Pool[]
+  locks: Lock[]
+  joins: Join[]
+}
+
+/** The stats page's raw documents: the same three queries the grid and the home page use */
+export async function fetchStatsSource (platform: PlatformSource = backend.platform): Promise<StatsSource> {
+  const pools = await platform.listPools()
+  const poolIds = pools.map(p => p.id)
+  const [locks, joins] = await Promise.all([
+    platform.listLocks(poolIds),
+    platform.listJoinsByPools(poolIds)
+  ])
+  return { pools, locks, joins }
+}
+
 export interface PoolSentiment {
-  pool: Pool
+  pool: DisplayPool
   choices: Vote[]
   tally: VoteOutcome | null
   votedStake: number
@@ -67,17 +106,18 @@ export interface ProposalSentiment {
 }
 
 /** Cross-pool sentiment on a proposal, from Platform documents only (lock + joins + votes, no chain) */
-export async function fetchProposalSentiment (proposalHash: string): Promise<ProposalSentiment> {
+export async function fetchProposalSentiment (proposalHash: string, platform: PlatformSource = backend.platform): Promise<ProposalSentiment> {
   const votes = await platform.listVotesByProposal(proposalHash)
   const byPool = groupVotesByPool(votes)
   const poolIds = [...byPool.keys()]
   if (poolIds.length === 0) return { proposalHash, pools: [], overall: { yes: 0, no: 0, abstain: 0 } }
-  const [pools, locks, allJoins] = await Promise.all([
+  const [pools, locks, allJoins, metas] = await Promise.all([
     platform.listPools(),
     platform.listLocks(poolIds),
-    platform.listJoinsByPools(poolIds)
+    platform.listJoinsByPools(poolIds),
+    platform.listPoolMetasByPools(poolIds)
   ])
-  const poolMap = new Map(pools.map(p => [p.id, p]))
+  const poolMap = new Map(pools.map(p => [p.id, withDisplayMeta(p, metas.filter(m => m.poolId === p.id))]))
   const sentiments: PoolSentiment[] = []
   for (const poolId of poolIds) {
     const pool = poolMap.get(poolId)
@@ -101,13 +141,15 @@ export async function fetchProposalSentiment (proposalHash: string): Promise<Pro
 }
 
 /** Network-wide governance dashboard stats over hosted pools that can actually vote (Platform-only, plus chain state) */
-export async function fetchGovernanceStats (network: Network = 'testnet'): Promise<GovernanceStats> {
+export async function fetchGovernanceStats (network: Network = 'testnet', platform: PlatformSource = backend.platform): Promise<GovernanceStats> {
   const [votes, allPools, height] = await Promise.all([
     platform.listAllVotes(),
     platform.listPools(),
     chain.getBestBlockHeight()
   ])
-  const hosted = allPools.filter(p => p.votingAddress === HOSTING_VOTING_ADDRESS)
+  const hostedDocuments = allPools.filter(p => p.votingAddress === HOSTING_VOTING_ADDRESS)
+  const hostedMetas = await platform.listPoolMetasByPools(hostedDocuments.map(p => p.id))
+  const hosted = hostedDocuments.map(p => withDisplayMeta(p, hostedMetas.filter(m => m.poolId === p.id)))
   // A dissolved (or PoSe-banned) node can no longer produce a vote: `voteraw` refuses any outpoint
   // missing from the chain-tip list of valid masternodes, and Core gives a removed node's standing
   // votes no weight. The operator key identifies the entry without rebuilding each registration; the
@@ -173,9 +215,11 @@ export interface MemberState {
 }
 
 export interface PoolState {
-  pool: Pool
-  /** Valid joins, oldest first */
+  pool: DisplayPool
+  /** The current join per identity (newest), oldest first — what totals, roles and the lock use */
   joins: Join[]
+  /** Every valid join document, oldest first. The activity feed reads this so a superseded join stays in the history */
+  allJoins: Join[]
   lock: Lock | null
   /** Lock members in share order (only when a lock exists) */
   members: MemberState[]
@@ -212,7 +256,7 @@ export interface OperatorKeyUsage {
 }
 
 /** Where an operator key is already used, excluding one pool (and its own masternode) */
-export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePoolId?: string, ownProTxHash?: string): Promise<OperatorKeyUsage> {
+export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePoolId?: string, ownProTxHash?: string, platform: PlatformSource = backend.platform): Promise<OperatorKeyUsage> {
   const [masternode, pools] = await Promise.all([
     chain.getMasternodeByOperatorKey(operatorPubKey),
     platform.listPoolsByOperatorKey(operatorPubKey)
@@ -223,32 +267,39 @@ export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePool
   }
 }
 
-export async function fetchPoolState (poolId: string, preloaded?: Pool | null): Promise<PoolState | null> {
+export async function fetchPoolState (poolId: string, preloaded?: Pool | null, platform: PlatformSource = backend.platform): Promise<PoolState | null> {
   if (preloaded === null) return null
   // joins, locks and height are keyed by poolId, so they don't need to wait for the pool document
-  const [pool, allJoins, locks, height] = await Promise.all([
+  const [document, allJoins, locks, height, metas] = await Promise.all([
     preloaded ?? platform.getPool(poolId),
     platform.listJoins(poolId),
     platform.listLocks([poolId]),
-    chain.getBestBlockHeight()
+    chain.getBestBlockHeight(),
+    platform.listPoolMetas(poolId)
   ])
-  if (pool == null) return null
-  const joins = allJoins.filter(j => joinProblems(j, pool).length === 0)
+  if (document == null) return null
+  const pool = withDisplayMeta(document, metas)
+  const validJoins = allJoins.filter(j => joinProblems(j, pool).length === 0)
+  // The pool page, the member's own row and the vote weights all read the current join per identity.
+  // Lock resolution below still uses `validJoins`: a lock names document ids, and it must resolve even
+  // when the creator selected an older version of someone's join.
+  const joins = latestJoins(validJoins)
   const lock = findPoolLock(pool, locks)
 
   const base: PoolState = {
-    pool, joins, lock, members: [], feeFunding: null, lockProblems: [], registration: null, finalTx: null,
+    pool, joins, allJoins: validJoins, lock, members: [], feeFunding: null, lockProblems: [], registration: null, finalTx: null,
     regTx: null, masternode: null, registeredHeight: null, height, status: 'NEW', dissolutionTxid: null, stage: null,
     consentCount: 0, fundingCount: 0, operatorKey: { masternode: null, otherPools: [] }, prevouts: new Map(), broadcastProblems: []
   }
-  if (lock == null) return { ...base, operatorKey: await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id), prevouts: new Map() }
+  if (lock == null) return { ...base, operatorKey: await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id, undefined, platform), prevouts: new Map() }
 
   const feeInputs = pool.feePayer === 'creator' ? lock.feeInputs ?? [] : []
-  const resolved = lockMembers(lock, joins)
+  const resolved = lockMembers(lock, validJoins)
   const present = resolved.filter((j): j is Join => j != null)
   const lockProblems = [
     ...(present.length < resolved.length ? ['A selected join is missing or invalid'] : []),
-    ...selectionProblems(pool, present)
+    ...selectionProblems(pool, present),
+    ...entriesProblems(lock, validJoins)
   ]
 
   const [consents, fundings, feeFundings, inputValues, prevouts] = await Promise.all([
@@ -323,13 +374,14 @@ export async function fetchPoolState (poolId: string, preloaded?: Pool | null): 
   }
 
   const dissolutionTxid = pendingDissolution(pool.id)
-  const statusInput = { lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid }
+  const blocked = lockProblems.length > 0 || broadcastProblems.length > 0
+  const statusInput = { lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid, blocked }
   const status = derivePoolStatus(statusInput)
   // The list has dropped the entry: the chain itself now says dissolved, so the local note is done
   if (status === 'DISSOLVED') clearDissolution(pool.id)
   // Key conflicts only matter until the pool registers
   const operatorKey = status === 'SIGNING'
-    ? await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id, finalTx?.txid)
+    ? await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id, finalTx?.txid, platform)
     : base.operatorKey
   return {
     ...base,
@@ -343,7 +395,9 @@ export async function fetchPoolState (poolId: string, preloaded?: Pool | null): 
     registeredHeight,
     status,
     dissolutionTxid,
-    stage: status === 'SIGNING' ? signingStage(statusInput) : null,
+    // Kept for ERROR as well: the action panel explains a blocked registration at the broadcast stage,
+    // and a null stage would hide that explanation behind the error badge
+    stage: lock == null ? null : signingStage(statusInput),
     consentCount: members.filter(m => m.consent != null).length,
     fundingCount: members.filter(m => m.funding != null).length,
     operatorKey,
@@ -384,9 +438,9 @@ export interface CreatorProfile {
   feedback: Array<Feedback & { poolName: string }>
 }
 
-export async function fetchCreatorProfile (ownerId: string): Promise<CreatorProfile> {
+export async function fetchCreatorProfile (ownerId: string, platform: PlatformSource = backend.platform): Promise<CreatorProfile> {
   const pools = await platform.listPoolsByOwner(ownerId)
-  const states = (await Promise.all(pools.map(async p => await fetchPoolState(p.id)))).filter((s): s is PoolState => s != null)
+  const states = (await Promise.all(pools.map(async p => await fetchPoolState(p.id, undefined, platform)))).filter((s): s is PoolState => s != null)
   const feedbackLists = await Promise.all(states.map(async s => await platform.listFeedback(s.pool.id)))
   const feedback = states.flatMap((s, i) => eligibleFeedback(s, feedbackLists[i]).map(f => ({ ...f, poolName: s.pool.name })))
 
@@ -448,16 +502,22 @@ export interface MyActivity {
   created: PoolState[]
   joined: Array<{ state: PoolState, join: Join, selected: boolean }>
   actions: ActionItem[]
+  /** Current choice per proposal this identity voted on (index vote.$ownerId) */
+  votes: Array<{ vote: Vote, pool: Pool | null }>
+  /** Reviews this identity wrote (index feedback.$ownerId) */
+  reviews: Array<{ feedback: Feedback, pool: Pool | null }>
 }
 
-export async function fetchMyActivity (identity: string): Promise<MyActivity> {
-  const [ownPools, myJoins] = await Promise.all([
+export async function fetchMyActivity (identity: string, platform: PlatformSource = backend.platform): Promise<MyActivity> {
+  const [ownPools, myJoins, myVotes, myFeedback] = await Promise.all([
     platform.listPoolsByOwner(identity),
-    platform.listJoinsByOwner(identity)
+    platform.listJoinsByOwner(identity),
+    platform.listVotesByOwner(identity),
+    platform.listFeedbackByOwner(identity)
   ])
   const poolIds = [...new Set([...ownPools.map(p => p.id), ...myJoins.map(j => j.poolId)])]
   const states = new Map(
-    (await Promise.all(poolIds.map(async id => await fetchPoolState(id))))
+    (await Promise.all(poolIds.map(async id => await fetchPoolState(id, undefined, platform))))
       .filter((s): s is PoolState => s != null)
       .map(s => [s.pool.id, s])
   )
@@ -481,5 +541,12 @@ export async function fetchMyActivity (identity: string): Promise<MyActivity> {
     if (state.status === 'NEW' && state.joins.length >= MIN_SHARES && total >= COLLATERAL) actions.push({ kind: 'lock', pool: state.pool })
     if (state.stage === 'broadcast' && state.lockProblems.length === 0) actions.push({ kind: 'broadcast', pool: state.pool })
   }
-  return { created, joined, actions }
+  return {
+    created,
+    joined,
+    actions,
+    // One row per proposal, newest choice wins: a changed vote must not show twice
+    votes: latestVotesPerProposal(myVotes).map(vote => ({ vote, pool: states.get(vote.poolId)?.pool ?? null })),
+    reviews: myFeedback.map(feedback => ({ feedback, pool: states.get(feedback.poolId)?.pool ?? null }))
+  }
 }

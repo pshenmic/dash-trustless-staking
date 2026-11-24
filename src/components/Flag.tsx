@@ -1,6 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { Pool } from '../lib/types'
-import { findProvider } from '../operators'
 import { cn } from './ui'
 
 // Every flag is its own small asset, fetched only when shown. Bundled with the app: no CDN.
@@ -14,14 +12,6 @@ export function countryName (code: string): string {
   } catch {
     return code.toUpperCase()
   }
-}
-
-/**
- * Only third-party operator pools carry a location. A pool with a country, or on a listed operator's
- * key, has one (absent country = worldwide); a custom-operator pool has none to show.
- */
-export function hasLocation (pool: Pool): boolean {
-  return pool.location != null || findProvider(pool.operatorPubKey) != null
 }
 
 /** "Frankfurt, Germany", just "Singapore" when city and country match, "Worldwide" without a country */

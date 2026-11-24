@@ -1,6 +1,7 @@
-import { contractId as configuredContractId, dapiEndpoints } from '../config'
+import { defaultGeneration, GENERATIONS } from '../contracts'
+import { dapiEndpoints } from '../config'
 import { mockBackend } from './mock/mockBackend'
-import type { Backend } from './types'
+import type { Backend, PlatformSource } from './types'
 
 /*
  * The backend the app runs against:
@@ -35,12 +36,35 @@ export function setBackendMode (mode: BackendMode): void {
 }
 
 async function selectBackend (): Promise<Backend> {
-  if (backendMode() !== 'testnet' || configuredContractId === '') return mockBackend
+  const usable = GENERATIONS.filter(g => g.contractId !== '')
+  if (backendMode() !== 'testnet' || usable.length === 0) return mockBackend
   // Loaded on demand: the SDK and its WASM are only needed for the live backend
   const { createTestnetBackend } = await import('./live')
-  return createTestnetBackend(configuredContractId, dapiEndpoints())
+  return createTestnetBackend(usable, dapiEndpoints())
 }
 
-export const backend: Backend = await selectBackend()
+export const backend: Backend = await selectLoaded()
+
+async function selectLoaded (): Promise<Backend> {
+  const loaded = await selectBackend()
+  return {
+    ...loaded,
+    // Direct `backend.platform` use (writes, dialogs) follows the generation the router is showing,
+    // so a pool on generation 1 never receives a generation-2 action. Set by useSyncActiveGeneration.
+    get platform () { return loaded.platformFor(activeGenerationSlug) }
+  }
+}
+
+let activeGenerationSlug = GENERATIONS[GENERATIONS.length - 1].slug
+
+/** Called by the shell on every navigation; unprefixed routes fall back to the default generation */
+export function setActiveGeneration (slug: string | null | undefined): void {
+  activeGenerationSlug = GENERATIONS.some(g => g.slug === slug) ? slug as string : defaultGeneration.slug
+}
+
+/** The platform source for one generation, so documents are read from the contract they live in */
+export function platformFor (ref: { slug: string }): PlatformSource {
+  return backend.platformFor(ref.slug)
+}
 
 export * from './types'

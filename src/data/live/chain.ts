@@ -81,11 +81,14 @@ export function createLiveChain (dapiUrls: string[] = []): ChainSource {
     })()
   }
 
-  // Transactions are immutable, so one lookup per txid is enough however many of its outputs are checked
-  const txCache = new Map<string, { raw: Uint8Array, height: number } | null>()
+  // Transactions are immutable, so one lookup per txid is enough however many of its outputs are
+  // checked. The height is not immutable: a tx answered from the mempool (height 0) has to be asked
+  // again, or a pool would read "not mined" for the rest of the session after one early poll.
+  const txCache = new Map<string, { raw: Uint8Array, height: number }>()
 
   const transaction = async (txid: string): Promise<{ raw: Uint8Array, height: number } | null> => {
-    if (txCache.has(txid)) return txCache.get(txid) ?? null
+    const cached = txCache.get(txid)
+    if (cached != null) return cached
 
     let result: { raw: Uint8Array, height: number } | null = null
 
@@ -96,7 +99,7 @@ export function createLiveChain (dapiUrls: string[] = []): ChainSource {
       result = null
     }
 
-    if (result != null) txCache.set(txid, result)
+    if (result != null && result.height > 0) txCache.set(txid, result)
     return result
   }
 

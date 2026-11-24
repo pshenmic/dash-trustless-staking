@@ -1,18 +1,18 @@
 import { base58, base64 } from '@scure/base'
 import type { DashPlatformSDK } from 'dash-platform-sdk'
 import { DataContractWASM } from 'pshenmic-dpp'
-import schema from '../../../schema.json'
 import { contractNonce, contractOwner } from '../../config'
 import { addressToKeyId, addressToScript, keyIdToAddress, scriptToAddress } from '../../lib/address'
 import { ByteReader, compactSize, concatBytes, fromHex, toHex } from '../../lib/bytes'
-import { isCountryCode } from '../../lib/countries'
+import { packEntry, unpackEntries } from '../../lib/lockEntries'
 import type {
-  ChatKey, Consent, Feedback, Funding, Join, Lock, Message, Network, Outpoint, Pool, PrivateMessage, Vote
+  Consent, Feedback, Funding, Join, Lock, Message, Network, Outpoint, Pool, PoolMeta, Vote
 } from '../../lib/types'
-import type { PlatformSource } from '../types'
+import { schemaHasDocument } from '../../contracts'
+import type { ContractSource, PlatformSource } from '../types'
 
 /*
- * PlatformSource over the deployed data contract (schema.json), using dash-platform-sdk.
+ * PlatformSource over one deployed data contract, using dash-platform-sdk.
  * Reads are plain document queries. Writes build an unsigned state transition and hand it to a signer:
  * Dash Platform Extension in the browser, a private key in the test scripts.
  *
@@ -49,6 +49,7 @@ const asBytes = (value: unknown): Uint8Array => {
 }
 const asId = (value: unknown): string => typeof value === 'string' ? value : base58.encode(asBytes(value))
 const asNumber = (value: unknown): number => Number(value)
+const asStrings = (value: unknown): string[] => Array.isArray(value) ? value as string[] : []
 const idBytes = (id: string): Uint8Array => base58.decode(id)
 
 function encodeOutpoints (outpoints: Outpoint[]): Uint8Array {
@@ -84,7 +85,7 @@ function decodeJoinIds (bytes: Uint8Array): string[] {
   return Array.from({ length: bytes.length / 32 }, (_, i) => base58.encode(bytes.slice(i * 32, (i + 1) * 32)))
 }
 
-export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, network: Network, signer: Signer): PlatformSource {
+export function createLivePlatform (sdk: DashPlatformSDK, contract: ContractSource, network: Network, signer: Signer): PlatformSource {
   const base = (doc: RawDocument): { id: string, ownerId: string, createdAt: number } => ({
     id: doc.id.base58(), ownerId: doc.ownerId.base58(), createdAt: Number(doc.createdAt ?? 0n)
   })
@@ -94,18 +95,21 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     return value
   }
 
+  // Generation 1 has no poolMeta type: asking Drive for it fails with "document type poolMeta not
+  // found", and one such query used to sink the dashboard's cross-generation fan-out
+  const hasPoolMeta = schemaHasDocument(contract.schema, 'poolMeta')
+
   const decoders = {
     pool: (doc: RawDocument): Pool => {
       const p = doc.properties
-      const location = p.location as string | undefined
       return {
         ...base(doc),
-        name: String(p.name),
-        description: String(p.description ?? ''),
+        ...(typeof p.name === 'string' && p.name !== '' ? { name: p.name } : {}),
+        ...(typeof p.description === 'string' && p.description !== '' ? { description: p.description } : {}),
         ...(typeof p.service === 'string' && p.service !== '' ? { service: p.service } : {}),
-        ...(location != null && isCountryCode(location) ? { location } : {}),
         operatorPubKey: toHex(asBytes(p.operatorPubKey)),
-        votingAddress: keyIdToAddress(asBytes(p.votingKeyId), network),
+        // Generation 1 stores the field as votingKeyId; generation 2 renamed it to votingAddress
+        votingAddress: keyIdToAddress(asBytes(p.votingAddress ?? p.votingKeyId), network),
         operatorReward: asNumber(p.operatorReward),
         earlyPeriodBlocks: asNumber(p.earlyPeriodBlocks),
         earlyPenalty: asNumber(p.earlyPenalty),
@@ -132,34 +136,44 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
       poolId: asId(doc.properties.poolId),
       joinIds: decodeJoinIds(asBytes(doc.properties.joinIds)),
       ...(doc.properties.feeInputs != null ? { feeInputs: decodeOutpoints(asBytes(doc.properties.feeInputs)) } : {}),
-      ...(typeof doc.properties.feeChangeAddress === 'string' && doc.properties.feeChangeAddress !== '' ? { feeChangeAddress: doc.properties.feeChangeAddress } : {})
+      ...(typeof doc.properties.feeChangeAddress === 'string' && doc.properties.feeChangeAddress !== '' ? { feeChangeAddress: doc.properties.feeChangeAddress } : {}),
+      ...(doc.properties.entries != null ? { entries: unpackEntries(asStrings(doc.properties.entries), network) } : {})
     }),
     consent: (doc: RawDocument): Consent => ({ ...base(doc), lockId: asId(doc.properties.lockId), signature: base64.encode(asBytes(doc.properties.signature)) }),
     funding: (doc: RawDocument): Funding => ({ ...base(doc), lockId: asId(doc.properties.lockId), scriptSigs: decodeScriptSigs(asBytes(doc.properties.scriptSigs)) }),
     feeFunding: (doc: RawDocument): Funding => ({ ...base(doc), lockId: asId(doc.properties.lockId), scriptSigs: decodeScriptSigs(asBytes(doc.properties.scriptSigs)) }),
     feedback: (doc: RawDocument): Feedback => ({ ...base(doc), poolId: asId(doc.properties.poolId), rating: asNumber(doc.properties.rating), text: String(doc.properties.text ?? '') }),
     message: (doc: RawDocument): Message => ({ ...base(doc), channel: String(doc.properties.channel), text: String(doc.properties.text) }),
-    chatKey: (doc: RawDocument): ChatKey => ({ ...base(doc), lockId: asId(doc.properties.lockId), envelopes: toHex(asBytes(doc.properties.envelopes)) }),
-    privateMessage: (doc: RawDocument): PrivateMessage => ({ ...base(doc), lockId: asId(doc.properties.lockId), payload: toHex(asBytes(doc.properties.payload)) }),
     vote: (doc: RawDocument): Vote => {
       const p = doc.properties
       const outcome = asNumber(p.outcome)
       if (outcome !== 1 && outcome !== 2 && outcome !== 3) throw new Error('outcome must be 1, 2 or 3')
       return { ...base(doc), poolId: asId(p.poolId), proposalHash: toHex(asBytes(p.proposalHash)), outcome }
+    },
+    poolMeta: (doc: RawDocument): PoolMeta => {
+      const p = doc.properties
+      return {
+        ...base(doc),
+        poolId: asId(p.poolId),
+        ...(typeof p.name === 'string' && p.name !== '' ? { name: p.name } : {}),
+        ...(typeof p.description === 'string' && p.description !== '' ? { description: p.description } : {}),
+        ...(p.archived === true ? { archived: true } : {})
+      }
     }
   }
   type DocumentType = keyof typeof decoders
   type Decoded<T extends DocumentType> = ReturnType<typeof decoders[T]>
 
-  // Built from the published schema at init, so queries skip the getDataContract round-trip entirely.
-  // The id is deterministic in owner + creation nonce; a different configured contract falls back to fetching.
-  const localContract = new DataContractWASM(contractOwner, contractNonce, schema, undefined, undefined, true)
-  localContract.version = 3 // the deployed contract version
+  // Built from the generation's schema at init, so queries skip the getDataContract round-trip entirely.
+  // The id is deterministic in owner + creation nonce; a contract built at another nonce (generation 2
+  // was created with the identity nonce, not 1) falls back to fetching it once.
+  const localContract = new DataContractWASM(contractOwner, contractNonce, contract.schema as never, undefined, undefined, true)
+  localContract.version = contract.deployedVersion
   let fetched: Promise<DataContract> | null = null
   const dataContract = async (): Promise<DataContract> =>
-    localContract.id.base58() === contractId
+    localContract.id.base58() === contract.contractId
       ? localContract
-      : await (fetched ??= sdk.dataContracts.getDataContractByIdentifier(contractId))
+      : await (fetched ??= sdk.dataContracts.getDataContractByIdentifier(contract.contractId))
 
   async function rawPage<T extends DocumentType> (type: T, where: Where, orderBy?: OrderBy, startAfter?: string): Promise<RawDocument[]> {
     return await sdk.documents.query(await dataContract(), type, where as never, orderBy as never, PAGE, undefined, startAfter as never) as unknown as RawDocument[]
@@ -198,8 +212,8 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
   async function publish<T extends DocumentType> (identity: string, type: T, data: Record<string, unknown>): Promise<Decoded<T>> {
     // Protocol v14 derives the document id from the create transition's identity nonce
     // (`generate_document_id` v1), so the nonce must be known before the document exists.
-    const identityContractNonce = await sdk.identities.getIdentityContractNonce(identity, contractId) + 1n
-    const document = sdk.documents.create(contractId, type, data, identity, identityContractNonce)
+    const identityContractNonce = await sdk.identities.getIdentityContractNonce(identity, contract.contractId) + 1n
+    const document = sdk.documents.create(contract.contractId, type, data, identity, identityContractNonce)
     await signer(sdk.documents.createStateTransition(document as any, 'create', { identityContractNonce }))
 
     const id = document.id.base58()
@@ -283,29 +297,26 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     listFeeFundings: async lockId => await query('feeFunding', [['lockId', '==', lockId]]),
     listMessages: async channel => await byParent('message', 'channel', channel),
     listFeedback: async poolId => (await byParent('feedback', 'poolId', poolId)).reverse(),
-    listChatKeys: async lockId => await byParent('chatKey', 'lockId', lockId),
-    listPrivateMessages: async lockId => await byParent('privateMessage', 'lockId', lockId),
+    listFeedbackByOwner: async ownerId => (await query('feedback', [['$ownerId', '==', ownerId]])).sort((a, b) => b.createdAt - a.createdAt),
     // No `$createdAt > 0` range here: Drive only accepts that range when the orderBy reaches
     // $createdAt without a gap, and `poolProposal` has proposalHash in between. Every document has a
     // $createdAt anyway, so filtering on it adds nothing — verified against the v3 contract.
+    listPoolMetas: async poolId => hasPoolMeta ? await byParent('poolMeta', 'poolId', poolId) : [],
+    listPoolMetasByPools: async poolIds => !hasPoolMeta || poolIds.length === 0
+      ? []
+      : await queryAll('poolMeta', [['poolId', 'in', poolIds]], [['poolId', 'asc'], ['$createdAt', 'asc']]),
     listVotes: async poolId => await queryAll('vote',
       [['poolId', '==', poolId]],
       [['poolId', 'asc'], ['proposalHash', 'asc'], ['$createdAt', 'asc']]),
+    listVotesByOwner: async ownerId => (await query('vote', [['$ownerId', '==', ownerId]])).sort((a, b) => b.createdAt - a.createdAt),
+    listVotesInPool: async (poolId, limit = 100) => decode('vote',
+      await sdk.documents.query(await dataContract(), 'vote', [['poolId', '==', poolId]] as never, [['poolId', 'asc'], ['$createdAt', 'desc']] as never, limit) as unknown as RawDocument[]),
     listVotesByProposal: async proposalHash => await queryAll('vote',
       [['proposalHash', '==', fromHex(proposalHash)], ['$createdAt', '>', 0]],
       [['proposalHash', 'asc'], ['$createdAt', 'asc']]),
     listRecentVotes: async (limit = 100) => decode('vote',
       await sdk.documents.query(await dataContract(), 'vote', [['$createdAt', '>', 0]] as never, [['$createdAt', 'desc']] as never, limit) as unknown as RawDocument[]),
     listAllVotes: async () => await queryAll('vote', [['$createdAt', '>', 0]], [['$createdAt', 'asc']]),
-
-    async getEncryptionKeys (identityId) {
-      const keys = await sdk.identities.getIdentityPublicKeys(identityId)
-      return keys
-        .filter(k => k.keyType === 'ECDSA_SECP256K1' && (k.purpose === 'ENCRYPTION' || k.purpose === 'DECRYPTION') && k.disabledAt == null)
-        // Prefer DECRYPTION keys: that is the key the owner decrypts with
-        .sort((a, b) => Number(b.purpose === 'DECRYPTION') - Number(a.purpose === 'DECRYPTION'))
-        .map(k => ({ id: k.keyId, publicKey: k.data }))
-    },
 
     async getUsername (identityId) {
       if (identityId === '') return null
@@ -322,13 +333,14 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     },
 
     // Optional contract fields are left out when empty: Platform rejects null for a typed field
+    // The display name is promotional and optional: generation 2 pools are created without one and
+    // titled later through poolMeta, so an absent name must not be sent as null or an empty string
     createPool: async (identity, pool) => await publish(identity, 'pool', {
-      name: pool.name,
-      description: pool.description,
+      ...(pool.name != null && pool.name !== '' ? { name: pool.name } : {}),
+      ...(pool.description != null && pool.description !== '' ? { description: pool.description } : {}),
       ...(pool.service != null && pool.service !== '' ? { service: pool.service } : {}),
-      ...(pool.location != null ? { location: pool.location } : {}),
       operatorPubKey: fromHex(pool.operatorPubKey),
-      votingKeyId: addressToKeyId(pool.votingAddress, network),
+      votingAddress: addressToKeyId(pool.votingAddress, network),
       operatorReward: pool.operatorReward,
       earlyPeriodBlocks: pool.earlyPeriodBlocks,
       earlyPenalty: pool.earlyPenalty,
@@ -347,6 +359,12 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     }),
     createLock: async (identity, lock) => {
       const data: Record<string, unknown> = { poolId: idBytes(lock.poolId), joinIds: concatBytes(...lock.joinIds.map(idBytes)) }
+      if (lock.entries != null && lock.entries.length > 0) {
+        data.entries = lock.entries.map(entry => {
+          if (entry == null) throw new Error('A missing share cannot be packed into the lock')
+          return packEntry(entry, network)
+        })
+      }
       if (lock.feeInputs != null && lock.feeInputs.length > 0) data.feeInputs = encodeOutpoints(lock.feeInputs)
       if (lock.feeChangeAddress != null && lock.feeChangeAddress !== '') data.feeChangeAddress = lock.feeChangeAddress
       return await publish(identity, 'lock', data)
@@ -364,14 +382,17 @@ export function createLivePlatform (sdk: DashPlatformSDK, contractId: string, ne
     createFeedback: async (identity, feedback) => await publish(identity, 'feedback', {
       poolId: idBytes(feedback.poolId), rating: feedback.rating, text: feedback.text
     }),
-    createChatKey: async (identity, chatKey) => await publish(identity, 'chatKey', {
-      lockId: idBytes(chatKey.lockId), envelopes: fromHex(chatKey.envelopes)
-    }),
-    sendPrivateMessage: async (identity, message) => await publish(identity, 'privateMessage', {
-      lockId: idBytes(message.lockId), payload: fromHex(message.payload)
-    }),
     createVote: async (identity, vote) => await publish(identity, 'vote', {
       poolId: idBytes(vote.poolId), proposalHash: fromHex(vote.proposalHash), outcome: vote.outcome
-    })
+    }),
+    createPoolMeta: async (identity, meta) => {
+      if (!hasPoolMeta) throw new Error('This generation has no pool metadata documents')
+      return await publish(identity, 'poolMeta', {
+        poolId: idBytes(meta.poolId),
+        ...(meta.name != null ? { name: meta.name } : {}),
+        ...(meta.description != null ? { description: meta.description } : {}),
+        ...(meta.archived === true ? { archived: true } : {})
+      })
+    }
   }
 }

@@ -3,10 +3,14 @@ import { Button } from '../Button'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { backend } from '../../data'
+import { lockSupportsEntries } from '../../contracts'
 import { fetchInputValues, type PoolState } from '../../data/queries'
+import { useGeneration } from '../../generations'
 import { useWrite } from '../../hooks/data'
 import { COLLATERAL, MAX_SHARES } from '../../lib/consensus'
 import { formatDash, relativeTime } from '../../lib/format'
+import { lockEntryOf, packingProblems } from '../../lib/lockEntries'
+import { useNetwork } from '../../lib/network'
 import { rewardSharePercent, selectionProblems } from '../../lib/rules'
 import { useSettings } from '../../lib/settings'
 import type { Join, Outpoint } from '../../lib/types'
@@ -29,7 +33,7 @@ export function MembersTab ({ state }: { state: PoolState }): ReactNode {
 
 function JoinList ({ state }: { state: PoolState }): ReactNode {
   const { activeIdentity } = useWallet()
-  if (state.joins.length === 0) return <EmptyState title='No joins yet'>Be the first to join this pool.</EmptyState>
+  if (state.joins.length === 0) return <EmptyState title='No shares yet'>Be the first to take a share in this pool.</EmptyState>
   return (
     <ul className='divide-y divide-line/70'>
       {state.joins.map(join => (
@@ -49,6 +53,8 @@ function JoinList ({ state }: { state: PoolState }): ReactNode {
 function LockSelector ({ state }: { state: PoolState }): ReactNode {
   const { activeIdentity } = useWallet()
   const { settings, toggleBan } = useSettings()
+  const { ref } = useGeneration()
+  const { network } = useNetwork()
   const { notify } = useToast()
   const [selected, setSelected] = useState<string[]>([])
   const [confirming, setConfirming] = useState(false)
@@ -87,8 +93,16 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
         ? 'The same fee UTXO is listed twice'
         : null
     : null
+  // Generation 1's lock has no entries field, so the packed copies are only written where the schema has it
+  const entries = lockSupportsEntries(ref) ? chosen.map(lockEntryOf) : null
   const problems = chosen.length > 0
-    ? [...selectionProblems(state.pool, chosen), ...(funding.data ?? []), ...(feeInputProblem != null ? [feeInputProblem] : [])]
+    ? [
+        ...selectionProblems(state.pool, chosen),
+        // The mock backend's share addresses are placeholders, so only real data can be packed
+        ...(entries != null && backend.mode === 'live' ? packingProblems(entries, network) : []),
+        ...(funding.data ?? []),
+        ...(feeInputProblem != null ? [feeInputProblem] : [])
+      ]
     : []
   const ready = chosen.length > 0 && problems.length === 0 && funding.data != null && !funding.isFetching
 
@@ -102,6 +116,8 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
     return await backend.platform.createLock(activeIdentity, {
       poolId: state.pool.id,
       joinIds: selected,
+      // The lock carries the accepted shares themselves, so an auditor does not need to resolve each join
+      ...(entries != null ? { entries } : {}),
       ...(creatorPays
         ? { feeInputs, ...(feeChange !== '' ? { feeChangeAddress: feeChange } : {}) }
         : {})
@@ -118,7 +134,7 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
     })
   }
 
-  if (state.joins.length === 0) return <EmptyState title='No joins yet'>Share the pool link to get members.</EmptyState>
+  if (state.joins.length === 0) return <EmptyState title='No shares yet'>Send the pool link around to get members.</EmptyState>
 
   return (
     <div className='flex flex-col gap-5'>

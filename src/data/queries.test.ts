@@ -5,7 +5,8 @@ const mocks = vi.hoisted(() => ({
   getPool: vi.fn(), listJoins: vi.fn(), listLocks: vi.fn(),
   listPoolsByOperatorKey: vi.fn(), getBestBlockHeight: vi.fn(),
   getMasternodeByOperatorKey: vi.fn(),
-  listVotesByProposal: vi.fn(), listPools: vi.fn(), listJoinsByPools: vi.fn()
+  listVotesByProposal: vi.fn(), listPools: vi.fn(), listJoinsByPools: vi.fn(),
+  listPoolMetas: vi.fn(), listPoolMetasByPools: vi.fn()
 }))
 
 vi.mock('./index', () => ({
@@ -13,7 +14,8 @@ vi.mock('./index', () => ({
     platform: {
       getPool: mocks.getPool, listJoins: mocks.listJoins, listLocks: mocks.listLocks,
       listPoolsByOperatorKey: mocks.listPoolsByOperatorKey,
-      listVotesByProposal: mocks.listVotesByProposal, listPools: mocks.listPools, listJoinsByPools: mocks.listJoinsByPools
+      listVotesByProposal: mocks.listVotesByProposal, listPools: mocks.listPools, listJoinsByPools: mocks.listJoinsByPools,
+      listPoolMetas: mocks.listPoolMetas, listPoolMetasByPools: mocks.listPoolMetasByPools
     },
     chain: {
       getBestBlockHeight: mocks.getBestBlockHeight,
@@ -49,6 +51,8 @@ beforeEach(() => {
   mocks.listVotesByProposal.mockResolvedValue([])
   mocks.listPools.mockResolvedValue([])
   mocks.listJoinsByPools.mockResolvedValue([])
+  mocks.listPoolMetas.mockResolvedValue([])
+  mocks.listPoolMetasByPools.mockResolvedValue([])
 })
 
 test('uses a preloaded pool without fetching it', async () => {

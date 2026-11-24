@@ -17,6 +17,24 @@ function status (overrides: Partial<Input>): ReturnType<typeof derivePoolStatus>
   } as StatusInput)
 }
 
+describe('derivePoolStatus — a pool that can never complete reads Error', () => {
+  test('a broken lock is Error, not a permanently signing pool', () => {
+    expect(status({ blocked: true, allConsented: false, allFunded: false })).toBe('ERROR')
+  })
+  test('a registration that cannot be broadcast is Error', () => {
+    expect(status({ blocked: true, regTx: null })).toBe('ERROR')
+  })
+  test('a pool with no lock is still Open regardless of blockers', () => {
+    expect(status({ lock: null, blocked: false })).toBe('NEW')
+  })
+  test('a mined registration is chain truth, so preflight complaints do not hide it', () => {
+    expect(status({ blocked: true, masternode: { proTxHash: 'a'.repeat(64), isValid: true, service: '1.2.3.4:9999' } })).toBe('FORMED')
+  })
+  test('without blockers an incomplete pool keeps Signing', () => {
+    expect(status({ blocked: false, allConsented: false })).toBe('SIGNING')
+  })
+})
+
 describe('derivePoolStatus — a broadcast dissolution outranks the list', () => {
   const listed = { proTxHash: 'a'.repeat(64), isValid: false, service: '[::]:0' }
   const txid = 'b'.repeat(64)

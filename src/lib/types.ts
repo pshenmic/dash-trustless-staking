@@ -17,15 +17,14 @@ export interface BaseDocument {
 }
 
 export interface Pool extends BaseDocument {
-  name: string
-  description: string
+  /** Optional since generation 2: a pool is created without a name and may be titled later through poolMeta */
+  name?: string
+  description?: string
   /**
    * Core P2P address (ip:port) the masternode starts with. Optional: the operator can set or change it
    * at any time with a ProUpServTx. Without one the masternode registers PoSe-banned until then.
    */
   service?: string
-  /** Where the node runs: an ISO 3166-1 alpha-2 code (contract enum). Absent means worldwide. */
-  location?: string
   /** BLS public key, hex */
   operatorPubKey: string
   votingAddress: string
@@ -65,6 +64,19 @@ export interface Join extends BaseDocument {
   encryptionKeyId?: number
 }
 
+/** A share copied into the lock, so the accepted set can be audited without resolving every join */
+export interface LockEntry {
+  joinId: string
+  ownerId: string
+  amount: Duffs
+  ownerAddress: string
+  refundAddress: string
+  /** Absent when the join pays rewards to the refund address */
+  rewardAddress?: string
+  changeAddress: string
+  inputs: Outpoint[]
+}
+
 export interface Lock extends BaseDocument {
   poolId: string
   /** Join document IDs in share order */
@@ -73,6 +85,11 @@ export interface Lock extends BaseDocument {
   feeInputs?: Outpoint[]
   /** Change address for the creator fee inputs; absent when the inputs exactly cover the fee */
   feeChangeAddress?: string
+  /**
+   * Packed copies of the accepted shares, in share order (lib/lockEntries.ts). Optional: locks created
+   * before the field existed have none. A null slot is a stored entry that could not be decoded.
+   */
+  entries?: Array<LockEntry | null>
 }
 
 export interface Consent extends BaseDocument {
@@ -100,18 +117,6 @@ export interface Message extends BaseDocument {
 }
 
 /** The private chat's group key, wrapped once per selected member. Published by a lock member. */
-export interface ChatKey extends BaseDocument {
-  lockId: string
-  /** Fixed-size envelopes, hex (see lib/chatCipher.ts) */
-  envelopes: string
-}
-
-export interface PrivateMessage extends BaseDocument {
-  lockId: string
-  /** nonce || AES-256-GCM ciphertext || tag, hex */
-  payload: string
-}
-
 /** Governance vote outcome, Core's vote_outcome_t: 1 YES, 2 NO, 3 ABSTAIN */
 export type VoteOutcome = 1 | 2 | 3
 
@@ -121,6 +126,19 @@ export interface Vote extends BaseDocument {
   /** Governance object hash, hex */
   proposalHash: string
   outcome: VoteOutcome
+}
+
+/**
+ * Display metadata for a pool. Immutable and append-only: the newest document signed by the pool's
+ * creator wins, so every rename stays visible in the pool's history.
+ */
+export interface PoolMeta extends BaseDocument {
+  poolId: string
+  /** Retired by the creator: readers sink it and mark it. Documentation only — nothing stops working. */
+  archived?: boolean
+  name?: string
+  description?: string
+  /** PNG bytes, at most 8 KiB */
 }
 
 /** An identity public key others can encrypt to */

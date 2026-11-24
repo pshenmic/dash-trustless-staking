@@ -4,8 +4,6 @@ export type AuthSession =
     identityId: string
     authKeyId: number
     authKeyWif: string
-    encryptionKeyId: number
-    encryptionKeyWif: string
   }
   | { mode: 'extension', identityId: string, identities?: string[] }
 
@@ -57,19 +55,13 @@ function parse (raw: string | null): AuthSession | null {
       }
     }
     if (value.mode !== 'privateKey') return null
-    if (
-      typeof value.authKeyId !== 'number' ||
-      typeof value.authKeyWif !== 'string' ||
-      typeof value.encryptionKeyId !== 'number' ||
-      typeof value.encryptionKeyWif !== 'string'
-    ) return null
+    if (typeof value.authKeyId !== 'number' || typeof value.authKeyWif !== 'string') return null
+    // A session written before the encryption key was dropped still parses: its extra fields are ignored
     return {
       mode: 'privateKey',
       identityId: value.identityId,
       authKeyId: value.authKeyId,
-      authKeyWif: value.authKeyWif,
-      encryptionKeyId: value.encryptionKeyId,
-      encryptionKeyWif: value.encryptionKeyWif
+      authKeyWif: value.authKeyWif
     }
   } catch {
     return null
