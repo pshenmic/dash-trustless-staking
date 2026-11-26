@@ -272,6 +272,7 @@ spacing from the Dash Brand Guidelines 2026 (`src/index.css`).
 | Symptom | Cause |
 |---|---|
 | Blank page, `SharedArrayBuffer`/`crossOriginIsolated` in the console | An older `dash-platform-sdk` (before 1.7) is installed; run `yarn install` and check the version. |
+| `Invalid raw ID` when loading pools | Two `pshenmic-dpp` copies are installed: the SDK's `instanceof DataContractWASM` fails on a contract built by the other copy and the object is read as an id. Pin `pshenmic-dpp` to the exact version the SDK requires. |
 | First load takes a while | There is no pinned DAPI node: both SDKs use the network's seed list. Custom endpoints in Settings help. |
 | "Log in" does nothing | The Dash Platform Extension is not installed or not unlocked in this browser; use private keys instead. |
 | A pool never leaves Signing | A member has not consented or funded yet. Joins are immutable, and only the missing member can complete them. |

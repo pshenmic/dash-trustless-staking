@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { PrivateKeyWASM, type IdentityPublicKeyWASM, type IdentityWASM } from 'pshenmic-dpp'
+import { PrivateKeyWASM, type IdentityPublicKeyWASM, type IdentityWASM } from 'dash-platform-sdk/types'
 import { findIdentityForKeys, parsePrivateKey, type IdentityDirectory } from './identity'
 
 const authKey = PrivateKeyWASM.fromHex('01'.repeat(32), 'testnet')

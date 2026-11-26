@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { DashPlatformSDK } from 'dash-platform-sdk'
-import { PrivateKeyWASM } from 'pshenmic-dpp'
+import { PrivateKeyWASM } from 'dash-platform-sdk/types.js'
 
 const envFile = fileURLToPath(new URL('../.env.local', import.meta.url))
 const env = Object.fromEntries(

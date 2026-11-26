@@ -3,7 +3,7 @@
 // Usage: node scripts/test-contract.mjs      (costs a small amount of credits)
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { IdentifierWASM } from 'pshenmic-dpp'
+import { IdentifierWASM } from 'dash-platform-sdk/types.js'
 import { identityId, sdk, signAndBroadcast } from './env.mjs'
 
 const contractId = /VITE_CONTRACT_ID=(\S+)/.exec(readFileSync(fileURLToPath(new URL('../.env', import.meta.url)), 'utf8'))[1]

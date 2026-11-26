@@ -1,6 +1,5 @@
 import { base58, base64 } from '@scure/base'
 import type { DashPlatformSDK } from 'dash-platform-sdk'
-import { DataContractWASM } from 'pshenmic-dpp'
 import { contractNonce, contractOwner } from '../../config'
 import { addressToKeyId, addressToScript, keyIdToAddress, scriptToAddress } from '../../lib/address'
 import { ByteReader, compactSize, concatBytes, fromHex, toHex } from '../../lib/bytes'
@@ -167,7 +166,9 @@ export function createLivePlatform (sdk: DashPlatformSDK, contract: ContractSour
   // Built from the generation's schema at init, so queries skip the getDataContract round-trip entirely.
   // The id is deterministic in owner + creation nonce; a contract built at another nonce (generation 2
   // was created with the identity nonce, not 1) falls back to fetching it once.
-  const localContract = new DataContractWASM(contractOwner, contractNonce, contract.schema as never, undefined, undefined, true)
+  // Through the SDK rather than `new DataContractWASM`: the SDK recognises its own instances, so no
+  // second dpp copy can make `documents.query` take this contract for an identifier.
+  const localContract = sdk.dataContracts.create(contractOwner, contractNonce, contract.schema as never, true)
   localContract.version = contract.deployedVersion
   let fetched: Promise<DataContract> | null = null
   const dataContract = async (): Promise<DataContract> =>

@@ -1849,10 +1849,10 @@ dash-core-sdk@1.1.6:
     typescript "^5.9.2"
     ws "^8.18.3"
 
-dash-platform-sdk@1.7.0-dev.1:
-  version "1.7.0-dev.1"
-  resolved "https://registry.yarnpkg.com/dash-platform-sdk/-/dash-platform-sdk-1.7.0-dev.1.tgz#2bd49a86566226e7415521fa5cba4cf817eadc00"
-  integrity sha512-HA9nnAU/1BQyrGhVbAi2pXU5V2IWBVqkpPzw2upi+bjQODogOChreC3/erpuE6s/a0dCh3yvHR9gTW8MCI/M0w==
+dash-platform-sdk@1.7.0-dev.3:
+  version "1.7.0-dev.3"
+  resolved "https://registry.yarnpkg.com/dash-platform-sdk/-/dash-platform-sdk-1.7.0-dev.3.tgz#b3d2ef82882660ea5df104dfcd88f46606cf0b40"
+  integrity sha512-8t6fFdPJqEWANDDePdIf83PsLlmMaFLPfGXsaKsF13T286u1hWdouX3CmMJJ6/mNZwZ+4IQZABuOyhJ+EfOnBQ==
   dependencies:
     "@bufbuild/protobuf" "^2.6.0"
     "@protobuf-ts/grpcweb-transport" "^2.11.1"
@@ -1860,7 +1860,7 @@ dash-platform-sdk@1.7.0-dev.1:
     "@scure/bip32" "^2.0.0"
     "@scure/bip39" "^2.0.0"
     "@scure/btc-signer" "^2.0.1"
-    pshenmic-dpp "2.1.0-dev.1"
+    pshenmic-dpp "2.1.1"
 
 dash-ui-kit@^2.1.5:
   version "2.1.5"
@@ -2399,16 +2399,6 @@ protoc@^32.1.0:
   version "32.1.0"
   resolved "https://registry.yarnpkg.com/protoc/-/protoc-32.1.0.tgz#c3e6230aca544de1e7d1fe44672f6a680218912a"
   integrity sha512-yICJJCGHJLM9ao5W2V4CGp1d7xuBsdHzgVDw6L8mdDtoIcqzN3arNPOm9Jx4Ufp5vfhQfJGkNUDo6mm/SLPdXw==
-
-pshenmic-dpp@2.1.0-dev.1:
-  version "2.1.0-dev.1"
-  resolved "https://registry.yarnpkg.com/pshenmic-dpp/-/pshenmic-dpp-2.1.0-dev.1.tgz#8497ddc41ff73b55f4c099ca30f7054db9ea9135"
-  integrity sha512-UFGC2cbvufBoG7tEEwnyhDmW8wYtQiPELEmDcDXiXLIxv9LPKyrFVSauutryEOZSpWPjnbNwAzrcoCh0ZfNmmw==
-  dependencies:
-    "@emnapi/core" "1.11.3"
-    "@emnapi/runtime" "1.11.3"
-    "@tybys/wasm-util" "^0.10.1"
-    fflate "^0.8.3"
 
 pshenmic-dpp@2.1.1:
   version "2.1.1"

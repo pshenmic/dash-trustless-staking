@@ -1,5 +1,5 @@
 import type { DashPlatformSDK } from 'dash-platform-sdk'
-import { PrivateKeyWASM, type IdentityPublicKeyWASM, type StateTransitionWASM } from 'pshenmic-dpp'
+import { PrivateKeyWASM, type IdentityPublicKeyWASM, type StateTransitionWASM } from 'dash-platform-sdk/types'
 import { extensionSigner } from '../data/live/extensionSigner'
 import type { Signer } from '../data/live/platform'
 import { currentSession } from './authSession'

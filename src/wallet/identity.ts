@@ -1,4 +1,4 @@
-import type { IdentityPublicKeyWASM, IdentityWASM, PrivateKeyWASM } from 'pshenmic-dpp'
+import type { IdentityPublicKeyWASM, IdentityWASM, PrivateKeyWASM } from 'dash-platform-sdk/types'
 import { contractId as configuredContractId, dapiEndpoints } from '../config'
 import { GENERATIONS } from '../contracts'
 
@@ -133,7 +133,7 @@ function validateAuthenticationKey (key: KeyFacts, appContractIds: string[]): vo
 
 /** Parses a WIF or a 64-character hex private key; throws a user-facing message otherwise. */
 export async function parsePrivateKey (text: string): Promise<PrivateKeyWASM> {
-  const { PrivateKeyWASM } = await import('pshenmic-dpp')
+  const { PrivateKeyWASM } = await import('dash-platform-sdk/types')
   const value = text.trim()
   if (/^[0-9a-f]{64}$/i.test(value)) return PrivateKeyWASM.fromHex(value, 'testnet')
   try {
