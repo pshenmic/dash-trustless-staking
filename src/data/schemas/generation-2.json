@@ -3,8 +3,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "Terms of one shared masternode, published by its creator. Immutable: to change terms, create a new pool.",
     "properties": {
       "name": {
@@ -140,8 +138,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "A member's share in a pool. One per identity per pool; final once published.",
     "properties": {
       "poolId": {
@@ -248,8 +244,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "The pool creator's final member selection. Clients count only the lock by the pool owner.",
     "properties": {
       "poolId": {
@@ -322,8 +316,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "A member's signature over the shared registration consent hash",
     "properties": {
       "lockId": {
@@ -368,8 +360,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "A member's signatures for their own funding inputs",
     "properties": {
       "lockId": {
@@ -414,8 +404,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "The pool creator's signatures for the fee inputs",
     "properties": {
       "lockId": {
@@ -460,8 +448,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "A member's review of a pool. Clients count it only from members of a registered pool.",
     "properties": {
       "poolId": {
@@ -532,8 +518,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "Public chat message. Public and permanent.",
     "properties": {
       "channel": {
@@ -575,8 +559,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "A member's choice on a governance proposal. Immutable: changing a choice publishes a new document; the latest per member counts, weighted by stake, an exact tie abstains.",
     "properties": {
       "poolId": {
@@ -681,8 +663,6 @@
     "type": "object",
     "documentsMutable": false,
     "canBeDeleted": false,
-    "transferable": 0,
-    "tradeMode": 0,
     "description": "Display metadata for a pool. The newest document from the pool creator wins; the terms themselves stay in the immutable pool document.",
     "properties": {
       "poolId": {
