@@ -36,6 +36,13 @@ export interface Pool extends BaseDocument {
   fee: Duffs
   /** Who pays the registration fee; missing on old pools means members */
   feePayer?: FeePayer
+  /**
+   * Flat amount every share pays to the creator, in duffs, on top of the share. It leaves as one output
+   * of the registration transaction, so it exists only if the pool actually registers.
+   */
+  entryFee?: Duffs
+  /** Creator's payout address for the entry fee (P2PKH) */
+  entryFeeAddress?: string
 }
 
 export interface Outpoint {

@@ -113,7 +113,9 @@ export function createLivePlatform (sdk: DashPlatformSDK, contract: ContractSour
         earlyPeriodBlocks: asNumber(p.earlyPeriodBlocks),
         earlyPenalty: asNumber(p.earlyPenalty),
         fee: asNumber(p.fee),
-        ...(p.feePayer === 'creator' || p.feePayer === 'members' ? { feePayer: p.feePayer } : {})
+        ...(p.feePayer === 'creator' || p.feePayer === 'members' ? { feePayer: p.feePayer } : {}),
+        ...(p.entryFee != null ? { entryFee: asNumber(p.entryFee) } : {}),
+        ...(p.entryFeeAddress != null ? { entryFeeAddress: keyIdToAddress(asBytes(p.entryFeeAddress), network) } : {})
       }
     },
     join: (doc: RawDocument): Join => {
@@ -346,7 +348,11 @@ export function createLivePlatform (sdk: DashPlatformSDK, contract: ContractSour
       earlyPeriodBlocks: pool.earlyPeriodBlocks,
       earlyPenalty: pool.earlyPenalty,
       fee: pool.fee,
-      ...(pool.feePayer != null ? { feePayer: pool.feePayer } : {})
+      ...(pool.feePayer != null ? { feePayer: pool.feePayer } : {}),
+      // Only written when the creator charges one: a zero-fee pool stays valid on a contract without these fields
+      ...(pool.entryFee != null && pool.entryFee > 0 && pool.entryFeeAddress != null
+        ? { entryFee: pool.entryFee, entryFeeAddress: addressToKeyId(pool.entryFeeAddress, network) }
+        : {})
     }),
     createJoin: async (identity, join) => await publish(identity, 'join', {
       poolId: idBytes(join.poolId),

@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
+import { encodeAddress } from './address'
 import { DUFFS_PER_DASH } from './consensus'
-import { selectionProblems, onchainOwnerProblems, poolTermProblems, shareOwnerConflicts } from './rules'
+import {
+  entryFeeProblems, joinProblems, payoutScriptProblems, selectionProblems, onchainOwnerProblems,
+  poolTermProblems, shareOwnerConflicts, validatePoolTerms
+} from './rules'
 import type { Join, Pool } from './types'
 
 const pool = { earlyPenalty: 0 } as Pool
@@ -104,5 +108,103 @@ describe('onchainOwnerProblems', () => {
 
   test('an empty index reports nothing — unknown must not read as "taken"', () => {
     expect(onchainOwnerProblems([join('A', 500, 1)], new Map())).toEqual([])
+  })
+})
+describe('validatePoolTerms entry fee', () => {
+  const terms = {
+    service: '',
+    operatorPubKey: 'ab'.repeat(48),
+    votingAddress: 'yLzmKvXK3dsopAQMYGafo1wZY3qGj4ku7S',
+    operatorReward: 500,
+    earlyPeriodBlocks: 0,
+    earlyPenalty: 0,
+    fee: 20_000,
+    feePayer: 'members' as const
+  }
+
+  test('no fee means no address is required', () => {
+    const errors = validatePoolTerms({ ...terms, entryFee: 0 }, 'testnet')
+    expect(errors.entryFee).toBeUndefined()
+    expect(errors.entryFeeAddress).toBeUndefined()
+  })
+
+  test('a fee without a payout address is refused', () => {
+    expect(validatePoolTerms({ ...terms, entryFee: 5 * DUFFS_PER_DASH }, 'testnet').entryFeeAddress)
+      .toBe('Enter the testnet P2PKH address that receives it')
+  })
+
+  test('the per-member cap keeps eight shares inside 100 DASH', () => {
+    expect(validatePoolTerms({ ...terms, entryFee: 12.5 * DUFFS_PER_DASH, entryFeeAddress: terms.votingAddress }, 'testnet').entryFee).toBeUndefined()
+    expect(validatePoolTerms({ ...terms, entryFee: 12.6 * DUFFS_PER_DASH, entryFeeAddress: terms.votingAddress }, 'testnet').entryFee)
+      .toBe('At most 12.5 DASH per member')
+  })
+})
+
+describe('entryFeeProblems', () => {
+  test('a pool without a fee has nothing to report', () => {
+    expect(entryFeeProblems({ ...pool })).toEqual([])
+  })
+
+  test('a fee above the cap or without a payout address is named', () => {
+    expect(entryFeeProblems({ ...pool, entryFee: 12.6 * DUFFS_PER_DASH, entryFeeAddress: 'yPool' }))
+      .toEqual(['The entry fee of 12.6 DASH is above the 12.5 DASH limit'])
+    expect(entryFeeProblems({ ...pool, entryFee: 5 * DUFFS_PER_DASH }))
+      .toEqual(['The entry fee has no payout address'])
+  })
+})
+
+describe('payoutScriptProblems — refund and reward scripts', () => {
+  const hash = (n: number): Uint8Array => new Uint8Array(20).fill(n)
+  const owner = encodeAddress(hash(1), 'p2pkh', 'testnet')
+  const refund = encodeAddress(hash(2), 'p2pkh', 'testnet')
+  const reward = encodeAddress(hash(3), 'p2pkh', 'testnet')
+  const voting = encodeAddress(hash(4), 'p2pkh', 'testnet')
+  const p2sh = encodeAddress(hash(5), 'p2sh', 'testnet')
+  const base = { ownerAddress: owner, votingAddress: voting, network: 'testnet' as const, strict: true }
+
+  test('a reward may be empty — the refund address is paid instead', () => {
+    expect(payoutScriptProblems({ ...base, role: 'reward', address: '' })).toEqual([])
+  })
+
+  test('a refund may not be empty, because Core validates it as a script', () => {
+    expect(payoutScriptProblems({ ...base, role: 'refund', address: '' })).toEqual(['A refund address is required'])
+  })
+
+  test('both accept P2PKH and P2SH, the only payout scripts Core allows', () => {
+    expect(payoutScriptProblems({ ...base, role: 'refund', address: p2sh })).toEqual([])
+    expect(payoutScriptProblems({ ...base, role: 'reward', address: p2sh })).toEqual([])
+    expect(payoutScriptProblems({ ...base, role: 'reward', address: reward })).toEqual([])
+  })
+
+  test('anything else is refused before it becomes a script', () => {
+    expect(payoutScriptProblems({ ...base, role: 'reward', address: 'not an address' }))
+      .toEqual(['The reward address is not a testnet P2PKH or P2SH address'])
+  })
+
+  test('a share may not pay its own owner key or the voting key', () => {
+    expect(payoutScriptProblems({ ...base, role: 'refund', address: owner }))
+      .toEqual(['The refund address pays the share owner key'])
+    expect(payoutScriptProblems({ ...base, role: 'reward', address: voting }))
+      .toEqual(['The reward address pays the voting key'])
+  })
+
+  test('a reward may equal the refund — Core compares them only against owner and voting keys', () => {
+    expect(payoutScriptProblems({ ...base, role: 'reward', address: refund })).toEqual([])
+  })
+})
+
+describe('joinProblems — script rules apply to live documents only', () => {
+  const hash = (n: number): Uint8Array => new Uint8Array(20).fill(n)
+  const owner = encodeAddress(hash(1), 'p2pkh', 'testnet')
+  const voting = encodeAddress(hash(4), 'p2pkh', 'testnet')
+  const scriptPool = { id: 'pool', votingAddress: voting } as Pool
+  const paidVoting = { ...join('A', 500, 1), ownerAddress: owner, refundAddress: owner, rewardAddress: voting }
+
+  test('a reward that pays the voting key invalidates the join on live data', () => {
+    expect(joinProblems(paidVoting, scriptPool, 'testnet')).toContain('The reward address pays the voting key')
+  })
+
+  test('without a network the placeholder addresses of the mock backend still pass', () => {
+    expect(joinProblems(paidVoting, scriptPool)).not.toContain('The reward address pays the voting key')
   })
 })

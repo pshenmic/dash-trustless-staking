@@ -72,6 +72,20 @@
         ],
         "position": 8,
         "description": "Who pays the registration fee: the pool creator from a fee input, or split between members. Missing means members."
+      },
+      "entryFee": {
+        "type": "integer",
+        "minimum": 1,
+        "position": 9,
+        "description": "Entry fee in duffs taken from every share and paid to the creator when the pool registers. The app caps it at 12.5 DASH per member, so eight shares stay within 100 DASH."
+      },
+      "entryFeeAddress": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 20,
+        "maxItems": 20,
+        "position": 10,
+        "description": "P2PKH hash160 of the address that receives the entry fee"
       }
     },
     "required": [

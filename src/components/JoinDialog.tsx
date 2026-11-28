@@ -8,7 +8,7 @@ import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
 import { useWrite } from '../hooks/data'
 import { COLLATERAL, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
 import { duffsToDashString, formatBasisPoints, formatDash, parseDash } from '../lib/format'
-import { isTxid, rewardSharePercent, validateJoinInput, type JoinInput } from '../lib/rules'
+import { entryFeeProblems, isTxid, rewardSharePercent, validateJoinInput, type JoinInput } from '../lib/rules'
 import { useNetwork } from '../lib/network'
 import type { Duffs, Join, Outpoint, Pool } from '../lib/types'
 import { useWallet } from '../wallet/WalletContext'
@@ -72,7 +72,11 @@ export function JoinDialog ({ pool, open, onOpenChange, initial = null }: Props)
   const creatorPays = pool.feePayer === 'creator'
   const maxFeeShare = creatorPays ? 0 : Math.ceil(pool.fee / MIN_SHARES)
   const minFeeShare = creatorPays ? 0 : Math.floor(pool.fee / MAX_SHARES)
-  const needed = (amount ?? 0) + maxFeeShare
+  const entryFee = pool.entryFee ?? 0
+  // A pool published by another client can carry a fee above the cap or with no payout address: that
+  // pool cannot pay its creator correctly, so this app refuses to join it
+  const entryFeeIssue = entryFeeProblems(pool)[0] ?? null
+  const needed = (amount ?? 0) + maxFeeShare + entryFee
   const utxoProblem = outpoints.some(o => o == null)
     ? 'Enter each UTXO as txid:vout'
     : values.data?.some(v => v == null) === true
@@ -82,7 +86,7 @@ export function JoinDialog ({ pool, open, onOpenChange, initial = null }: Props)
         : null
   const duplicate = new Set(outpoints.filter(o => o != null).map(o => `${o.txid}:${o.vout}`)).size < outpoints.filter(o => o != null).length
 
-  const valid = Object.keys(errors).length === 0 && utxoProblem == null && !duplicate && values.data != null
+  const valid = Object.keys(errors).length === 0 && utxoProblem == null && !duplicate && entryFeeIssue == null && values.data != null
 
   const join = useWrite(async () => {
     if (activeIdentity == null) throw new Error('Connect your identity first')
@@ -183,14 +187,22 @@ export function JoinDialog ({ pool, open, onOpenChange, initial = null }: Props)
           <button type='button' onClick={() => setUtxos(list => [...list, ''])} className='self-start text-small font-bold text-brand-ink hover:underline'>+ Add UTXO</button>
           <div className='text-small text-muted'>
             {creatorPays
-              ? `They only need to cover your amount; the pool creator pays the ${formatDash(pool.fee)} registration fee.`
-              : `They must cover your amount plus your share of the ${formatDash(pool.fee)} fee (${formatDash(minFeeShare)} to ${formatDash(maxFeeShare)} depending on the member count).`}
+              ? `They only need to cover your amount${entryFee > 0 ? ` and the ${formatDash(entryFee)} entry fee` : ''}; the pool creator pays the ${formatDash(pool.fee)} registration fee.`
+              : `They must cover your amount, your share of the ${formatDash(pool.fee)} fee (${formatDash(minFeeShare)} to ${formatDash(maxFeeShare)} depending on the member count)${entryFee > 0 ? `, and the ${formatDash(entryFee)} entry fee` : ''}.`}
             {' '}Don’t spend them until the pool registers.
           </div>
+          {entryFeeIssue != null && <div className='text-small text-red-ink'>{entryFeeIssue}</div>}
           {touched && (utxoProblem != null || duplicate) && <div className='text-small text-red-ink'>{duplicate ? 'The same UTXO is listed twice' : utxoProblem}</div>}
         </div>
 
-        <Field label='Change address' error={show('changeAddress')} hint={creatorPays ? 'Receives whatever your UTXOs hold beyond your amount.' : 'Receives whatever your UTXOs hold beyond your amount and fee.'} htmlFor='join-change'>
+        {entryFee > 0 && entryFeeIssue == null && (
+          <Notice tone='info' title='Entry fee'>
+            {formatDash(entryFee)} of every share goes to the pool creator, paid once when the pool registers.
+            {' '}It is taken on top of your amount, never out of it.
+          </Notice>
+        )}
+
+        <Field label='Change address' error={show('changeAddress')} hint={`Receives whatever your UTXOs hold beyond your amount${creatorPays ? '' : ' and fee'}${entryFee > 0 ? ' and entry fee' : ''}.`} htmlFor='join-change'>
           <Input id='join-change' value={fields.changeAddress} onChange={set('changeAddress')} placeholder='y…' spellCheck={false} />
         </Field>
 

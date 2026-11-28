@@ -13,6 +13,13 @@ export const MAX_OPERATOR_REWARD_BP = 10_000
 export const MAX_DISSOLVE_FEE = 1_000_000
 export const DEFAULT_DISSOLVE_FEE = 100_000
 
+/**
+ * Product cap on the creator's entry fee, in duffs. It is a per-member amount and a pool can have at
+ * most `MAX_SHARES`, so 12.5 DASH each is the largest per-member fee whose total (100 DASH) stays
+ * inside the cap however many members join.
+ */
+export const MAX_ENTRY_FEE: number = (100 * DUFFS_PER_DASH) / MAX_SHARES
+
 export const BLOCK_TIME_SECONDS = 150
 
 /** One hour of blocks: how long a registration without a service address may read as Registered, not Error */

@@ -24,6 +24,14 @@ import { outpointKey, type PlatformSource, type RegistrationTx } from './types'
 
 const { chain, tx: txBuilder } = backend
 
+/**
+ * A join is only counted when it can become a share. The refund and reward script rules need real
+ * addresses, so they are applied to live data only — the mock backend seeds placeholders like `yRefund1`.
+ */
+function joinIsValid (join: Join, pool: Pool): boolean {
+  return joinProblems(join, pool, backend.mode === 'live' ? 'testnet' : undefined).length === 0
+}
+
 export interface PoolSummary {
   pool: DisplayPool
   lock: Lock | null
@@ -49,7 +57,7 @@ export async function fetchPoolSummaries (platform: PlatformSource = backend.pla
     // A top-up is a newer join by the same identity: count only the current document per member
     const joins = latestJoins(allJoins
       .filter(j => j.poolId === pool.id)
-      .filter(j => joinProblems(j, pool).length === 0))
+      .filter(j => joinIsValid(j, pool)))
     const counted = lock == null ? joins : joins.filter(j => lock.joinIds.includes(j.id))
     return {
       pool,
@@ -128,7 +136,7 @@ export async function fetchProposalSentiment (proposalHash: string, platform: Pl
     if (pool == null) continue // votes naming an unknown pool
     const lock = findPoolLock(pool, locks)
     if (lock == null) continue // no locked member set to weight against
-    const joins = allJoins.filter(j => j.poolId === poolId && joinProblems(j, pool).length === 0)
+    const joins = allJoins.filter(j => j.poolId === poolId && joinIsValid(j, pool))
     const members = lockMembers(lock, joins).filter((j): j is Join => j != null)
     const summary = poolVoteSummary(members, byPool.get(poolId)!)
     if (summary.choices.length === 0) continue // no member chose; a stranger's doc must not surface a row
@@ -169,7 +177,7 @@ export async function fetchGovernanceStats (network: Network = 'testnet', platfo
   for (const pool of pools) {
     const lock = findPoolLock(pool, locks)
     if (lock == null) continue
-    const joins = allJoins.filter(j => j.poolId === pool.id && joinProblems(j, pool).length === 0)
+    const joins = allJoins.filter(j => j.poolId === pool.id && joinIsValid(j, pool))
     membersByPool.set(pool.id, lockMembers(lock, joins).filter((j): j is Join => j != null))
   }
   const totalStake = pools.reduce((s, p) => s + (membersByPool.get(p.id) ?? []).reduce((a, j) => a + j.amount, 0), 0)
@@ -341,7 +349,7 @@ export async function fetchPoolState (poolId: string, preloaded?: Pool | null, p
   ])
   if (document == null) return null
   const pool = withDisplayMeta(document, metas)
-  const validJoins = allJoins.filter(j => joinProblems(j, pool).length === 0)
+  const validJoins = allJoins.filter(j => joinIsValid(j, pool))
   // The pool page, the member's own row and the vote weights all read the current join per identity.
   // Lock resolution below still uses `validJoins`: a lock names document ids, and it must resolve even
   // when the creator selected an older version of someone's join.

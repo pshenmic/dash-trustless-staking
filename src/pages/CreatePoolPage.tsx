@@ -9,7 +9,7 @@ import { backend, platformFor } from '../data'
 import { randomBase58, randomHex, seededRandom } from '../data/mock/mockHash'
 import { useHostingOptions, useWrite } from '../hooks/data'
 import { buildHostingProvider, HOSTING_VOTING_ADDRESS } from '../hosting'
-import { COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
+import { COLLATERAL, MAX_ENTRY_FEE, MAX_EARLY_PERIOD_BLOCKS, MAX_SHARES, MIN_SHARES } from '../lib/consensus'
 import { blocksToDuration, formatBasisPoints, formatDash, parseDash } from '../lib/format'
 import { poolDisplayName } from '../lib/poolName'
 import { memberFeeShares, isBlsPublicKey, validatePoolTerms, type PoolTermsInput } from '../lib/rules'
@@ -37,7 +37,7 @@ const PERIODS = [
 /** Which fields each step owns, for per-step validation */
 const STEP_FIELDS: Array<Array<keyof PoolTermsInput>> = [
   ['operatorPubKey', 'service', 'votingAddress', 'operatorReward'],
-  ['earlyPeriodBlocks', 'earlyPenalty', 'fee', 'feePayer'],
+  ['earlyPeriodBlocks', 'earlyPenalty', 'fee', 'feePayer', 'entryFee', 'entryFeeAddress'],
   []
 ]
 
@@ -79,6 +79,8 @@ export function CreatePoolPage (): ReactNode {
   const { ref } = useGeneration()
   // The generation's own schema decides which optional pool fields exist and which ones are required
   const supportsService = poolSupports(ref, 'service')
+  // The schema declares the entry fee, but only a contract that actually carries it accepts the write
+  const supportsEntryFee = ref.entryFee
   const { notify } = useToast()
   const draft = readDraft()
   const [step, setStep] = useState(draft?.step ?? 0)
@@ -93,6 +95,7 @@ export function CreatePoolPage (): ReactNode {
   const [form, setForm] = useState(() => ({
     service: '', operatorPubKey: '', votingAddress: '',
     operatorReward: '5', earlyPeriodBlocks: '17280', earlyPenalty: '5', fee: '', feePayer: 'creator',
+    entryFee: '', entryFeeAddress: '',
     allowVoting: 'true',
     // Old drafts predate the fee fields; keep their values and fill the new ones with defaults
     ...(draft?.form ?? {})
@@ -116,7 +119,10 @@ export function CreatePoolPage (): ReactNode {
     earlyPenalty: parseDash(form.earlyPenalty) ?? NaN,
     // Blank keeps the app default; the pool document stores the resolved amount
     fee: form.fee.trim() === '' ? config.registrationFee : parseDash(form.fee) ?? NaN,
-    feePayer: form.feePayer as FeePayer
+    feePayer: form.feePayer as FeePayer,
+    // Blank means the pool charges no entry fee at all
+    entryFee: form.entryFee.trim() === '' ? 0 : parseDash(form.entryFee) ?? NaN,
+    entryFeeAddress: form.entryFeeAddress.trim()
   }
   if (provider == null && (form.operatorReward.trim() === '' || !Number.isFinite(Number(form.operatorReward)))) terms.operatorReward = NaN
   const errors = validatePoolTerms(terms, network, strict)
@@ -124,6 +130,10 @@ export function CreatePoolPage (): ReactNode {
   if (provider == null && form.allowVoting !== 'false') delete errors.votingAddress
   // Fields this generation's contract does not have (or does not require) must not block publishing
   if (!supportsService) delete errors.service
+  if (!supportsEntryFee) {
+    delete errors.entryFee
+    delete errors.entryFeeAddress
+  }
 
   // A key a masternode already holds would make the registration fail; other pools only get a warning
   const keyUsage = useQuery({
@@ -189,7 +199,10 @@ export function CreatePoolPage (): ReactNode {
       fee: String(source.fee / 1e8),
       feePayer: source.feePayer ?? 'creator',
       allowVoting: source.votingAddress === HOSTING_VOTING_ADDRESS ? 'true' : 'false',
-      votingAddress: source.votingAddress === HOSTING_VOTING_ADDRESS ? '' : source.votingAddress
+      votingAddress: source.votingAddress === HOSTING_VOTING_ADDRESS ? '' : source.votingAddress,
+      ...(source.entryFee != null && source.entryFee > 0
+        ? { entryFee: String(source.entryFee / 1e8), entryFeeAddress: source.entryFeeAddress ?? '' }
+        : {})
     }))
   }, [originPool.data])
 
@@ -203,10 +216,11 @@ export function CreatePoolPage (): ReactNode {
     if (identity == null) throw new Error('Connect your identity first')
     // Optional contract fields are left out rather than stored empty, and fields the generation's
     // schema does not declare are never sent (Platform would reject the document)
-    const { service, ...rest } = terms
+    const { service, entryFee, entryFeeAddress, ...rest } = terms
     return await backend.platform.createPool(identity, {
       ...rest,
-      ...(supportsService && service !== '' ? { service } : {})
+      ...(supportsService && service !== '' ? { service } : {}),
+      ...(supportsEntryFee && entryFee != null && entryFee > 0 ? { entryFee, entryFeeAddress } : {})
     })
   })
 
@@ -387,6 +401,34 @@ export function CreatePoolPage (): ReactNode {
               <Notice tone='info' title='You pay the registration fee'>
                 You will commit a fee UTXO when you lock the pool. You do not need to take a share.
               </Notice>
+            )}
+            {supportsEntryFee && (
+              <>
+                <Field
+                  label='Entry fee'
+                  error={show('entryFee')}
+                  hint={`Optional, per member. Paid to you once, when the pool registers. At most ${formatDash(MAX_ENTRY_FEE)} per member, so eight members never exceed 100 DASH.`}
+                  htmlFor='pool-entry-fee'
+                >
+                  <Input id='pool-entry-fee' inputMode='decimal' value={form.entryFee} onChange={e => set('entryFee')(e.target.value)} prefix='DASH' placeholder='0' />
+                </Field>
+                {terms.entryFee != null && Number.isFinite(terms.entryFee) && terms.entryFee > 0 && (
+                  <>
+                    <Field
+                      label='Payout address'
+                      error={show('entryFeeAddress')}
+                      hint='Receives the entry fees. It must be an address whose key you control.'
+                      htmlFor='pool-entry-fee-address'
+                    >
+                      <Input id='pool-entry-fee-address' value={form.entryFeeAddress} onChange={e => set('entryFeeAddress')(e.target.value)} placeholder={network === 'mainnet' ? 'X…' : 'y…'} />
+                    </Field>
+                    <Notice tone='info' title='Entry fee'>
+                      Every share pays {formatDash(terms.entryFee)} on top of its amount, including your own if you take one.
+                      {' '}With {MAX_SHARES} members you receive {formatDash(terms.entryFee * MAX_SHARES)}; with {MIN_SHARES}, {formatDash(terms.entryFee * MIN_SHARES)}.
+                    </Notice>
+                  </>
+                )}
+              </>
             )}
             {terms.earlyPenalty === 0 && (
               <Notice tone='warning' title='No penalty'>Any member will be able to force an early exit at no cost beyond the transaction fee.</Notice>

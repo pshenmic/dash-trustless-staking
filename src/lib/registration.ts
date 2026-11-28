@@ -8,7 +8,7 @@ import { concatBytes, fromHex, toHex } from './bytes.js'
 import { verifyCompact } from './compactSignature.js'
 import { SHARED_COLLATERAL_SCRIPT } from './consensus.js'
 import { formatDash } from './format.js'
-import { memberFeeShares } from './rules.js'
+import { entryFeeProblems, memberFeeShares } from './rules.js'
 import type { Duffs, Join, Outpoint, Pool, Prevout } from './types.js'
 
 function doubleSHA256 (bytes: Uint8Array): Uint8Array {
@@ -80,6 +80,15 @@ export function buildFundingTx (
   const feeShares = memberFeeShares(fee, members.length, payer)
   const outputs: Output[] = []
 
+  // The creator's entry fee leaves as one output of this transaction, funded by every share. It is part
+  // of the consented output set, so it is paid if and only if the registration is mined.
+  const entryFee = pool.entryFee ?? 0
+  const entryFeeAddress = pool.entryFeeAddress ?? ''
+  const entryFeeIssues = entryFeeProblems(pool)
+  problems.push(...entryFeeIssues)
+  const chargeEntryFee = entryFee > 0 && entryFeeIssues.length === 0
+  if (chargeEntryFee) outputs.push(new Output(BigInt(entryFee * members.length), toScript(entryFeeAddress)))
+
   for (let i = 0; i < members.length; i++) {
     const member = members[i]
     let memberTotal = 0
@@ -94,13 +103,14 @@ export function buildFundingTx (
     }
     const feeShare = feeShares[i] ?? 0
     const amount = member.amount ?? 0
-    const change = memberTotal - amount - feeShare
-    // A share whose inputs are worth less than the share plus its fee can never be built: the outputs
+    const change = memberTotal - amount - feeShare - (chargeEntryFee ? entryFee : 0)
+    // A share whose inputs are worth less than the share plus its fees can never be built: the outputs
     // would exceed the inputs. Catch it while the creator is still choosing, not after everyone signed.
     if (known && change < 0) {
-      problems.push(feeShare > 0
-        ? `Share ${i + 1} is ${formatDash(-change)} short of its ${formatDash(amount)} share plus the ${formatDash(feeShare)} fee share`
-        : `Share ${i + 1} is ${formatDash(-change)} short of its ${formatDash(amount)} share`)
+      const needs = [`its ${formatDash(amount)} share`]
+      if (feeShare > 0) needs.push(`the ${formatDash(feeShare)} fee share`)
+      if (chargeEntryFee) needs.push(`the ${formatDash(entryFee)} entry fee`)
+      problems.push(`Share ${i + 1} is ${formatDash(-change)} short of ${needs.length === 1 ? needs[0] : `${needs.slice(0, -1).join(', ')} and ${needs[needs.length - 1]}`}`)
     } else if (change > 0 && change >= DUST_THRESHOLD) outputs.push(new Output(BigInt(change), toScript(member.changeAddress)))
     else if (change > 0) problems.push(`dust-change-dropped:${member.id}/${change}`)
   }

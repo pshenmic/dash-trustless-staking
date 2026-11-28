@@ -1,5 +1,5 @@
 import {
-  COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_OPERATOR_REWARD_BP, MAX_SHARES, MIN_SHARE, MIN_SHARES
+  COLLATERAL, MAX_ENTRY_FEE, MAX_EARLY_PERIOD_BLOCKS, MAX_OPERATOR_REWARD_BP, MAX_SHARES, MIN_SHARE, MIN_SHARES
 } from './consensus'
 import { decodeAddress } from './address'
 import { isOperatorKeyPoint } from './bls'
@@ -36,6 +36,49 @@ export function isTxid (value: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(value.trim())
 }
 
+export type PayoutRole = 'refund' | 'reward'
+
+const PAYOUT_LABEL: Record<PayoutRole, string> = {
+  refund: 'The refund address',
+  reward: 'The reward address'
+}
+
+export interface PayoutScriptInput {
+  role: PayoutRole
+  address: string
+  ownerAddress: string
+  votingAddress: string
+  network: 'testnet' | 'mainnet'
+  /** Live data: decode the address, since it becomes script bytes */
+  strict?: boolean
+}
+
+/**
+ * Core's rules for a share's refund and reward scripts (`IsShareListTriviallyValid`:
+ * `bad-protx-shares-payee`, `-payee-dest`, `-payee-reuse`).
+ *
+ * A reward may be empty — that means "pay the refund address" (`RewardScript()`) — while a refund may
+ * not: both are run through `IsValidPayoutScript`, the empty reward is the one case Core skips.
+ * Both must be P2PKH or P2SH and must not pay the share's owner key or the voting key.
+ *
+ * There is no uniqueness rule here: only refund scripts must differ from each other inside one
+ * registration, which is a cross-member check and lives in `selectionProblems`. Reusing a reward
+ * address across shares, or across pools, is legal.
+ */
+export function payoutScriptProblems (input: PayoutScriptInput): string[] {
+  const value = input.address.trim()
+  const label = PAYOUT_LABEL[input.role]
+  if (value === '') return input.role === 'refund' ? ['A refund address is required'] : []
+  if (!isAddressShape(value, input.network, false, input.strict ?? false)) {
+    return [`${label} is not a ${input.network} P2PKH or P2SH address`]
+  }
+
+  const problems: string[] = []
+  if (value === input.ownerAddress.trim()) problems.push(`${label} pays the share owner key`)
+  if (value === input.votingAddress.trim()) problems.push(`${label} pays the voting key`)
+  return problems
+}
+
 export function isServiceAddress (value: string): boolean {
   const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):(\d{1,5})$/.exec(value.trim())
   if (match == null) return false
@@ -62,6 +105,10 @@ export interface PoolTermsInput {
   earlyPenalty: Duffs
   fee: Duffs
   feePayer: FeePayer
+  /** Flat amount each share pays the creator, in duffs; 0 when the pool charges none */
+  entryFee?: Duffs
+  /** Where the creator receives it; required when `entryFee` is above 0 */
+  entryFeeAddress?: string
 }
 
 /**
@@ -102,7 +149,30 @@ export function validatePoolTerms (terms: PoolTermsInput, network: 'testnet' | '
   }
   if (!Number.isInteger(terms.fee) || terms.fee <= 0) errors.fee = 'Enter a fee'
   if (terms.feePayer !== 'creator' && terms.feePayer !== 'members') errors.feePayer = 'Choose who pays the registration fee'
+  const entryFee = terms.entryFee ?? 0
+  if (!Number.isInteger(entryFee) || entryFee < 0) {
+    errors.entryFee = 'Enter an amount in DASH'
+  } else if (entryFee > MAX_ENTRY_FEE) {
+    // A pool has at most MAX_SHARES shares, so the per-member cap is what keeps the total under 100 DASH
+    errors.entryFee = `At most ${formatDash(MAX_ENTRY_FEE)} per member`
+  } else if (entryFee > 0 && !isAddressShape(terms.entryFeeAddress ?? '', network, true, strict)) {
+    errors.entryFeeAddress = `Enter the ${network} P2PKH address that receives it`
+  }
   return errors
+}
+
+/**
+ * What a reader has to trust about a pool's entry fee: our form caps it, but a pool published by another
+ * client can carry more, and a fee with no payout address can never be paid.
+ */
+export function entryFeeProblems (pool: Pool): string[] {
+  const fee = pool.entryFee ?? 0
+  if (fee <= 0) return []
+  const problems: string[] = []
+  if (!Number.isInteger(fee)) problems.push('The entry fee is not a whole number of duffs')
+  if (fee > MAX_ENTRY_FEE) problems.push(`The entry fee of ${formatDash(fee)} is above the ${formatDash(MAX_ENTRY_FEE)} limit`)
+  if ((pool.entryFeeAddress ?? '') === '') problems.push('The entry fee has no payout address')
+  return problems
 }
 
 export interface JoinInput {
@@ -120,30 +190,35 @@ export function validateJoinInput (input: JoinInput, pool: Pool, network: 'testn
   else if (input.amount > COLLATERAL) errors.amount = `At most ${formatDash(COLLATERAL)}`
 
   if (!isAddressShape(input.ownerAddress, network, true, strict)) errors.ownerAddress = `Enter a ${network} P2PKH address`
-  if (!isAddressShape(input.refundAddress, network, false, strict)) errors.refundAddress = `Enter a ${network} address`
-  if (input.rewardAddress.trim() !== '' && !isAddressShape(input.rewardAddress, network, false, strict)) errors.rewardAddress = `Enter a ${network} address`
   if (!isAddressShape(input.changeAddress, network, false, strict)) errors.changeAddress = `Enter a ${network} address`
 
-  // Key separation rules (bad-protx-shares-payee-reuse)
-  const owner = input.ownerAddress.trim()
-  for (const field of ['refundAddress', 'rewardAddress'] as const) {
-    const value = input[field].trim()
-    if (value === '' || errors[field] != null) continue
-    if (value === owner) errors[field] = 'Must differ from the share owner address'
-    else if (value === pool.votingAddress) errors[field] = 'Must differ from the pool voting address'
+  // A share's refund and reward scripts: Core's bad-protx-shares-payee / -payee-reuse set
+  for (const [field, role] of [['refundAddress', 'refund'], ['rewardAddress', 'reward']] as const) {
+    const problems = payoutScriptProblems({
+      role, address: input[field], ownerAddress: input.ownerAddress, votingAddress: pool.votingAddress, network, strict
+    })
+    if (problems.length > 0) errors[field] = problems.join('. ')
   }
+
+  const owner = input.ownerAddress.trim()
   if (errors.ownerAddress == null && owner === pool.votingAddress) errors.ownerAddress = 'Must differ from the pool voting address'
   return errors
 }
 
 /** Validation of a join document as read from Platform (§5). Returns reasons it is invalid. */
-export function joinProblems (join: Join, pool: Pool): string[] {
+export function joinProblems (join: Join, pool: Pool, network?: 'testnet' | 'mainnet'): string[] {
   const problems: string[] = []
   if (join.poolId !== pool.id) problems.push('belongs to another pool')
   if (join.amount < MIN_SHARE || join.amount > COLLATERAL) problems.push('amount out of range')
   if (join.inputs.length === 0) problems.push('no inputs')
-  if (join.refundAddress === pool.votingAddress || join.rewardAddress === pool.votingAddress) problems.push('pays the voting key')
-  if (join.refundAddress === join.ownerAddress || join.rewardAddress === join.ownerAddress) problems.push('pays its own owner key')
+  // Script rules run on live data only: the mock backend seeds placeholder addresses that cannot decode
+  if (network != null) {
+    for (const [role, address] of [['refund', join.refundAddress], ['reward', join.rewardAddress ?? '']] as const) {
+      problems.push(...payoutScriptProblems({
+        role, address, ownerAddress: join.ownerAddress, votingAddress: pool.votingAddress, network, strict: true
+      }))
+    }
+  }
   return problems
 }
 

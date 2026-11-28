@@ -97,6 +97,14 @@ export function DetailsTab ({ state }: { state: PoolState }): ReactNode {
             {pool.earlyPenalty === 0 ? 'None' : formatDash(pool.earlyPenalty)}
           </KeyValue>
           <KeyValue label='Registration fee' hint={`Split between members: ${formatDash(shares[0])} each with ${members} members`}>{formatDash(pool.fee)}</KeyValue>
+          {pool.entryFee != null && pool.entryFee > 0 && (
+            <KeyValue
+              label='Entry fee'
+              hint={`Each share pays this to the creator when the pool registers${pool.entryFeeAddress != null && pool.entryFeeAddress !== '' ? `: ${pool.entryFeeAddress}` : ''}`}
+            >
+              {formatDash(pool.entryFee)} per member
+            </KeyValue>
+          )}
           <KeyValue label='Voting address'><span className='font-mono text-small break-all'>{pool.votingAddress}</span></KeyValue>
           <KeyValue label='Operator key' wide>
             <IdentifierValue value={pool.operatorPubKey} label='operator key' />

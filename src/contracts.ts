@@ -18,6 +18,12 @@ export interface ContractRef extends ContractSource {
    * write against a contract without it fails validation, so the control stays hidden until a deploy.
    */
   archivedPool: boolean
+  /**
+   * Whether the deployed contract carries `pool.entryFee` / `pool.entryFeeAddress`. Both are in the schema,
+   * but a write against a contract without them fails validation, so the create form stays hidden until
+   * the deploy lands — flip this together with `deployedVersion` when it does.
+   */
+  entryFee: boolean
 }
 
 /** Oldest first. The default generation is the last entry that accepts writes. */
@@ -30,7 +36,8 @@ export const GENERATIONS: ContractRef[] = [
     deployedVersion: 3,
     // Existing pools stay readable, completable and dissolvable; new pools and joins are generation 2
     canWrite: false,
-    archivedPool: false
+    archivedPool: false,
+    entryFee: false
   },
   {
     slug: 'v2',
@@ -42,7 +49,9 @@ export const GENERATIONS: ContractRef[] = [
     // One member may publish a newer join; the contract no longer enforces uniqueness
     canWrite: true,
     // The deployed contract carries poolMeta.archived from the start
-    archivedPool: true
+    archivedPool: true,
+    // Not on BqjLq9… yet: the entry fee lands with the next contract deploy
+    entryFee: false
   }
 ]
 

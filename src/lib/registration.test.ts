@@ -39,7 +39,45 @@ describe('buildFundingTx', () => {
     const values = new Map([['11'.repeat(32) + ':0', 100_00000000], ['22'.repeat(32) + ':0', 400_00000000]])
     const result = buildFundingTx(pool, [a, b], values)
     // pool.fee is 100_000 duffs, split evenly: 0.0005 DASH per member
-    expect(result.problems).toContain('Share 1 is 200.0005 DASH short of its 300 DASH share plus the 0.0005 DASH fee share')
+    expect(result.problems).toContain('Share 1 is 200.0005 DASH short of its 300 DASH share and the 0.0005 DASH fee share')
+  })
+
+  test('pays the entry fee as one output and takes it from every share', () => {
+    const entryPool: Pool = { ...pool, feePayer: 'creator', entryFee: 5_00000000, entryFeeAddress: '76a914' + 'ee'.repeat(20) + '88ac' }
+    const a = join('a', [{ txid: '11'.repeat(32), vout: 0 }], 'aa', 300_00000000)
+    const b = join('b', [{ txid: '22'.repeat(32), vout: 0 }], 'bb', 300_00000000)
+    // Each member holds exactly the share plus 5 DASH: that 5 leaves as the creator payout, no change remains.
+    // The creator pays the registration fee from a separate input that covers it exactly.
+    const feeInput = { txid: '33'.repeat(32), vout: 0 }
+    const values = new Map([
+      ['11'.repeat(32) + ':0', 305_00000000],
+      ['22'.repeat(32) + ':0', 305_00000000],
+      ['33'.repeat(32) + ':0', 100_000]
+    ])
+    const result = buildFundingTx(entryPool, [a, b], values, [feeInput])
+    expect(result.problems).toEqual([])
+    const payout = result.tx.outputs.find(o => o.script.hex() === '76a914' + 'ee'.repeat(20) + '88ac')
+    // Two members at 5 DASH each
+    expect(payout?.satoshis).toBe(10_00000000n)
+    // No change output remains: both members spent their whole UTXO on the share plus the fee
+    expect(result.tx.outputs.length).toBe(1)
+  })
+
+  test('names the entry fee when a share cannot cover it', () => {
+    const entryPool: Pool = { ...pool, feePayer: 'creator', entryFee: 5_00000000, entryFeeAddress: '76a914' + 'ee'.repeat(20) + '88ac' }
+    const a = join('a', [{ txid: '11'.repeat(32), vout: 0 }], 'aa', 300_00000000)
+    const values = new Map([['11'.repeat(32) + ':0', 303_00000000]])
+    expect(buildFundingTx(entryPool, [a], values).problems)
+      .toContain('Share 1 is 2 DASH short of its 300 DASH share and the 5 DASH entry fee')
+  })
+
+  test('refuses a fee above the cap and one with no payout address', () => {
+    const overCap: Pool = { ...pool, entryFee: 12_50000001, entryFeeAddress: '76a914' + 'ee'.repeat(20) + '88ac' }
+    const noAddress: Pool = { ...pool, entryFee: 5_00000000 }
+    const values = new Map([['11'.repeat(32) + ':0', 400_00000000]])
+    const member = join('a', [{ txid: '11'.repeat(32), vout: 0 }], 'aa', 300_00000000)
+    expect(buildFundingTx(overCap, [member], values).problems).toContain('The entry fee of 12.50000001 DASH is above the 12.5 DASH limit')
+    expect(buildFundingTx(noAddress, [member], values).problems).toContain('The entry fee has no payout address')
   })
 
   test('reports an outpoint committed by two shares', () => {

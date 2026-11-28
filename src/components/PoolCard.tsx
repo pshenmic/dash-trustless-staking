@@ -69,7 +69,9 @@ export function PoolCard ({ summary, seen, hidden = false, onToggleHidden }: {
         <dl className='mt-5 grid grid-cols-3 gap-2 text-small'>
           <Term label='Operator fee' value={formatBasisPoints(pool.operatorReward)} />
           <Term label='Early exit' value={pool.earlyPenalty === 0 ? 'Free' : <Dash duffs={pool.earlyPenalty} />} />
-          <Term label='Early period' value={pool.earlyPeriodBlocks === 0 ? 'None' : blocksToDuration(pool.earlyPeriodBlocks)} />
+          {pool.entryFee != null && pool.entryFee > 0
+            ? <Term label='Entry fee' value={<Dash duffs={pool.entryFee} />} />
+            : <Term label='Early period' value={pool.earlyPeriodBlocks === 0 ? 'None' : blocksToDuration(pool.earlyPeriodBlocks)} />}
         </dl>
 
         <div className='mt-4 text-tag text-muted'>Created {relativeTime(pool.createdAt)}</div>
