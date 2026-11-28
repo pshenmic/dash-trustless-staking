@@ -1,4 +1,4 @@
-import { Dialog, Input } from 'dash-ui-kit/react'
+import { CopyButton, Dialog, Input } from 'dash-ui-kit/react'
 import { Button } from '../Button'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
@@ -14,12 +14,12 @@ import { lockEntryOf, packingProblems } from '../../lib/lockEntries'
 import { useNetwork } from '../../lib/network'
 import { onchainOwnerProblems, rewardSharePercent, selectionProblems, shareOwnerConflicts } from '../../lib/rules'
 import { useSettings } from '../../lib/settings'
-import type { Join, Outpoint } from '../../lib/types'
+import type { Join, Outpoint, Prevout } from '../../lib/types'
 import { useWallet } from '../../wallet/WalletContext'
 import { Dash, FillBar, IdentityChip, YouTag } from '../bits'
 import { parseOutpoint } from '../JoinDialog'
 import { errorMessage, useToast } from '../Toast'
-import { cn, EmptyState, Notice } from '../ui'
+import { cn, EmptyState, KeyValue, KeyValueList, Notice } from '../ui'
 import { poolRole } from './role'
 
 export function MembersTab ({ state }: { state: PoolState }): ReactNode {
@@ -34,19 +34,86 @@ export function MembersTab ({ state }: { state: PoolState }): ReactNode {
 
 function JoinList ({ state }: { state: PoolState }): ReactNode {
   const { activeIdentity } = useWallet()
+  const [open, setOpen] = useState<string | null>(null)
   if (state.joins.length === 0) return <EmptyState title='No shares yet'>Be the first to take a share in this pool.</EmptyState>
   return (
     <ul className='divide-y divide-line/70'>
       {state.joins.map(join => (
-        <li key={join.id} className='flex items-center justify-between gap-3 py-3'>
-          <IdentityChip id={join.ownerId} suffix={join.ownerId === activeIdentity ? <YouTag /> : null} />
-          <div className='text-right'>
-            <div className='font-bold'><Dash duffs={join.amount} /></div>
-            <div className='text-tag text-muted'>joined {relativeTime(join.createdAt)}</div>
+        <li key={join.id} className='py-3'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <IdentityChip id={join.ownerId} suffix={join.ownerId === activeIdentity ? <YouTag /> : null} />
+            <div className='flex items-center gap-3'>
+              <div className='text-right'>
+                <div className='font-bold'><Dash duffs={join.amount} /></div>
+                <div className='text-tag text-muted'>joined {relativeTime(join.createdAt)}</div>
+              </div>
+              <Button size='sm' onClick={() => setOpen(open === join.id ? null : join.id)}>
+                {open === join.id ? 'Hide details' : 'Details'}
+              </Button>
+            </div>
           </div>
+          {open === join.id && <div className='mt-4'><ShareDetails join={join} prevouts={state.prevouts} /></div>}
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * One share in full: the three addresses that decide where its money goes, plus the UTXOs it commits.
+ * Every value is copyable and shown complete — these are what a member checks against their own wallet.
+ */
+function ShareDetails ({ join, prevouts }: { join: Join, prevouts: Map<string, Prevout | null> }): ReactNode {
+  const total = join.inputs.reduce((sum, outpoint) => sum + (prevouts.get(`${outpoint.txid}:${outpoint.vout}`)?.value ?? 0), 0)
+  const missing = join.inputs.filter(outpoint => prevouts.get(`${outpoint.txid}:${outpoint.vout}`) == null).length
+  const reward = join.rewardAddress != null && join.rewardAddress !== '' ? join.rewardAddress : null
+
+  return (
+    <div className='rounded-2xl bg-surface-2/60 p-4'>
+      <KeyValueList>
+        <KeyValue label='Owner address' hint='The key that signs this share’s consent; unique across the network'>
+          <AddressLine value={join.ownerAddress} />
+        </KeyValue>
+        <KeyValue label='Refund address' hint='Where this share’s principal returns if the pool dissolves'>
+          <AddressLine value={join.refundAddress} />
+        </KeyValue>
+        <KeyValue label='Reward address' hint={reward == null ? 'Left empty, so the refund address receives the rewards' : 'Receives this share’s masternode payouts'}>
+          {reward == null ? <span className='text-small text-muted'>Same as the refund address</span> : <AddressLine value={reward} />}
+        </KeyValue>
+        <KeyValue label='Change address' hint='A registration output: whatever its UTXOs hold beyond the share, fee share and entry fee'>
+          <AddressLine value={join.changeAddress} />
+        </KeyValue>
+        <KeyValue
+          label={`Inputs · ${join.inputs.length}`}
+          hint={missing > 0 ? `${formatDash(total)} known, ${missing} value${missing === 1 ? '' : 's'} unreadable` : `${formatDash(total)} committed in total`}
+          wide
+        >
+          <ul className='flex flex-col gap-1.5'>
+            {join.inputs.map(outpoint => {
+              const prevout = prevouts.get(`${outpoint.txid}:${outpoint.vout}`)
+              return (
+                <li key={`${outpoint.txid}:${outpoint.vout}`} className='flex items-center justify-between gap-2 font-mono text-tag'>
+                  <span className='break-all'>{outpoint.txid}:{outpoint.vout}</span>
+                  <span className='flex shrink-0 items-center gap-1'>
+                    <span className='text-muted'>{prevout == null ? '—' : formatDash(prevout.value)}</span>
+                    <CopyButton text={`${outpoint.txid}:${outpoint.vout}`} aria-label='Copy outpoint' />
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </KeyValue>
+      </KeyValueList>
+    </div>
+  )
+}
+
+function AddressLine ({ value }: { value: string }): ReactNode {
+  return (
+    <span className='flex items-center gap-1.5'>
+      <span className='font-mono text-small break-all'>{value}</span>
+      <CopyButton text={value} aria-label='Copy address' />
+    </span>
   )
 }
 
@@ -275,9 +342,11 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
 
 function LockedMembers ({ state }: { state: PoolState }): ReactNode {
   const { activeIdentity } = useWallet()
+  const [open, setOpen] = useState<string | null>(null)
   const selectedIds = new Set(state.members.map(m => m.join.id))
   const others = state.joins.filter(j => !selectedIds.has(j.id))
   const showSigning = state.status === 'SIGNING'
+  const toggle = (id: string): void => setOpen(open === id ? null : id)
 
   return (
     <div className='flex flex-col gap-6'>
@@ -285,23 +354,27 @@ function LockedMembers ({ state }: { state: PoolState }): ReactNode {
         <h3 className='mb-2 text-small font-bold text-muted'>Selected members, in share order</h3>
         <ul className='divide-y divide-line/70'>
           {state.members.map(m => (
-            <li key={m.join.id} className='flex flex-wrap items-center justify-between gap-3 py-3'>
-              <span className='flex min-w-0 items-center gap-3'>
-                <span className='w-5 text-small text-muted'>{m.shareIndex + 1}</span>
-                <IdentityChip id={m.join.ownerId} suffix={m.join.ownerId === activeIdentity ? <YouTag /> : null} />
-              </span>
-              <span className='flex items-center gap-4'>
-                {showSigning && (
-                  <span className='flex gap-1.5'>
-                    <Tick done={m.consent != null} label='Consent' />
-                    <Tick done={m.funding != null} label='Funding' />
-                  </span>
-                )}
-                <span className='text-right'>
-                  <span className='block font-bold'><Dash duffs={m.join.amount} /></span>
-                  <span className='block text-tag text-muted'>{rewardSharePercent(m.join.amount, state.pool.operatorReward).toFixed(1)}% of rewards</span>
+            <li key={m.join.id} className='py-3'>
+              <div className='flex flex-wrap items-center justify-between gap-3'>
+                <span className='flex min-w-0 items-center gap-3'>
+                  <span className='w-5 text-small text-muted'>{m.shareIndex + 1}</span>
+                  <IdentityChip id={m.join.ownerId} suffix={m.join.ownerId === activeIdentity ? <YouTag /> : null} />
                 </span>
-              </span>
+                <span className='flex items-center gap-4'>
+                  {showSigning && (
+                    <span className='flex gap-1.5'>
+                      <Tick done={m.consent != null} label='Consent' />
+                      <Tick done={m.funding != null} label='Funding' />
+                    </span>
+                  )}
+                  <span className='text-right'>
+                    <span className='block font-bold'><Dash duffs={m.join.amount} /></span>
+                    <span className='block text-tag text-muted'>{rewardSharePercent(m.join.amount, state.pool.operatorReward).toFixed(1)}% of rewards</span>
+                  </span>
+                  <Button size='sm' onClick={() => toggle(m.join.id)}>{open === m.join.id ? 'Hide' : 'Details'}</Button>
+                </span>
+              </div>
+              {open === m.join.id && <div className='mt-4'><ShareDetails join={m.join} prevouts={state.prevouts} /></div>}
             </li>
           ))}
         </ul>
@@ -311,9 +384,15 @@ function LockedMembers ({ state }: { state: PoolState }): ReactNode {
           <h3 className='mb-2 text-small font-bold text-muted'>Not selected</h3>
           <ul className='divide-y divide-line/70 opacity-70'>
             {others.map(join => (
-              <li key={join.id} className='flex items-center justify-between gap-3 py-2.5'>
-                <IdentityChip id={join.ownerId} size='sm' suffix={join.ownerId === activeIdentity ? <YouTag /> : null} />
-                <Dash duffs={join.amount} className='text-small font-semibold' />
+              <li key={join.id} className='py-2.5'>
+                <div className='flex items-center justify-between gap-3'>
+                  <IdentityChip id={join.ownerId} size='sm' suffix={join.ownerId === activeIdentity ? <YouTag /> : null} />
+                  <span className='flex items-center gap-3'>
+                    <Dash duffs={join.amount} className='text-small font-semibold' />
+                    <Button size='sm' onClick={() => toggle(join.id)}>{open === join.id ? 'Hide' : 'Details'}</Button>
+                  </span>
+                </div>
+                {open === join.id && <div className='mt-4'><ShareDetails join={join} prevouts={state.prevouts} /></div>}
               </li>
             ))}
           </ul>
