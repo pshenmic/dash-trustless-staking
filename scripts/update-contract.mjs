@@ -1,7 +1,8 @@
 // Updates the existing pool data contract in place, owned by the identity in .env.local.
-// Usage: node scripts/update-contract.mjs [--broadcast] [contractId]
+// Usage: node scripts/update-contract.mjs [--broadcast] [--schema path] [contractId]
 //
-// The schema comes from ../schema.json. The contract keeps its id and owner; only the version
+// The schema comes from ../schema.json unless --schema points at another file (generation 2 lives in
+// src/data/schemas/generation-2.json). The contract keeps its id and owner; only the version
 // increases. Without --broadcast it fetches and builds the update transition, prints the result and
 // exits before signing or sending anything.
 //
@@ -11,7 +12,6 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { identityId, sdk, signAndBroadcast, signingKey } from './env.mjs'
 
-const schema = JSON.parse(readFileSync(fileURLToPath(new URL('../schema.json', import.meta.url)), 'utf8'))
 const env = Object.fromEntries(
   readFileSync(fileURLToPath(new URL('../.env', import.meta.url)), 'utf8')
     .split('\n')
@@ -19,9 +19,16 @@ const env = Object.fromEntries(
     .map(line => [line.slice(0, line.indexOf('=')).trim(), line.slice(line.indexOf('=') + 1).trim()])
 )
 
-const broadcast = process.argv.includes('--broadcast')
-const contractId = process.argv.slice(2).find(arg => !arg.startsWith('-')) ?? env.VITE_CONTRACT_ID
+const args = process.argv.slice(2)
+const broadcast = args.includes('--broadcast')
+const schemaFlag = args.indexOf('--schema')
+const schemaArg = schemaFlag >= 0 ? args[schemaFlag + 1] : args.find(arg => arg.startsWith('--schema='))?.slice('--schema='.length)
+const consumed = new Set(schemaFlag >= 0 ? [schemaFlag, schemaFlag + 1] : [])
+const schemaPath = schemaArg ?? '../schema.json'
+const schema = JSON.parse(readFileSync(fileURLToPath(new URL(schemaPath, import.meta.url)), 'utf8'))
+const contractId = args.find((arg, i) => !consumed.has(i) && !arg.startsWith('-')) ?? env.VITE_CONTRACT_ID
 if (contractId == null || contractId === '') throw new Error('Pass the contract id or set VITE_CONTRACT_ID in .env')
+console.log('schema:        ', schemaPath)
 
 const current = await sdk.dataContracts.getDataContractByIdentifier(contractId)
 const owner = current.ownerId.base58()
