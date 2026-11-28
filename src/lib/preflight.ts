@@ -31,6 +31,14 @@ export function finalTxProblems (combined: CombinedTx, members: Join[], inputVal
     if (input.scriptSig.hex() === '') problems.push(`Input ${index + 1} has no signature`)
   })
 
+  // An outpoint can only be spent once in a transaction (bad-txns-inputs-duplicate)
+  const spent = new Set<string>()
+  for (const input of tx.inputs) {
+    const key = `${input.txId}:${input.vOut}`
+    if (spent.has(key)) problems.push(`${key.slice(0, 8)}…:${input.vOut} is spent twice`)
+    spent.add(key)
+  }
+
   // Core verifies one 65-byte compact signature per share and rejects the whole tx otherwise
   const joinSigs = (tx.extraPayload as unknown as { joinSigs?: string[] } | undefined)?.joinSigs
   if (joinSigs == null) {

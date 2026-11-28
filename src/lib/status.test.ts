@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { derivePoolStatus, type StatusInput } from './status.js'
+import { derivePoolStatus, poolErrorCause, type StatusInput } from './status.js'
 
 type Input = Omit<StatusInput, 'masternodeListHeight'> & { masternodeListHeight?: number | null }
 
@@ -106,5 +106,44 @@ describe('derivePoolStatus — grace period after registration', () => {
   test('formed as soon as the node becomes valid, inside the window or not', () => {
     expect(status({ height: 510, masternode: { ...unaddressed, isValid: true } })).toBe('FORMED')
     expect(status({ height: 900, masternode: { ...unaddressed, isValid: true, service: '1.2.3.4:9999' } })).toBe('FORMED')
+  })
+})
+
+describe('poolErrorCause — why it reads Error', () => {
+  const node = (over: Partial<{ proTxHash: string, isValid: boolean, service: string }> = {}) => ({
+    proTxHash: 'a'.repeat(64), isValid: true, service: '1.2.3.4:19999', ...over
+  })
+
+  test('no cause unless the pool reads Error', () => {
+    expect(poolErrorCause({ status: 'FORMED', masternode: node(), lockProblems: [], broadcastProblems: [] })).toBeNull()
+    expect(poolErrorCause({
+      status: 'REGISTERED', masternode: node({ isValid: false, service: '[::]:0' }), lockProblems: [], broadcastProblems: []
+    })).toBeNull()
+  })
+
+  test('an error with no list entry blames the documents, not the network', () => {
+    expect(poolErrorCause({
+      status: 'ERROR', masternode: null, lockProblems: ['Share 1 is 5 DASH short'], broadcastProblems: []
+    })).toEqual({ kind: 'blocked', problems: ['Share 1 is 5 DASH short'] })
+  })
+
+  test('lock and preflight problems are merged and de-duplicated', () => {
+    expect(poolErrorCause({ status: 'ERROR', masternode: null, lockProblems: ['x'], broadcastProblems: ['x', 'y'] }))
+      .toEqual({ kind: 'blocked', problems: ['x', 'y'] })
+  })
+
+  test('a node registered without an address is not a PoSe ban', () => {
+    expect(poolErrorCause({
+      status: 'ERROR', masternode: node({ isValid: false, service: '[::]:0' }), lockProblems: [], broadcastProblems: []
+    })).toEqual({ kind: 'no-service' })
+    expect(poolErrorCause({
+      status: 'ERROR', masternode: node({ isValid: false, service: '' }), lockProblems: [], broadcastProblems: []
+    })).toEqual({ kind: 'no-service' })
+  })
+
+  test('an addressed node the network rejects names the address it advertises', () => {
+    expect(poolErrorCause({
+      status: 'ERROR', masternode: node({ isValid: false, service: '85.209.243.52:19999' }), lockProblems: [], broadcastProblems: []
+    })).toEqual({ kind: 'invalid', service: '85.209.243.52:19999' })
   })
 })

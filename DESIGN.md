@@ -202,6 +202,11 @@ Indices: `lockId + $createdAt`.
 
 A client ignores any document that fails these checks.
 
+The full inventory — every rule, whether it is provable locally, with one read, or only by the node,
+and where it is enforced — lives in
+[`docs/superpowers/specs/2026-11-28-client-side-checks-design.md`](docs/superpowers/specs/2026-11-28-client-side-checks-design.md).
+This section is the summary.
+
 **Join**
 - `poolId` exists.
 - `amount` is between 100 and 1000 DASH.
@@ -229,7 +234,8 @@ Signatures must be canonical: header byte 27–34 and low-S.
 If a member publishes several `consent` or `funding` documents, any valid one is used.
 
 Before offering a signing step, the client also checks that each member's inputs, with values fetched through DAPI,
-cover `amount + feeShare`.
+cover `amount + feeShare`, and that no outpoint is committed twice — by one join, by two shares, or by the creator
+fee input.
 
 ## 6. Deterministic registration transaction
 

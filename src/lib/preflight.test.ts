@@ -12,7 +12,7 @@ const CHANGE = 3_334
 const TXID = 'aa'.repeat(32)
 const JOIN_SIG = '11'.repeat(65)
 
-function build (options: { scriptSig?: string, collateralValue?: number, collateralIndex?: number, joinSigs?: string[] } = {}): { hex: string, collateralIndex: number } {
+function build (options: { scriptSig?: string, collateralValue?: number, collateralIndex?: number, joinSigs?: string[], duplicateInput?: boolean } = {}): { hex: string, collateralIndex: number } {
   const outputs = [
     new Output(BigInt(CHANGE), Script.fromHex(P2PKH)),
     new Output(BigInt(options.collateralValue ?? COLLATERAL), Script.fromHex(SHARED_COLLATERAL_SCRIPT))
@@ -34,6 +34,10 @@ function build (options: { scriptSig?: string, collateralValue?: number, collate
   )
 
   const inputs = [new Input(TXID, 0, Script.fromHex(options.scriptSig ?? '4730' + '00'.repeat(70)), 0xffffffff)]
+  // The builder cannot produce this, but the preflight re-checks raw hex
+  if (options.duplicateInput === true) {
+    inputs.push(new Input(TXID, 0, Script.fromHex(options.scriptSig ?? '4730' + '00'.repeat(70)), 0xffffffff))
+  }
   const tx = new Transaction(inputs, outputs, 0, 3, TransactionType.TRANSACTION_PROVIDER_REGISTER, payload)
 
   return { hex: tx.hex(), collateralIndex }
@@ -68,6 +72,11 @@ describe('finalTxProblems', () => {
     // The SDK refuses to serialize a mismatched count, so the reachable bad shape is content
     expect(finalTxProblems(build({ joinSigs: ['00'.repeat(65)] }), members, inputValues))
       .toContain('Share signature 1 is not a 65-byte hex signature')
+  })
+
+  test('reports an outpoint spent twice', () => {
+    expect(finalTxProblems(build({ duplicateInput: true }), members, inputValues))
+      .toContain(`${TXID.slice(0, 8)}…:0 is spent twice`)
   })
 
   test('reports a malformed transaction and a missing collateral output', () => {

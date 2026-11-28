@@ -85,3 +85,47 @@ describe('poolMetaEvents', () => {
     expect(events[0].text).toBe('added a pool description')
   })
 })
+
+describe('poolEvents — status is a state, not an act', () => {
+  const state = (over: Partial<PoolState>): PoolState => ({
+    pool: { id: 'pool', ownerId: 'creator', createdAt: 0, name: 'Pool', description: '', archived: false },
+    joins: [], allJoins: [], lock: null, members: [], status: 'NEW', regTx: null,
+    ...over
+  }) as unknown as PoolState
+  const texts = (over: Partial<PoolState>): string[] => poolEvents(state(over)).map(e => e.text)
+
+  test('a grace-window pool logs no "waiting for the operator" line', () => {
+    expect(texts({ status: 'REGISTERED' })).toEqual(['created the pool'])
+  })
+
+  test('an erroring pool logs nothing in the feed — the panel carries the status', () => {
+    expect(texts({
+      status: 'ERROR', masternode: { proTxHash: 'a'.repeat(64), isValid: false, service: '[::]:0' }
+    })).toEqual(['created the pool'])
+    expect(texts({ status: 'ERROR', masternode: null, lockProblems: ['Share 2 uses yOwner, already taken'] }))
+      .toEqual(['created the pool'])
+  })
+
+  test('dissolution still logs, because it moved every member’s coins', () => {
+    expect(texts({ status: 'DISSOLVED' })).toContain('Masternode dissolved')
+  })
+})
+
+describe('poolEvents — the creator’s registration fee', () => {
+  const pool = { id: 'pool', ownerId: 'creator', createdAt: 0, name: 'Pool', description: '', archived: false, fee: 20_000, feePayer: 'creator' as const }
+  const state = (over: Partial<PoolState>): PoolState => ({
+    pool, joins: [], allJoins: [], lock: null, members: [], status: 'NEW', regTx: null,
+    ...over
+  }) as unknown as PoolState
+
+  test('signing the fee adds a line from the creator', () => {
+    const feeFunding = { id: 'fee', ownerId: 'creator', createdAt: 3000, lockId: 'lock', scriptSigs: ['00'] }
+    expect(poolEvents(state({ feeFunding } as Partial<PoolState>))).toContainEqual({
+      at: 3000, who: 'creator', text: 'signed the 0.0002 DASH registration fee'
+    })
+  })
+
+  test('no line before the creator has signed', () => {
+    expect(poolEvents(state({})).map(e => e.text)).not.toContain('signed the 0.0002 DASH registration fee')
+  })
+})

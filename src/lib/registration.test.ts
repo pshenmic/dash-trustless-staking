@@ -32,6 +32,32 @@ describe('buildFundingTx', () => {
     const b = buildFundingTx(pool, [join('x', [{ txid: 'dd'.repeat(32), vout: 0 }], 'dd')], new Map([['dd'.repeat(32) + ':0', 90_00000000]]))
     expect(a.hex).toBe(b.hex)
   })
+
+  test('reports a share whose inputs are short of the amount plus its fee share', () => {
+    const a = join('a', [{ txid: '11'.repeat(32), vout: 0 }], 'aa', 300_00000000)
+    const b = join('b', [{ txid: '22'.repeat(32), vout: 0 }], 'bb', 300_00000000)
+    const values = new Map([['11'.repeat(32) + ':0', 100_00000000], ['22'.repeat(32) + ':0', 400_00000000]])
+    const result = buildFundingTx(pool, [a, b], values)
+    // pool.fee is 100_000 duffs, split evenly: 0.0005 DASH per member
+    expect(result.problems).toContain('Share 1 is 200.0005 DASH short of its 300 DASH share plus the 0.0005 DASH fee share')
+  })
+
+  test('reports an outpoint committed by two shares', () => {
+    const shared = { txid: '11'.repeat(32), vout: 0 }
+    const a = join('a', [shared], 'aa', 300_00000000)
+    const b = join('b', [shared], 'bb', 300_00000000)
+    const values = new Map([['11'.repeat(32) + ':0', 700_00000000]])
+    expect(buildFundingTx(pool, [a, b], values).problems)
+      .toContain('11111111…:0 is committed twice (share 1 and share 2)')
+  })
+
+  test('reports an outpoint shared with the creator fee input', () => {
+    const creatorPool: Pool = { ...pool, feePayer: 'creator' }
+    const op = { txid: '22'.repeat(32), vout: 1 }
+    const values = new Map([['22'.repeat(32) + ':1', 400_00000000]])
+    expect(buildFundingTx(creatorPool, [join('a', [op], 'aa', 300_00000000)], values, [op]).problems)
+      .toContain('22222222…:1 is committed twice (share 1 and the creator fee input)')
+  })
 })
 
 describe('memberFeeShares', () => {

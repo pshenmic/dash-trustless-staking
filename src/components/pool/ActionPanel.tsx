@@ -7,6 +7,7 @@ import { useWrite } from '../../hooks/data'
 import { useGeneration } from '../../generations'
 import { COLLATERAL } from '../../lib/consensus'
 import { formatDash } from '../../lib/format'
+import { poolErrorCause } from '../../lib/status'
 import { useWallet } from '../../wallet/WalletContext'
 import { Dash, FillBar } from '../bits'
 import { JoinDialog } from '../JoinDialog'
@@ -248,34 +249,52 @@ function SigningActions ({ state }: { state: PoolState }): ReactNode {
 }
 
 function RunningActions ({ state }: { state: PoolState }): ReactNode {
-  return (
-    <>{state.status === 'FORMED'
-      ? <Notice tone='success' title='Masternode is running'>Rewards go straight to each member’s reward address.</Notice>
-      : state.status === 'DISSOLVING'
-        ? (
-          <Notice tone='info' title='Dissolution broadcast'>
-            The dissolution is confirming. Every share goes back to its refund address once the transaction is in a
-            chainlocked block — the masternode list keeps showing the old entry for a few minutes until then.
-          </Notice>
-          )
-        : state.status === 'REGISTERED'
-        ? (
-          <Notice tone='info' title='Registered, waiting for the operator'>
-            The registration is on chain and the masternode is listed, but inactive until the operator sets its
-            address with a ProUpServTx — within an hour of registration to stay in good standing.
-          </Notice>
-          )
-        : state.masternode?.service === ''
-          ? (
-            <Notice tone='warning' title='Waiting for the operator'>
-              The masternode registered without an address, so it starts inactive. It begins earning once the operator
-              sets its address with a ProUpServTx.
-            </Notice>
-            )
-          : (
-            <Notice tone='error' title='Masternode is not valid'>
-              It was PoSe-banned or revoked and earns nothing until the operator fixes the node and sends a ProUpServTx.
-            </Notice>
-            )}</>
-  )
+  if (state.status === 'FORMED') {
+    return <Notice tone='success' title='Masternode is running'>Rewards go straight to each member’s reward address.</Notice>
+  }
+  if (state.status === 'DISSOLVING') {
+    return (
+      <Notice tone='info' title='Dissolution broadcast'>
+        The dissolution is confirming. Every share goes back to its refund address once the transaction is in a
+        chainlocked block — the masternode list keeps showing the old entry for a few minutes until then.
+      </Notice>
+    )
+  }
+  if (state.status === 'REGISTERED') {
+    return (
+      <Notice tone='info' title='Registered, waiting for the operator'>
+        The registration is on chain and the masternode is listed, but inactive until the operator sets its
+        address with a ProUpServTx — within an hour of registration to stay in good standing.
+      </Notice>
+    )
+  }
+
+  // ERROR has three different causes and they must not share one sentence
+  const cause = poolErrorCause(state)
+  if (cause?.kind === 'blocked') {
+    return (
+      <Notice tone='error' title='This pool cannot register'>
+        {cause.problems.length > 0 ? `${cause.problems.join('. ')}.` : 'The registration cannot be built from these documents.'}
+        {' '}Nothing was broadcast, so the pool never became a masternode.
+      </Notice>
+    )
+  }
+  if (cause?.kind === 'no-service') {
+    return (
+      <Notice tone='warning' title='Registered without a service address'>
+        The operator never set the node’s address, so it stayed inactive past the one-hour window and earns nothing.
+        It starts earning as soon as an address is set with a ProUpServTx.
+      </Notice>
+    )
+  }
+  if (cause?.kind === 'invalid') {
+    return (
+      <Notice tone='error' title='Masternode is not valid'>
+        The network marks the node invalid and it earns nothing. It advertises{' '}
+        <span className='font-mono'>{cause.service}</span>, so that address either stopped answering or PoSe banned
+        the node; the operator has to fix it and send a ProUpServTx.
+      </Notice>
+    )
+  }
+  return null
 }

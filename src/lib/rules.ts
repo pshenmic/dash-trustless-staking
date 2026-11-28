@@ -2,6 +2,7 @@ import {
   COLLATERAL, MAX_EARLY_PERIOD_BLOCKS, MAX_OPERATOR_REWARD_BP, MAX_SHARES, MIN_SHARE, MIN_SHARES
 } from './consensus'
 import { decodeAddress } from './address'
+import { isOperatorKeyPoint } from './bls'
 import { formatDash } from './format'
 import type { Duffs, FeePayer, Join, Pool } from './types'
 
@@ -83,6 +84,7 @@ export function validatePoolTerms (terms: PoolTermsInput, network: 'testnet' | '
   if (terms.description != null && terms.description.length > 1000) errors.description = 'At most 1000 characters'
   if (terms.service !== '' && !isServiceAddress(terms.service)) errors.service = 'Use the IPv4 address and port, e.g. 203.0.113.10:9999'
   if (!isBlsPublicKey(terms.operatorPubKey)) errors.operatorPubKey = 'A BLS public key is 96 hex characters'
+  else if (!isOperatorKeyPoint(terms.operatorPubKey)) errors.operatorPubKey = 'That is not a valid BLS public key — check for a typo'
   if (!isAddressShape(terms.votingAddress, network, true, strict)) errors.votingAddress = `Enter a ${network} P2PKH address`
   if (!Number.isInteger(terms.operatorReward) || terms.operatorReward < 0 || terms.operatorReward > MAX_OPERATOR_REWARD_BP) {
     errors.operatorReward = 'Between 0% and 100%'
@@ -186,6 +188,92 @@ export function selectionProblems (pool: Pool, joins: Join[]): string[] {
     }
   }
   return [...new Set(problems)]
+}
+
+/**
+ * Rules a `pool` document must satisfy before its terms can reach a ProRegTx. The contract bounds
+ * nothing, so a document written by another client (or a tampered one) is checked here on every read,
+ * not only in the creation form.
+ */
+export function poolTermProblems (pool: Pool, network: 'testnet' | 'mainnet'): string[] {
+  const problems: string[] = []
+  if (!isBlsPublicKey(pool.operatorPubKey)) problems.push('The operator key is not 96 hex characters')
+  else if (!isOperatorKeyPoint(pool.operatorPubKey)) problems.push('The operator key is not a valid BLS public key')
+  if (!isAddressShape(pool.votingAddress, network, true, true)) problems.push('The voting address is not a P2PKH address on this network')
+  if (!Number.isInteger(pool.operatorReward) || pool.operatorReward < 0 || pool.operatorReward > MAX_OPERATOR_REWARD_BP) {
+    problems.push(`The operator reward is ${pool.operatorReward}, outside 0–${MAX_OPERATOR_REWARD_BP} basis points`)
+  }
+  if (!Number.isInteger(pool.earlyPeriodBlocks) || pool.earlyPeriodBlocks < 0 || pool.earlyPeriodBlocks > MAX_EARLY_PERIOD_BLOCKS) {
+    problems.push(`The early period is ${pool.earlyPeriodBlocks} blocks, outside 0–${MAX_EARLY_PERIOD_BLOCKS}`)
+  }
+  if (!Number.isInteger(pool.earlyPenalty) || pool.earlyPenalty < 0 || pool.earlyPenalty >= MIN_SHARE) {
+    problems.push('The early penalty must be zero or more and below 100 DASH')
+  } else if (pool.earlyPeriodBlocks === 0 && pool.earlyPenalty !== 0) {
+    problems.push('The pool charges an early penalty but has no early period')
+  }
+  if (!Number.isInteger(pool.fee) || pool.fee <= 0) problems.push('The registration fee is not a positive amount')
+  if (pool.feePayer != null && pool.feePayer !== 'creator' && pool.feePayer !== 'members') problems.push('The registration fee payer is unknown')
+  if (pool.service != null && pool.service !== '' && !isServiceAddress(pool.service)) problems.push('The service address is not an IPv4 address and port')
+  return problems
+}
+
+export interface ShareOwnerConflict {
+  /** The join whose owner address is reused, oldest first */
+  joinId: string
+  address: string
+  poolId: string
+  poolName: string
+  /** The other pool already published its lock, so its share table is committed and will register */
+  locked: boolean
+}
+
+/**
+ * Owner addresses another pool already collects shares with.
+ *
+ * Only one of two pools naming the same key can ever register, so a conflict with a pool that has
+ * already locked is fatal — that pool's share table is committed and will be broadcast, and the
+ * registration that loses is rejected with bad-protx-dup-key. A conflict with a pool that has not
+ * locked is a warning: the first to lock wins, and blocking both would deadlock them. The on-chain
+ * tier (a key already held by a live masternode) needs the index, not documents.
+ */
+export function shareOwnerConflicts (
+  joins: Join[],
+  otherPools: Array<{ id: string, name: string, ownerAddresses: string[], locked?: boolean }>,
+  ownPoolId: string
+): ShareOwnerConflict[] {
+  const taken = new Map<string, { id: string, name: string, locked: boolean }>()
+  for (const other of otherPools) {
+    if (other.id === ownPoolId) continue
+    for (const address of other.ownerAddresses) {
+      if (!taken.has(address)) taken.set(address, { id: other.id, name: other.name, locked: other.locked === true })
+    }
+  }
+
+  const conflicts: ShareOwnerConflict[] = []
+  for (const join of joins) {
+    const other = taken.get(join.ownerAddress)
+    if (other != null) {
+      conflicts.push({ joinId: join.id, address: join.ownerAddress, poolId: other.id, poolName: other.name, locked: other.locked })
+    }
+  }
+  return conflicts
+}
+
+/**
+ * Shares whose owner key is already a live masternode's `keyIDOwner`. Core keeps share owner keys in
+ * the same unique namespace, so the registration is rejected with bad-protx-dup-key.
+ *
+ * The set comes from an optional index: a caller that cannot reach it must pass null and skip the
+ * check entirely, because an empty map would say "nothing is taken" and hide the rule.
+ */
+export function onchainOwnerProblems (joins: Join[], owners: Map<string, string>): string[] {
+  return joins.flatMap((join, i) => {
+    const proTxHash = owners.get(join.ownerAddress)
+    if (proTxHash == null) return []
+    return [
+      `Share ${i + 1} uses ${join.ownerAddress}, already the owner key of masternode ${proTxHash.slice(0, 8)}…, so the network will reject this registration`
+    ]
+  })
 }
 
 /** Fee split: floor for every member, remainder to the last (DESIGN.md §6) */

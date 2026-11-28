@@ -18,9 +18,9 @@ export function dashscanHost (network: string): string {
   return network === 'mainnet' ? 'https://dashscan.pshenmic.dev' : 'https://testnet.dashscan.pshenmic.dev'
 }
 
-async function getJson<T> (url: string): Promise<T> {
+async function getJson<T> (url: string, timeoutMs = TIMEOUT_MS): Promise<T> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const response = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } })
     if (!response.ok) throw new Error(`Dashscan answered ${response.status}`)
@@ -85,4 +85,42 @@ export async function fetchAddressTransactions (host: string, address: string, s
     if (oldest < since) break
   }
   return collected
+}
+
+/** One masternode's owner keys: `keyIDOwner` for a plain node, every share's `keyIDOwner` for a shared one */
+export interface MasternodeOwnerRow {
+  proTxHash: string
+  owners: string[]
+}
+
+const OWNERS_TTL_MS = 5 * 60_000
+/** A failed probe is remembered briefly, so a pool page polling every few seconds does not hammer it */
+const OWNERS_FAILURE_TTL_MS = 60_000
+const OWNERS_TIMEOUT_MS = 3_000
+
+let ownerRows: { at: number, rows: MasternodeOwnerRow[] | null, ttl: number } | null = null
+
+/**
+ * Every registered masternode's owner keys. This is the only client-reachable index of share owner
+ * keys — a `protx diff` entry carries `keyIDVoting` but never `keyIDOwner`.
+ *
+ * Returns null when the index is unreachable: the check built on it is optional, so a caller must
+ * treat null as "not checked", never as "nothing is taken".
+ */
+export async function fetchMasternodeOwnerRows (host: string): Promise<MasternodeOwnerRow[] | null> {
+  const now = Date.now()
+  if (ownerRows != null && now - ownerRows.at < ownerRows.ttl) return ownerRows.rows
+
+  try {
+    const page = await getJson<Page<DashscanMasternode>>(`${host}/masternodes`, OWNERS_TIMEOUT_MS)
+    const rows = page.resultSet.map(row => ({
+      proTxHash: String(row.proTxHash).toLowerCase(),
+      owners: String(row.ownerAddress ?? '').split(',').map(address => address.trim()).filter(address => address !== '')
+    }))
+    ownerRows = { at: now, rows, ttl: OWNERS_TTL_MS }
+    return rows
+  } catch {
+    ownerRows = { at: now, rows: null, ttl: OWNERS_FAILURE_TTL_MS }
+    return null
+  }
 }

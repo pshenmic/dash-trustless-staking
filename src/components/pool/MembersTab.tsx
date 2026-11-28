@@ -2,16 +2,17 @@ import { Dialog, Input } from 'dash-ui-kit/react'
 import { Button } from '../Button'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
+import { Link } from 'react-router'
 import { backend } from '../../data'
 import { lockSupportsEntries } from '../../contracts'
 import { fetchInputValues, type PoolState } from '../../data/queries'
 import { useGeneration } from '../../generations'
-import { useWrite } from '../../hooks/data'
+import { useOnchainShareOwners, usePoolSummaries, useWrite } from '../../hooks/data'
 import { COLLATERAL, MAX_SHARES } from '../../lib/consensus'
 import { formatDash, relativeTime } from '../../lib/format'
 import { lockEntryOf, packingProblems } from '../../lib/lockEntries'
 import { useNetwork } from '../../lib/network'
-import { rewardSharePercent, selectionProblems } from '../../lib/rules'
+import { onchainOwnerProblems, rewardSharePercent, selectionProblems, shareOwnerConflicts } from '../../lib/rules'
 import { useSettings } from '../../lib/settings'
 import type { Join, Outpoint } from '../../lib/types'
 import { useWallet } from '../../wallet/WalletContext'
@@ -64,6 +65,22 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
 
   const byId = new Map(state.joins.map(j => [j.id, j]))
   const chosen = selected.map(id => byId.get(id)).filter((j): j is Join => j != null)
+  // Another pool may be collecting shares with the same owner key. Legal while neither is registered,
+  // but only one of them can ever be mined — the fatal case (a live masternode's key) needs the chain.
+  const summaries = usePoolSummaries()
+  const conflicts = shareOwnerConflicts(
+    chosen,
+    (summaries.data ?? []).map(s => ({
+      id: s.pool.id, name: s.pool.name, ownerAddresses: s.ownerAddresses, locked: s.lock != null
+    })),
+    state.pool.id
+  )
+  // Another pool that already locked has committed that share table: only one of us can register, and
+  // its registration is the one already under way. A pool still forming is a warning, not a block.
+  const lockedConflicts = conflicts.filter(c => c.locked)
+  const openConflicts = conflicts.filter(c => !c.locked)
+  // Optional index: while it is loading or unreachable `data` is null and the check is skipped
+  const onchain = useOnchainShareOwners()
   const total = chosen.reduce((s, j) => s + j.amount, 0)
   const feeOutpoints = feeUtxos.map(parseOutpoint)
   const feeInputs = feeOutpoints.filter((o): o is Outpoint => o != null)
@@ -98,6 +115,8 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
   const problems = chosen.length > 0
     ? [
         ...selectionProblems(state.pool, chosen),
+        ...(onchain.data?.ok === true ? onchainOwnerProblems(chosen, onchain.data.owners) : []),
+        ...lockedConflicts.map(c => `${c.address} is already a share owner in ${c.poolName}, which has locked its shares`),
         // The mock backend's share addresses are placeholders, so only real data can be packed
         ...(entries != null && backend.mode === 'live' ? packingProblems(entries, network) : []),
         ...(funding.data ?? []),
@@ -215,6 +234,19 @@ function LockSelector ({ state }: { state: PoolState }): ReactNode {
       )}
 
       {problems.length > 0 && <Notice tone='warning' title='Not ready to lock'>{problems.join('. ')}.</Notice>}
+
+      {openConflicts.length > 0 && (
+        <Notice tone='warning' title={`Owner address also used by ${openConflicts.length === 1 ? 'another pool' : 'other pools'}`}>
+          {openConflicts.map((conflict, i) => (
+            <span key={conflict.joinId}>
+              {i > 0 && ' '}
+              <span className='font-mono break-all'>{conflict.address}</span> is a share owner in{' '}
+              <Link to={`/pools/${conflict.poolId}`} className='font-bold text-brand-ink hover:underline'>{conflict.poolName}</Link>.
+            </span>
+          ))}{' '}
+          Only one of the two pools can register; lock yours first to be the one that does.
+        </Notice>
+      )}
 
       <Button colorScheme='brand' size='md' disabled={!ready} onClick={() => setConfirming(true)}>
         {chosen.length > 0 && funding.isFetching ? 'Checking members’ UTXOs…' : `Lock pool with ${chosen.length} members`}

@@ -80,6 +80,8 @@ export function poolEvents (state: PoolState, metas: PoolMeta[] = []): PoolEvent
       ...(m.consent == null ? [] : [{ at: m.consent.createdAt, who: m.join.ownerId, text: 'signed their consent' }]),
       ...(m.funding == null ? [] : [{ at: m.funding.createdAt, who: m.join.ownerId, text: 'signed their coins' }])
     ]),
+    // The creator's fee is a pool-level feeFunding document, not one of the members' fundings
+    ...(state.feeFunding == null ? [] : [{ at: state.feeFunding.createdAt, who: state.pool.ownerId, text: `signed the ${formatDash(state.pool.fee)} registration fee` }]),
     // The history starts from the pool document, not the enriched pool: its fields are already the
     // newest metadata, which would make every revision look like a no-op
     ...poolMetaEvents(metas, { ownerId: state.pool.ownerId, name: state.pool.documentName, description: state.pool.documentDescription })
@@ -91,8 +93,9 @@ export function poolEvents (state: PoolState, metas: PoolMeta[] = []): PoolEvent
       ? { at: null, text: 'Registration broadcast, waiting for a block' }
       : { at: null, text: `Registered on chain at block ${state.regTx.height.toLocaleString('en-US')}`, tone: 'mint' })
   }
-  if (state.status === 'REGISTERED') chain.push({ at: null, text: 'Registered; waiting for the operator to set the service address', tone: 'mint' })
-  if (state.status === 'ERROR') chain.push({ at: null, text: 'Masternode is not valid (PoSe-banned or revoked)', tone: 'red' })
+  // Status is a state, not an act. ERROR and REGISTERED add no line: the panel explains them, and an
+  // activity row nobody caused reads as an action that never happened. Dissolution is different — it
+  // moved every member's coins, so it stays.
   if (state.status === 'DISSOLVED') chain.push({ at: null, text: 'Masternode dissolved', tone: 'red' })
 
   return [...documents, ...chain]

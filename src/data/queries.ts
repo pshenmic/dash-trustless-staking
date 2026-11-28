@@ -1,5 +1,5 @@
 import { COLLATERAL, MIN_SHARES } from '../lib/consensus'
-import { joinProblems, selectionProblems } from '../lib/rules'
+import { joinProblems, onchainOwnerProblems, poolTermProblems, selectionProblems } from '../lib/rules'
 import { finalTxProblems } from '../lib/preflight'
 import { clearDissolution, pendingDissolution } from '../lib/pendingDissolution'
 import {
@@ -18,6 +18,7 @@ import {
   type GovernanceStats, type ProposalStats
 } from '../lib/governanceStats'
 import { HOSTING_VOTING_ADDRESS } from '../hosting'
+import { dashscanHost, fetchMasternodeOwnerRows } from './dashscan'
 import { backend } from './index'
 import { outpointKey, type PlatformSource, type RegistrationTx } from './types'
 
@@ -29,6 +30,8 @@ export interface PoolSummary {
   listStatus: PoolListStatus
   joinCount: number
   joinedTotal: Duffs
+  /** Owner addresses the pool collects shares with — what its ProRegTx will name as share owners */
+  ownerAddresses: string[]
 }
 
 /** Everything the pools list needs, from Platform only */
@@ -53,7 +56,8 @@ export async function fetchPoolSummaries (platform: PlatformSource = backend.pla
       lock,
       listStatus: listStatus(lock),
       joinCount: counted.length,
-      joinedTotal: counted.reduce((s, j) => s + j.amount, 0)
+      joinedTotal: counted.reduce((s, j) => s + j.amount, 0),
+      ownerAddresses: [...new Set(counted.map(j => j.ownerAddress))]
     }
   })
 }
@@ -246,6 +250,8 @@ export interface PoolState {
   prevouts: Map<string, Prevout | null>
   /** Blocks broadcasting: unsigned inputs, wrong collateral, uncovered outputs */
   broadcastProblems: string[]
+  /** What this page wanted to read and could not, so its status may be incomplete */
+  dataGaps: string[]
 }
 
 export interface OperatorKeyUsage {
@@ -267,6 +273,62 @@ export async function fetchOperatorKeyUsage (operatorPubKey: string, excludePool
   }
 }
 
+const ONCHAIN_OWNERS_TTL_MS = 5 * 60_000
+/** A failed probe is remembered briefly, so a pool page polling every few seconds does not hammer it */
+const ONCHAIN_OWNERS_FAILURE_TTL_MS = 30_000
+
+/**
+ * `loading` means the chainlocked list is still arriving — normal for the first seconds of a session
+ * and not a gap. `list` means it has been missing long enough to be a problem. `index` is the provider.
+ */
+export type OnchainOwnersResult =
+  | { ok: true, owners: Map<string, string> }
+  | { ok: false, reason: 'loading' | 'list' | 'index' }
+
+let onchainOwners: { at: number, result: OnchainOwnersResult, ttl: number } | null = null
+/** When the chainlocked list was first seen empty; the stream needs a few seconds for its full diff */
+const LIST_GRACE_MS = 15_000
+let listMissingSince: number | null = null
+
+/**
+ * Owner key → proTxHash for every masternode still in the chainlocked list: Dashscan's rows
+ * intersected with the live `proTxHash` set, because the index also keeps deleted registrations.
+ *
+ * Optional by design. A caller must skip the check unless `ok`, and never read a failure as
+ * "nothing is taken".
+ */
+export async function fetchOnchainShareOwners (): Promise<OnchainOwnersResult> {
+  const now = Date.now()
+  if (onchainOwners != null && now - onchainOwners.at < onchainOwners.ttl) return onchainOwners.result
+
+  const remember = (result: OnchainOwnersResult, ttl: number): OnchainOwnersResult => {
+    onchainOwners = { at: Date.now(), result, ttl }
+    return result
+  }
+
+  if (backend.mode !== 'live') return { ok: false, reason: 'index' }
+  // The list starts empty and lags the tip. This is local and cheap to re-read, so it is not cached:
+  // the next poll resolves it as soon as the first full diff lands.
+  if ((await chain.getMasternodeListHeight()) == null) {
+    listMissingSince ??= Date.now()
+    const missing = Date.now() - listMissingSince
+    return { ok: false, reason: missing < LIST_GRACE_MS ? 'loading' : 'list' }
+  }
+  listMissingSince = null
+
+  // Live is testnet-only today (createTestnetBackend), as in the chain layer
+  const rows = await fetchMasternodeOwnerRows(dashscanHost('testnet'))
+  if (rows == null) return remember({ ok: false, reason: 'index' }, ONCHAIN_OWNERS_FAILURE_TTL_MS)
+
+  const resolved = await Promise.all(rows.map(async row => ({ row, masternode: await chain.getMasternode(row.proTxHash) })))
+  const owners = new Map<string, string>()
+  for (const { row, masternode } of resolved) {
+    if (masternode == null) continue
+    for (const address of row.owners) if (!owners.has(address)) owners.set(address, row.proTxHash)
+  }
+  return remember({ ok: true, owners }, ONCHAIN_OWNERS_TTL_MS)
+}
+
 export async function fetchPoolState (poolId: string, preloaded?: Pool | null, platform: PlatformSource = backend.platform): Promise<PoolState | null> {
   if (preloaded === null) return null
   // joins, locks and height are keyed by poolId, so they don't need to wait for the pool document
@@ -285,11 +347,15 @@ export async function fetchPoolState (poolId: string, preloaded?: Pool | null, p
   // when the creator selected an older version of someone's join.
   const joins = latestJoins(validJoins)
   const lock = findPoolLock(pool, locks)
+  // The contract cannot bound these, so the terms are re-checked on every read — live only: a mock pool
+  // is seeded by this app and carries placeholder keys, while these rules exist to distrust someone
+  // else's document. Live is testnet-only today (createTestnetBackend).
+  const termProblems = backend.mode === 'live' ? poolTermProblems(pool, 'testnet') : []
 
   const base: PoolState = {
-    pool, joins, allJoins: validJoins, lock, members: [], feeFunding: null, lockProblems: [], registration: null, finalTx: null,
+    pool, joins, allJoins: validJoins, lock, members: [], feeFunding: null, lockProblems: termProblems, registration: null, finalTx: null,
     regTx: null, masternode: null, registeredHeight: null, height, status: 'NEW', dissolutionTxid: null, stage: null,
-    consentCount: 0, fundingCount: 0, operatorKey: { masternode: null, otherPools: [] }, prevouts: new Map(), broadcastProblems: []
+    consentCount: 0, fundingCount: 0, operatorKey: { masternode: null, otherPools: [] }, prevouts: new Map(), broadcastProblems: [], dataGaps: []
   }
   if (lock == null) return { ...base, operatorKey: await fetchOperatorKeyUsage(pool.operatorPubKey, pool.id, undefined, platform), prevouts: new Map() }
 
@@ -297,18 +363,29 @@ export async function fetchPoolState (poolId: string, preloaded?: Pool | null, p
   const resolved = lockMembers(lock, validJoins)
   const present = resolved.filter((j): j is Join => j != null)
   const lockProblems = [
+    ...termProblems,
     ...(present.length < resolved.length ? ['A selected join is missing or invalid'] : []),
     ...selectionProblems(pool, present),
     ...entriesProblems(lock, validJoins)
   ]
 
-  const [consents, fundings, feeFundings, inputValues, prevouts] = await Promise.all([
+  const [consents, fundings, feeFundings, inputValues, prevouts, onchain] = await Promise.all([
     platform.listConsents(lock.id),
     platform.listFundings(lock.id),
     platform.listFeeFundings(lock.id),
     fetchInputValues(present, feeInputs),
-    fetchPrevouts(present, feeInputs)
+    fetchPrevouts(present, feeInputs),
+    // Optional: a failed read skips the check and only marks the page as incomplete
+    present.length > 0 ? fetchOnchainShareOwners() : Promise.resolve(null)
   ])
+  if (onchain?.ok === true) lockProblems.push(...onchainOwnerProblems(present, onchain.owners))
+  // Say which layer was missing: our own list still arriving is not a gap, and a list that never
+  // arrives is still not the provider being down
+  const dataGaps = backend.mode === 'live' && onchain != null && !onchain.ok && onchain.reason !== 'loading'
+    ? [onchain.reason === 'list'
+        ? 'The masternode list never finished syncing, so share owner keys were not checked.'
+        : 'Dashscan could not be read, so share owner keys were not checked.']
+    : []
 
   // A lock that selected no valid join has no shared ProRegTx to build; consentHash() is only defined
   // for one, so leave the registration absent and let lockProblems explain the state.
@@ -402,7 +479,8 @@ export async function fetchPoolState (poolId: string, preloaded?: Pool | null, p
     fundingCount: members.filter(m => m.funding != null).length,
     operatorKey,
     prevouts,
-    broadcastProblems
+    broadcastProblems,
+    dataGaps
   }
 }
 

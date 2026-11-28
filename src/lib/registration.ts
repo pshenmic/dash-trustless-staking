@@ -7,6 +7,7 @@ import { addressToScript } from './address.js'
 import { concatBytes, fromHex, toHex } from './bytes.js'
 import { verifyCompact } from './compactSignature.js'
 import { SHARED_COLLATERAL_SCRIPT } from './consensus.js'
+import { formatDash } from './format.js'
 import { memberFeeShares } from './rules.js'
 import type { Duffs, Join, Outpoint, Pool, Prevout } from './types.js'
 
@@ -53,8 +54,25 @@ export function buildFundingTx (
 ): FundingResult {
   const problems: string[] = []
   const inputs: Input[] = []
-  for (const member of members) for (const op of member.inputs) inputs.push(new Input(op.txid, op.vout, new Script(), 0xffffffff))
-  for (const op of feeInputs) inputs.push(new Input(op.txid, op.vout, new Script(), 0xffffffff))
+  // One outpoint can only be spent once: a join naming the same UTXO twice, or two members committing
+  // it, builds a transaction Core rejects as bad-txns-inputs-duplicate
+  const committed = new Map<string, string>()
+  const commit = (op: Outpoint, who: string): void => {
+    const key = outpointKey(op)
+    const first = committed.get(key)
+    if (first != null) problems.push(`${key.slice(0, 8)}…:${op.vout} is committed twice (${first} and ${who})`)
+    else committed.set(key, who)
+  }
+  members.forEach((member, index) => {
+    for (const op of member.inputs) {
+      commit(op, `share ${index + 1}`)
+      inputs.push(new Input(op.txid, op.vout, new Script(), 0xffffffff))
+    }
+  })
+  for (const op of feeInputs) {
+    commit(op, 'the creator fee input')
+    inputs.push(new Input(op.txid, op.vout, new Script(), 0xffffffff))
+  }
   if (members.length === 0) return { hex: '', tx: new Transaction([], [], 0, 3, TransactionType.TRANSACTION_NORMAL), problems: ['No members'] }
 
   const fee = pool.fee ?? 0
@@ -65,13 +83,25 @@ export function buildFundingTx (
   for (let i = 0; i < members.length; i++) {
     const member = members[i]
     let memberTotal = 0
+    let known = true
     for (const op of member.inputs) {
       const value = inputValues.get(outpointKey(op))
       if (value != null) memberTotal += Number(value)
-      else problems.push(`missing-input-value:${member.id}/${outpointKey(op)}`)
+      else {
+        known = false
+        problems.push(`missing-input-value:${member.id}/${outpointKey(op)}`)
+      }
     }
-    const change = memberTotal - (member.amount ?? 0) - (feeShares[i] ?? 0)
-    if (change > 0 && change >= DUST_THRESHOLD) outputs.push(new Output(BigInt(change), toScript(member.changeAddress)))
+    const feeShare = feeShares[i] ?? 0
+    const amount = member.amount ?? 0
+    const change = memberTotal - amount - feeShare
+    // A share whose inputs are worth less than the share plus its fee can never be built: the outputs
+    // would exceed the inputs. Catch it while the creator is still choosing, not after everyone signed.
+    if (known && change < 0) {
+      problems.push(feeShare > 0
+        ? `Share ${i + 1} is ${formatDash(-change)} short of its ${formatDash(amount)} share plus the ${formatDash(feeShare)} fee share`
+        : `Share ${i + 1} is ${formatDash(-change)} short of its ${formatDash(amount)} share`)
+    } else if (change > 0 && change >= DUST_THRESHOLD) outputs.push(new Output(BigInt(change), toScript(member.changeAddress)))
     else if (change > 0) problems.push(`dust-change-dropped:${member.id}/${change}`)
   }
 

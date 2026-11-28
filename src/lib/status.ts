@@ -69,8 +69,35 @@ export interface StatusInput {
 }
 
 /** A masternode registered without an address reports `[::]:0` */
-function hasNoService (service: string): boolean {
+export function masternodeHasNoService (service: string): boolean {
   return service === '' || service === '[::]:0' || service === '0.0.0.0:0'
+}
+
+/**
+ * Why a pool reads ERROR. Three causes are distinguishable from what the app holds, and they are not
+ * interchangeable in copy: our own documents cannot build the registration, the node was registered
+ * without a service address and the grace window closed, or the network marked an addressed node
+ * invalid (PoSe). Core exposes no ban reason over DAPI, so this naming is the specific ceiling.
+ */
+export type PoolErrorCause =
+  | { kind: 'blocked', problems: string[] }
+  | { kind: 'no-service' }
+  | { kind: 'invalid', service: string }
+
+export interface ErrorCauseInput {
+  status: PoolStatus
+  masternode: MasternodeEntry | null
+  lockProblems?: string[]
+  broadcastProblems?: string[]
+}
+
+export function poolErrorCause ({ status, masternode, lockProblems = [], broadcastProblems = [] }: ErrorCauseInput): PoolErrorCause | null {
+  if (status !== 'ERROR') return null
+  // No entry and an error status means nothing was ever registered: the documents are the cause
+  if (masternode == null) return { kind: 'blocked', problems: [...new Set([...lockProblems, ...broadcastProblems])] }
+  if (masternode.isValid) return null
+  if (masternodeHasNoService(masternode.service)) return { kind: 'no-service' }
+  return { kind: 'invalid', service: masternode.service }
 }
 
 export function derivePoolStatus ({ lock, allConsented, allFunded, regTx, masternode, masternodeListHeight, height, dissolutionTxid, blocked = false }: StatusInput): PoolStatus {
@@ -97,7 +124,7 @@ export function derivePoolStatus ({ lock, allConsented, allFunded, regTx, master
     // An inactive node that never had an address is not broken yet: the operator has an hour to set
     // it with a ProUpServTx before PoSe treats it as a failure. Reporting ERROR during that window
     // reads as a failed registration to everyone who just paid into the pool.
-    if (hasNoService(masternode.service) && height - regTx.height < REGISTRATION_GRACE_BLOCKS) return 'REGISTERED'
+    if (masternodeHasNoService(masternode.service) && height - regTx.height < REGISTRATION_GRACE_BLOCKS) return 'REGISTERED'
     return 'ERROR'
   }
 

@@ -1,8 +1,8 @@
 import { useMutation, useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { backend, platformFor } from '../data'
 import {
-  fetchCreatorProfile, fetchHomeStats, fetchMyActivity, fetchPoolState, fetchPoolSummaries, fetchProposalSentiment, fetchGovernanceStats, fetchStatsSource,
-  type ActionKind, type CreatorProfile, type PoolState, type PoolSummary, type ProposalSentiment, type StatsSource
+  fetchCreatorProfile, fetchHomeStats, fetchMyActivity, fetchOnchainShareOwners, fetchPoolState, fetchPoolSummaries, fetchProposalSentiment, fetchGovernanceStats, fetchStatsSource,
+  type ActionKind, type CreatorProfile, type OnchainOwnersResult, type PoolState, type PoolSummary, type ProposalSentiment, type StatsSource
 } from '../data/queries'
 import type { GovernanceStats } from '../lib/governanceStats'
 import type { HostingOptions } from '../data/types'
@@ -23,6 +23,20 @@ export function usePoolSummaries (): UseQueryResult<PoolSummary[]> {
     queryKey: ['pools', ref.slug],
     queryFn: async () => await fetchPoolSummaries(platformFor(ref)),
     refetchInterval: 30_000
+  })
+}
+
+/**
+ * Owner keys held by live masternodes, from an optional index. A failed read carries its reason and
+ * every consumer must skip its check then — a failure is never "nothing is taken".
+ */
+export function useOnchainShareOwners (): UseQueryResult<OnchainOwnersResult> {
+  return useQuery({
+    queryKey: ['onchain-share-owners'],
+    queryFn: fetchOnchainShareOwners,
+    staleTime: 5 * 60_000,
+    // The provider is optional: a failure is the answer "unknown", not something to retry
+    retry: false
   })
 }
 

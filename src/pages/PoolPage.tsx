@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { IdentityChip, StatusBadge } from '../components/bits'
 import { Button } from '../components/Button'
 import { Chat } from '../components/Chat'
+import { DataWarning } from '../components/DataWarning'
 import { ActionPanel, JoinProgress } from '../components/pool/ActionPanel'
 import { poolEvents, voteEvents } from '../components/pool/activity'
 import { DetailsTab } from '../components/pool/DetailsTab'
@@ -131,6 +132,7 @@ export function PoolPage (): ReactNode {
         <div className='flex flex-wrap items-center gap-3'>
           <h1 className='text-title'>{poolDisplayName(pool, creatorMeta)}</h1>
           {badgeStatus != null && <StatusBadge status={badgeStatus} />}
+          <DataWarning gaps={state?.dataGaps ?? []} />
           {state != null && isCreator && ref.canWrite && (
             <Button size='sm' onClick={() => setEditDetailsOpen(true)}>Edit details</Button>
           )}
