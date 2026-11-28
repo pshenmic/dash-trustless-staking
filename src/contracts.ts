@@ -45,13 +45,13 @@ export const GENERATIONS: ContractRef[] = [
     // Deployed 2026-11-24 with lock.entries; it supersedes 9ZAM86ny…, whose documents stay on chain
     contractId: 'BqjLq9CLn9MhbPdXmecXiBddHY4fugW9sXhfrNAGtbbr',
     schema: schemaV2 as Record<string, unknown>,
-    deployedVersion: 1,
+    deployedVersion: 2,
     // One member may publish a newer join; the contract no longer enforces uniqueness
     canWrite: true,
     // The deployed contract carries poolMeta.archived from the start
     archivedPool: true,
-    // Not on BqjLq9… yet: the entry fee lands with the next contract deploy
-    entryFee: false
+    // Version 2 (2026-11-28) adds pool.entryFee / pool.entryFeeAddress
+    entryFee: true
   }
 ]
 
